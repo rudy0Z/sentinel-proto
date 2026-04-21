@@ -1,0 +1,296 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif}
+.ds{background:#0A0F1A;color:#E8EDF4;padding:32px;min-height:100vh}
+.section-label{font-size:10px;font-weight:600;letter-spacing:.12em;color:#4A5568;text-transform:uppercase;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid #1E2D42}
+.row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:28px}
+.swatch{border-radius:6px;overflow:hidden;flex:1;min-width:80px}
+.swatch-color{height:44px}
+.swatch-label{background:#0F1825;padding:8px 10px}
+.swatch-name{font-size:11px;font-weight:600;color:#E8EDF4}
+.swatch-hex{font-size:10px;color:#4A5568;margin-top:2px;font-family:monospace}
+.type-row{margin-bottom:28px}
+.type-spec{display:flex;align-items:baseline;gap:16px;padding:10px 0;border-bottom:1px solid #1E2D42}
+.type-sample{flex:1;color:#E8EDF4}
+.type-meta{font-size:10px;color:#4A5568;font-family:monospace;white-space:nowrap}
+.comp-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:28px;align-items:flex-start}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:3px;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.badge-safe{background:rgba(45,212,160,.15);color:#2DD4A0;border:1px solid rgba(45,212,160,.3)}
+.badge-warn{background:rgba(245,166,35,.12);color:#F5A623;border:1px solid rgba(245,166,35,.3)}
+.badge-danger{background:rgba(229,83,60,.12);color:#E5533C;border:1px solid rgba(229,83,60,.3)}
+.badge-info{background:rgba(0,200,255,.12);color:#00C8FF;border:1px solid rgba(0,200,255,.3)}
+.badge-mono{background:rgba(255,255,255,.06);color:#8899AA;border:1px solid #1E2D42}
+.panel{background:#0F1825;border:1px solid #1E2D42;border-radius:8px;padding:14px;flex:1;min-width:180px}
+.panel-title{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#4A5568;margin-bottom:10px}
+.conf-bar{height:5px;background:#1E2D42;border-radius:3px;margin-top:6px;overflow:hidden;position:relative}
+.conf-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#00C8FF,#00FFD4)}
+.conf-sources{display:flex;gap:6px;margin-top:8px}
+.src-dot{width:7px;height:7px;border-radius:50%;border:1.5px solid currentColor}
+.src-active{color:#00C8FF}
+.src-pending{color:#1E2D42}
+.risk-item{display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid #1E2D42}
+.risk-item:last-child{border-bottom:none}
+.risk-num{width:18px;height:18px;border-radius:3px;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.r1{background:#E5533C;color:#fff}
+.r2{background:#F5A623;color:#0A0F1A}
+.r3{background:#2DD4A0;color:#0A0F1A}
+.risk-text{font-size:11px;font-weight:600;color:#E8EDF4;line-height:1.3}
+.risk-sub{font-size:10px;color:#4A5568;margin-top:2px;line-height:1.3}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:28px}
+.btn{padding:7px 14px;border-radius:5px;font-size:11px;font-weight:600;letter-spacing:.04em;cursor:pointer;border:none;text-transform:uppercase}
+.btn-primary{background:#00C8FF;color:#0A0F1A}
+.btn-hold{background:transparent;color:#00C8FF;border:1px solid #00C8FF;position:relative;overflow:hidden}
+.btn-hold::after{content:'';position:absolute;left:0;top:0;width:62%;height:100%;background:rgba(0,200,255,.15)}
+.btn-ghost{background:transparent;color:#8899AA;border:1px solid #1E2D42}
+.btn-danger{background:transparent;color:#E5533C;border:1px solid rgba(229,83,60,.4)}
+.escalation{display:flex;gap:0;margin-bottom:28px}
+.esc-step{flex:1;padding:10px 8px;text-align:center;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;position:relative}
+.esc-step::after{content:'';position:absolute;right:-1px;top:50%;transform:translateY(-50%);width:0;height:0;border-top:8px solid transparent;border-bottom:8px solid transparent;z-index:2}
+.esc-scan{background:#0F1825;color:#4A5568;border:1px solid #1E2D42;border-right:none;border-radius:5px 0 0 5px}
+.esc-verify{background:rgba(245,166,35,.1);color:#F5A623;border:1px solid rgba(245,166,35,.3);border-right:none}
+.esc-verify::after{border-left:8px solid rgba(245,166,35,.3)}
+.esc-contain{background:rgba(229,83,60,.1);color:#E5533C;border:1px solid rgba(229,83,60,.3);border-right:none}
+.esc-contain::after{border-left:8px solid rgba(229,83,60,.3)}
+.esc-rescue{background:rgba(229,83,60,.2);color:#FF6B4A;border:1px solid rgba(229,83,60,.5);border-radius:0 5px 5px 0}
+.map-zone-legend{display:flex;flex-direction:column;gap:6px;margin-bottom:28px}
+.zone-item{display:flex;align-items:center;gap:8px;font-size:11px}
+.zone-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.spread-ring{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.ring-sample{display:flex;align-items:center;gap:6px;font-size:10px;color:#8899AA}
+.ring-line{width:24px;height:0;border-top:1.5px dashed currentColor}
+.ring-15{color:#E5533C}
+.ring-30{color:#F5A623}
+.ring-60{color:#4A5568}
+.drone-ghost{display:flex;align-items:center;gap:6px;font-size:10px;color:#00C8FF;opacity:.55}
+.drone-solid{display:flex;align-items:center;gap:6px;font-size:10px;color:#00C8FF}
+.drone-icon{width:14px;height:14px;border:1.5px solid currentColor;border-radius:2px;position:relative;display:flex;align-items:center;justify-content:center}
+.drone-cross-h{position:absolute;width:10px;height:1.5px;background:currentColor}
+.drone-cross-v{position:absolute;width:1.5px;height:10px;background:currentColor}
+.drone-dot{width:3px;height:3px;background:currentColor;border-radius:50%}
+.col2{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:28px}
+.col3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:28px}
+.event-item{display:flex;gap:8px;padding:7px 0;border-bottom:1px solid #1E2D42;align-items:flex-start}
+.event-item:last-child{border-bottom:none}
+.event-ts{font-size:9px;color:#4A5568;font-family:monospace;white-space:nowrap;margin-top:2px}
+.event-text{font-size:11px;color:#8899AA;line-height:1.4}
+.event-dot{width:6px;height:6px;border-radius:50%;margin-top:4px;flex-shrink:0}
+.action-bar{background:#0F1825;border:1px solid #1E2D42;border-radius:8px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:28px}
+.ab-left{font-size:11px;color:#8899AA}
+.ab-num{font-size:20px;font-weight:700;color:#E5533C;margin-right:6px}
+.ab-right{display:flex;gap:8px;align-items:center}
+.hold-btn{padding:9px 24px;background:#00C8FF;color:#0A0F1A;font-size:11px;font-weight:700;letter-spacing:.06em;border-radius:5px;text-transform:uppercase;position:relative;overflow:hidden}
+.hold-progress{position:absolute;left:0;top:0;height:100%;width:0%;background:rgba(255,255,255,.2)}
+.sep{font-size:10px;color:#1E2D42}
+.gridspec{font-size:10px;color:#4A5568;font-family:monospace;margin-bottom:4px}
+.layout-preview{background:#060A12;border:1px solid #1E2D42;border-radius:6px;display:flex;height:80px;overflow:hidden;gap:1px;margin-bottom:8px}
+.lp-left{width:22%;background:#0F1825;display:flex;align-items:center;justify-content:center}
+.lp-center{flex:1;background:#060A12;display:flex;align-items:center;justify-content:center}
+.lp-right{width:22%;background:#0F1825;display:flex;align-items:center;justify-content:center}
+.lp-label{font-size:9px;color:#4A5568;text-transform:uppercase;letter-spacing:.06em;writing-mode:horizontal-tb;text-align:center}
+.lp-bottom{position:relative;width:100%;background:#0F1825;height:22px;display:flex;align-items:center;padding-left:8px}
+.navbar{background:#060A12;border-bottom:1px solid #1E2D42;padding:7px 16px;display:flex;align-items:center;justify-content:space-between;border-radius:6px 6px 0 0;margin-bottom:1px}
+.nav-brand{font-size:11px;font-weight:700;color:#00C8FF;letter-spacing:.04em}
+.nav-status{display:flex;align-items:center;gap:5px;font-size:10px;color:#E5533C}
+.pulse-dot{width:6px;height:6px;border-radius:50%;background:#E5533C;animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.nav-right{display:flex;gap:12px;align-items:center;font-size:10px;color:#4A5568}
+</style>
+
+<div class="ds">
+
+<div class="section-label">Color System — Hex Tokens</div>
+<div class="row">
+  <div class="swatch"><div class="swatch-color" style="background:#0A0F1A"></div><div class="swatch-label"><div class="swatch-name">bg-base</div><div class="swatch-hex">#0A0F1A</div></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#0F1825"></div><div class="swatch-label"><div class="swatch-name">bg-panel</div><div class="swatch-hex">#0F1825</div></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#141E30"></div><div class="swatch-label"><div class="swatch-name">bg-raised</div><div class="swatch-hex">#141E30</div></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#1E2D42"></div><div class="swatch-label"><div class="swatch-name">border</div><div class="swatch-hex">#1E2D42</div></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#00C8FF"></div><div class="swatch-label"><div class="swatch-name">cyan — primary</div><div class="swatch-hex">#00C8FF</div></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#F5A623"></div><div class="swatch-label"><div class="swatch-name">amber — caution</div><div class="swatch-hex">#F5A623</div></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#E5533C"></div><div class="swatch-label"><div class="swatch-name">red — danger</div><div class="swatch-hex">#E5533C</div></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#2DD4A0"></div><div class="swatch-label"><div class="swatch-name">teal — safe</div><div class="swatch-hex">#2DD4A0</div></div></div>
+</div>
+<div class="row">
+  <div class="swatch"><div class="swatch-color" style="background:#E8EDF4"></div><div class="swatch-label"><div class="swatch-name">text-primary</div><div class="swatch-hex">#E8EDF4</div></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#8899AA"></div><div class="swatch-label"><div class="swatch-name">text-secondary</div><div class="swatch-hex">#8899AA</div></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#4A5568"></div><div class="swatch-label"><div class="swatch-name">text-muted</div><div class="swatch-hex">#4A5568</div></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:rgba(0,200,255,0.08);border:1px solid #1E2D42"></div><div class="swatch-label"><div class="swatch-name">cyan-tint</div><div class="swatch-hex">rgba(0,200,255,.08)</div></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:rgba(245,166,35,0.1);border:1px solid #1E2D42"></div><div class="swatch-label"><div class="swatch-name">amber-tint</div><div class="swatch-hex">rgba(245,166,35,.1)</div></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:rgba(229,83,60,0.1);border:1px solid #1E2D42"></div><div class="swatch-label"><div class="swatch-name">red-tint</div><div class="swatch-hex">rgba(229,83,60,.1)</div></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:rgba(10,15,26,0.85);border:1px solid #1E2D42"></div><div class="swatch-label"><div class="swatch-name">panel-glass</div><div class="swatch-hex">rgba(10,15,26,.85)</div></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#E5533C;background:linear-gradient(135deg,#FF6B1A,#E5533C)"></div><div class="swatch-label"><div class="swatch-name">fire-gradient</div><div class="swatch-hex">#FF6B1A → #E5533C</div></div></div>
+</div>
+
+<div class="section-label">Typography Scale</div>
+<div class="type-row">
+  <div class="type-spec"><span class="type-sample" style="font-size:28px;font-weight:700;letter-spacing:-.01em">FLYTBASE SENTINEL</span><span class="type-meta">Inter 700 / 28px / -0.01em</span></div>
+  <div class="type-spec"><span class="type-sample" style="font-size:13px;font-weight:400;color:#8899AA">Can AI reduce emergency response from 48 min to 90 sec?</span><span class="type-meta">Inter 400 / 13px / tagline</span></div>
+  <div class="type-spec"><span class="type-sample" style="font-size:16px;font-weight:600">Priority Risks</span><span class="type-meta">Inter 600 / 16px / panel heading</span></div>
+  <div class="type-spec"><span class="type-sample" style="font-size:13px;font-weight:500">Bravo Team near expanding fire edge</span><span class="type-meta">Inter 500 / 13px / item title</span></div>
+  <div class="type-spec"><span class="type-sample" style="font-size:11px;color:#8899AA">8 personnel within 200m of active fire boundary. Wind pushing fire NE.</span><span class="type-meta">Inter 400 / 11px / body small</span></div>
+  <div class="type-spec"><span class="type-sample" style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#4A5568">ZONE COVERAGE</span><span class="type-meta">Inter 600 / 10px / .1em / label caps</span></div>
+  <div class="type-spec"><span class="type-sample" style="font-size:22px;font-weight:700;font-variant-numeric:tabular-nums">47</span><span class="type-meta">Inter 700 / 22px / tabular / data number</span></div>
+  <div class="type-spec"><span class="type-sample" style="font-size:10px;font-family:monospace;color:#4A5568">03:47:58 UTC</span><span class="type-meta">Mono 400 / 10px / timestamps</span></div>
+</div>
+
+<div class="section-label">Badges + Status</div>
+<div class="btn-row">
+  <span class="badge badge-safe">● SAFE</span>
+  <span class="badge badge-warn">● CAUTION</span>
+  <span class="badge badge-danger">● DANGER</span>
+  <span class="badge badge-info">● SCAN</span>
+  <span class="badge badge-warn">◐ VERIFY</span>
+  <span class="badge badge-danger">▲ CONTAIN</span>
+  <span class="badge" style="background:rgba(229,83,60,.2);color:#FF6B4A;border:1px solid rgba(229,83,60,.6)">⬛ RESCUE</span>
+  <span class="badge badge-mono">IDLE</span>
+  <span class="badge badge-info">MISSION</span>
+  <span class="badge" style="background:rgba(45,212,160,.12);color:#2DD4A0;border:1px solid rgba(45,212,160,.3)">RETURN</span>
+</div>
+
+<div class="section-label">Escalation Ladder Component</div>
+<div class="escalation">
+  <div class="esc-step esc-scan">SCAN<br><span style="font-size:9px;opacity:.6;font-weight:400">Observe</span></div>
+  <div class="esc-step esc-verify">VERIFY<br><span style="font-size:9px;opacity:.8;font-weight:400">Confirm Reality</span></div>
+  <div class="esc-step esc-contain">CONTAIN<br><span style="font-size:9px;opacity:.8;font-weight:400">Control Spread</span></div>
+  <div class="esc-step esc-rescue">RESCUE<br><span style="font-size:9px;opacity:.9;font-weight:400">Protect Lives</span></div>
+</div>
+
+<div class="section-label">Buttons</div>
+<div class="btn-row">
+  <button class="btn btn-primary">Authorize</button>
+  <button class="btn btn-hold" style="min-width:180px">Hold to Confirm (2s) <span style="position:relative;z-index:1">▶</span></button>
+  <button class="btn btn-ghost">Mark as Monitor-Only</button>
+  <button class="btn btn-danger">Abort Mission</button>
+  <button class="btn" style="background:transparent;color:#F5A623;border:1px solid rgba(245,166,35,.4)">Override AI Rec.</button>
+</div>
+
+<div class="section-label">Confidence Bar Component</div>
+<div class="col2">
+  <div class="panel">
+    <div class="panel-title">Signal Corroboration</div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <span style="font-size:11px;color:#8899AA">Building — awaiting drone visual</span>
+      <span style="font-size:13px;font-weight:700;color:#F5A623">40%</span>
+    </div>
+    <div class="conf-bar"><div class="conf-fill" style="width:40%;background:linear-gradient(90deg,#F5A623,#FFC142)"></div></div>
+    <div class="conf-sources">
+      <span class="src-dot src-active" style="background:#00C8FF;border-color:#00C8FF"></span>
+      <span style="font-size:9px;color:#00C8FF">Thermal</span>
+      <span class="src-dot src-active" style="background:#00C8FF;border-color:#00C8FF;margin-left:6px"></span>
+      <span style="font-size:9px;color:#00C8FF">Satellite IR</span>
+      <span class="src-dot src-pending"></span>
+      <span style="font-size:9px;color:#4A5568">Drone Visual</span>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-title">Signal Corroboration</div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <span style="font-size:11px;color:#2DD4A0">Converging — 3/3 sources confirmed</span>
+      <span style="font-size:13px;font-weight:700;color:#00C8FF">78%</span>
+    </div>
+    <div class="conf-bar"><div class="conf-fill" style="width:78%"></div></div>
+    <div class="conf-sources">
+      <span class="src-dot" style="background:#00C8FF;border-color:#00C8FF"></span>
+      <span style="font-size:9px;color:#00C8FF">Thermal</span>
+      <span class="src-dot" style="background:#00C8FF;border-color:#00C8FF;margin-left:6px"></span>
+      <span style="font-size:9px;color:#00C8FF">Satellite IR</span>
+      <span class="src-dot" style="background:#00C8FF;border-color:#00C8FF;margin-left:6px"></span>
+      <span style="font-size:9px;color:#00C8FF">Drone Visual</span>
+    </div>
+  </div>
+</div>
+
+<div class="section-label">Priority Risks Panel + Ground Teams</div>
+<div class="col2">
+  <div class="panel">
+    <div class="panel-title">Priority Risks <span style="float:right;font-size:9px;background:rgba(229,83,60,.2);color:#E5533C;padding:2px 6px;border-radius:3px">3 ACTIVE</span></div>
+    <div class="risk-item"><div class="risk-num r1">1</div><div><div class="risk-text">Bravo Team near expanding fire edge</div><div class="risk-sub">8 personnel within 200m of active fire boundary.</div></div></div>
+    <div class="risk-item"><div class="risk-num r2">2</div><div><div class="risk-text">Wind speed increasing in Sector C</div><div class="risk-sub">Wind increased from 15 to 22 km/h. Fire spread accelerating.</div></div></div>
+    <div class="risk-item"><div class="risk-num r3">3</div><div><div class="risk-text">Spot fire detected beyond containment</div><div class="risk-sub">Ember jump 150m northeast of main boundary.</div></div></div>
+  </div>
+  <div class="panel">
+    <div class="panel-title">Ground Teams <span style="float:right;font-size:9px;color:#4A5568">3 ACTIVE</span></div>
+    <div style="padding:7px 0;border-bottom:1px solid #1E2D42;display:flex;justify-content:space-between;align-items:center">
+      <div><div style="font-size:12px;font-weight:600;color:#E8EDF4">Alpha Lead</div><div style="font-size:10px;color:#4A5568">Perimeter Control</div></div>
+      <div style="font-size:10px;text-align:right"><span style="color:#2DD4A0">♡ 98</span> <span style="color:#4A5568;margin:0 3px">·</span> <span style="color:#8899AA">VIS 250m</span></div>
+    </div>
+    <div style="padding:7px 0;border-bottom:1px solid #1E2D42;display:flex;justify-content:space-between;align-items:center">
+      <div><div style="font-size:12px;font-weight:600;color:#E8EDF4;display:flex;align-items:center;gap:5px">Bravo Team <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#E5533C;animation:pulse 1s infinite"></span></div><div style="font-size:10px;color:#4A5568">Structure Protection</div></div>
+      <div style="font-size:10px;text-align:right"><span style="color:#E5533C;font-weight:700">♡ 165</span> <span style="color:#4A5568;margin:0 3px">·</span> <span style="color:#E5533C;font-weight:600">VIS 5m</span></div>
+    </div>
+    <div style="padding:7px 0;display:flex;justify-content:space-between;align-items:center">
+      <div><div style="font-size:12px;font-weight:600;color:#E8EDF4">Charlie</div><div style="font-size:10px;color:#4A5568">Water Supply</div></div>
+      <div style="font-size:10px;text-align:right"><span style="color:#F5A623">♡ 110</span> <span style="color:#4A5568;margin:0 3px">·</span> <span style="color:#8899AA">VIS 120m</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="section-label">Map Layer Legend</div>
+<div class="col3">
+  <div>
+    <div style="font-size:10px;color:#4A5568;margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">Zone Overlays</div>
+    <div class="zone-item"><div class="zone-dot" style="background:rgba(245,166,35,.4);border:1px solid #F5A623"></div><span style="font-size:11px;color:#8899AA">Forest Zone — Amber fill</span></div>
+    <div class="zone-item" style="margin-top:5px"><div class="zone-dot" style="background:transparent;border:1.5px dashed #E5533C"></div><span style="font-size:11px;color:#8899AA">Residential — Red dashed</span></div>
+    <div class="zone-item" style="margin-top:5px"><div class="zone-dot" style="background:rgba(74,85,104,.3);border:1px dotted #4A5568"></div><span style="font-size:11px;color:#8899AA">Buffer — Grey dotted</span></div>
+  </div>
+  <div>
+    <div style="font-size:10px;color:#4A5568;margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">Spread Rings</div>
+    <div class="ring-sample ring-15"><div class="ring-line" style="border-top-color:#E5533C"></div><span>15 min</span></div>
+    <div class="ring-sample ring-30" style="margin-top:6px"><div class="ring-line" style="border-top-color:#F5A623"></div><span>30 min</span></div>
+    <div class="ring-sample ring-60" style="margin-top:6px"><div class="ring-line"></div><span>60 min</span></div>
+  </div>
+  <div>
+    <div style="font-size:10px;color:#4A5568;margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">Drone States</div>
+    <div class="drone-solid"><div class="drone-icon"><div class="drone-cross-h"></div><div class="drone-cross-v"></div><div class="drone-dot"></div></div><span style="font-size:11px;color:#00C8FF">Active — solid</span></div>
+    <div class="drone-ghost" style="margin-top:6px"><div class="drone-icon"><div class="drone-cross-h"></div><div class="drone-cross-v"></div><div class="drone-dot"></div></div><span style="font-size:11px">Proposed — 55% opacity</span></div>
+    <div style="margin-top:6px;display:flex;align-items:center;gap:6px;font-size:11px;color:#F5A623"><div style="width:10px;height:10px;border-radius:50%;background:rgba(245,166,35,.3);border:1.5px solid #F5A623;animation:pulse 1.2s infinite"></div>Anomaly — pulse</div>
+  </div>
+</div>
+
+<div class="section-label">Dynamic Action Bar — CONTAIN State</div>
+<div class="action-bar">
+  <div class="ab-left"><span class="ab-num">47</span>residential structures in projected 30-min zone</div>
+  <div class="ab-right">
+    <button class="btn" style="background:transparent;color:#4A5568;border:1px solid #1E2D42;font-size:10px">Override AI Rec.</button>
+    <div style="width:1px;height:20px;background:#1E2D42"></div>
+    <div class="hold-btn">AUTHORIZE CONTAINMENT — Hold 2s<div class="hold-progress"></div></div>
+  </div>
+</div>
+
+<div class="section-label">Event Log Component</div>
+<div class="panel" style="margin-bottom:28px">
+  <div class="panel-title">Event Log — Auto-Recorded</div>
+  <div class="event-item"><div class="event-dot" style="background:#E5533C"></div><div><div class="event-text">RESCUE AUTHORIZED — A. Rao</div><div class="event-ts">03:48:51 UTC</div></div></div>
+  <div class="event-item"><div class="event-dot" style="background:#F5A623"></div><div><div class="event-text">CONTAIN escalation confirmed by operator</div><div class="event-ts">03:48:30 UTC</div></div></div>
+  <div class="event-item"><div class="event-dot" style="background:#00C8FF"></div><div><div class="event-text">Scout-1 drone dispatched — Grid 4C</div><div class="event-ts">03:47:18 UTC</div></div></div>
+  <div class="event-item"><div class="event-dot" style="background:#4A5568"></div><div><div class="event-text">Thermal anomaly detected — confidence 40%</div><div class="event-ts">03:47:03 UTC</div></div></div>
+</div>
+
+<div class="section-label">Layout Grid — 1440×900 Desktop</div>
+<div style="margin-bottom:8px">
+  <div class="navbar">
+    <span class="nav-brand">FlytBase</span>
+    <div class="nav-status"><span class="pulse-dot"></span> Active Incident</div>
+    <div class="nav-right"><span>4 drones</span><span>12 sensors</span><span>NE 38° 18%</span><span>A. Rao</span></div>
+  </div>
+  <div style="display:flex;height:100px;gap:1px;background:#060A12;border:1px solid #1E2D42;border-top:none">
+    <div style="width:22%;background:#0F1825;display:flex;flex-direction:column;justify-content:center;padding:0 12px;gap:6px">
+      <div style="font-size:9px;color:#4A5568;text-transform:uppercase;letter-spacing:.06em">Left Panel — 22%</div>
+      <div style="font-size:9px;color:#8899AA">Intel · Drones · Events</div>
+    </div>
+    <div style="flex:1;background:#060A12;display:flex;align-items:center;justify-content:center">
+      <div style="font-size:9px;color:#4A5568;text-transform:uppercase;letter-spacing:.06em">Spatial Map Canvas — 56%</div>
+    </div>
+    <div style="width:22%;background:#0F1825;display:flex;flex-direction:column;justify-content:center;padding:0 12px;gap:6px">
+      <div style="font-size:9px;color:#4A5568;text-transform:uppercase;letter-spacing:.06em">Right Panel — 22%</div>
+      <div style="font-size:9px;color:#8899AA">Risks · Teams · Comms</div>
+    </div>
+  </div>
+  <div style="background:#0F1825;border:1px solid #1E2D42;border-top:none;padding:8px 16px;display:flex;align-items:center;justify-content:space-between">
+    <div style="font-size:9px;color:#4A5568;text-transform:uppercase;letter-spacing:.06em">Dynamic Action Bar — Full Width · State-Aware</div>
+    <div style="font-size:9px;color:#4A5568;font-family:monospace">SCAN / VERIFY / CONTAIN / RESCUE</div>
+  </div>
+</div>
+<div style="font-size:9px;color:#4A5568;font-family:monospace;margin-bottom:28px">Canvas: 1440 × 900px · Left panel: 316px · Map: 808px · Right panel: 316px · Navbar: 44px · Action bar: 56px</div>
+
+</div>

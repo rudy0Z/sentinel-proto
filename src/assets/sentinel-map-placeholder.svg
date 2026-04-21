@@ -1,0 +1,109 @@
+<svg width="1440" height="900" viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="720" y1="0" x2="720" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B1614"/>
+      <stop offset="0.48" stop-color="#0A1212"/>
+      <stop offset="1" stop-color="#070B10"/>
+    </linearGradient>
+    <radialGradient id="glowNorth" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(690 165) rotate(90) scale(270 650)">
+      <stop stop-color="#173024" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#173024" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowSouth" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(812 640) rotate(90) scale(220 420)">
+      <stop stop-color="#0E1C18" stop-opacity="0.8"/>
+      <stop offset="1" stop-color="#0E1C18" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="hill" x1="228" y1="132" x2="1146" y2="330" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#122219"/>
+      <stop offset="0.55" stop-color="#101F17"/>
+      <stop offset="1" stop-color="#0E1915"/>
+    </linearGradient>
+    <linearGradient id="water" x1="152" y1="146" x2="266" y2="232" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F3E3C"/>
+      <stop offset="1" stop-color="#0A232A"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12"/>
+    </filter>
+  </defs>
+
+  <rect width="1440" height="900" fill="url(#bg)"/>
+  <rect width="1440" height="900" fill="url(#glowNorth)"/>
+  <rect width="1440" height="900" fill="url(#glowSouth)"/>
+
+  <path d="M0 108L212 88L496 112L782 96L1124 122L1440 190V362L1212 330L874 346L542 338L262 314L0 294V108Z" fill="url(#hill)"/>
+  <path d="M0 188L236 166L468 196L778 176L1118 214L1440 272V332L1182 304L842 314L500 304L218 280L0 262V188Z" fill="#0C1A14"/>
+  <path d="M92 150C114 106 174 88 222 116C270 144 282 198 256 232C230 266 176 276 126 246C76 216 70 194 92 150Z" fill="url(#water)"/>
+  <path d="M246 236C294 286 312 340 306 402" stroke="#16363A" stroke-width="10" stroke-linecap="round" opacity="0.5"/>
+  <path d="M246 236C294 286 312 340 306 402" stroke="#0D1F26" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+
+  <path d="M388 398C504 388 648 382 788 382C928 382 1058 390 1176 410L1244 456L1106 540L352 530L248 458L388 398Z" fill="#0B1413"/>
+  <path d="M428 446C578 438 712 436 830 440C948 444 1054 454 1148 476" stroke="#182826" stroke-width="12" stroke-linecap="round" opacity="0.72"/>
+  <path d="M502 242V822" stroke="#203127" stroke-width="18" stroke-linecap="round" opacity="0.85"/>
+  <path d="M1000 250V822" stroke="#203127" stroke-width="18" stroke-linecap="round" opacity="0.85"/>
+  <path d="M750 290V806" stroke="#182A22" stroke-width="12" stroke-linecap="round" opacity="0.66"/>
+
+  <g opacity="0.72">
+    <path d="M454 572H1040L1124 826H316L404 572H454Z" fill="#12211B"/>
+    <path d="M404 572H1038" stroke="#27372E" stroke-width="8"/>
+    <path d="M356 826H1086" stroke="#1A2B24" stroke-width="10"/>
+    <g stroke="#26382F" stroke-width="6">
+      <path d="M454 572V796"/>
+      <path d="M516 572V802"/>
+      <path d="M578 572V808"/>
+      <path d="M640 572V812"/>
+      <path d="M702 572V816"/>
+      <path d="M764 572V818"/>
+      <path d="M826 572V816"/>
+      <path d="M888 572V812"/>
+      <path d="M950 572V808"/>
+      <path d="M1012 572V802"/>
+    </g>
+    <g stroke="#23352C" stroke-width="6">
+      <path d="M430 624H1062"/>
+      <path d="M408 676H1086"/>
+      <path d="M386 728H1108"/>
+      <path d="M364 780H1130"/>
+    </g>
+  </g>
+
+  <g opacity="0.82">
+    <rect x="484" y="592" width="40" height="34" rx="3" fill="#1F2D26"/>
+    <rect x="548" y="592" width="42" height="34" rx="3" fill="#243328"/>
+    <rect x="610" y="592" width="42" height="34" rx="3" fill="#1C2923"/>
+    <rect x="674" y="592" width="42" height="34" rx="3" fill="#26372E"/>
+    <rect x="738" y="592" width="42" height="34" rx="3" fill="#1C2923"/>
+    <rect x="802" y="592" width="42" height="34" rx="3" fill="#22322A"/>
+    <rect x="866" y="592" width="42" height="34" rx="3" fill="#1F2D26"/>
+    <rect x="930" y="592" width="42" height="34" rx="3" fill="#26372E"/>
+    <rect x="994" y="592" width="42" height="34" rx="3" fill="#1C2923"/>
+
+    <rect x="484" y="646" width="40" height="34" rx="3" fill="#23332A"/>
+    <rect x="548" y="646" width="42" height="34" rx="3" fill="#1E2D25"/>
+    <rect x="610" y="646" width="42" height="34" rx="3" fill="#24352C"/>
+    <rect x="674" y="646" width="42" height="34" rx="3" fill="#1F2D26"/>
+    <rect x="738" y="646" width="42" height="34" rx="3" fill="#273831"/>
+    <rect x="802" y="646" width="42" height="34" rx="3" fill="#1E2D25"/>
+    <rect x="866" y="646" width="42" height="34" rx="3" fill="#22322A"/>
+    <rect x="930" y="646" width="42" height="34" rx="3" fill="#1F2D26"/>
+    <rect x="994" y="646" width="42" height="34" rx="3" fill="#26372E"/>
+  </g>
+
+  <g opacity="0.35" stroke="#13221C" stroke-width="2">
+    <path d="M88 238C172 226 254 238 340 220C426 202 510 220 594 202C678 184 766 202 854 186C942 170 1026 186 1114 170"/>
+    <path d="M0 306C102 292 210 306 322 290C434 274 546 288 658 272C770 256 882 272 994 258C1106 244 1218 258 1330 244"/>
+    <path d="M0 366C140 354 278 368 424 356C570 344 716 358 860 346C1004 334 1148 350 1292 336"/>
+  </g>
+
+  <g opacity="0.7" filter="url(#shadow)">
+    <ellipse cx="548" cy="184" rx="240" ry="88" fill="#0E2018"/>
+    <ellipse cx="864" cy="176" rx="264" ry="92" fill="#11221B"/>
+    <ellipse cx="1178" cy="210" rx="212" ry="116" fill="#0E1C18"/>
+    <ellipse cx="250" cy="208" rx="186" ry="104" fill="#112119"/>
+    <ellipse cx="676" cy="442" rx="172" ry="74" fill="#0E1918"/>
+    <ellipse cx="990" cy="448" rx="164" ry="72" fill="#111D1B"/>
+  </g>
+
+  <rect x="0" y="0" width="1440" height="900" fill="black" fill-opacity="0.18"/>
+  <rect x="16" y="16" width="1408" height="868" rx="38" stroke="white" stroke-opacity="0.03" stroke-width="32"/>
+</svg>

@@ -1,0 +1,148 @@
+FlytBase Sentinel: Canonical Product Context
+
+Part I — Structured Implementation Brief
+
+1. Product Thesis
+FlytBase Sentinel is an AI-native wildfire command interface designed to collapse response time from roughly 48 minutes to 90 seconds. The core problem is not slow hardware; it is cognitive friction in how operators verify, decide, and coordinate. The interface exists to stage the handoff between AI speed and human judgment correctly.
+
+2. Core Operating Principles
+- One dominant decision per screen state.
+- AI proposes, human authorizes, system executes.
+- Confidence is shown as convergence, not as a binary fire / no fire alert.
+- Success should feel calm, controlled, and spatially clear.
+- The map is the primary intelligence surface; side panels support it rather than compete with it.
+
+3. Decision Model
+The product is organized around two cognitive phases, not four separate UI sections.
+
+Phase A — Intelligence Gathering
+- SCAN: passive monitoring and visual silence.
+- VERIFY: determine whether the signal is real enough to escalate.
+
+Phase B — Protection
+- CONTAIN: review the situational picture and authorize a proportionate response plan.
+- RESCUE: supervise the execution of the authorized response and handle exceptions only.
+
+The named states are mental models and internal operational modes. They are not a visible stepper or page wizard.
+
+4. The 90-Second Handoff
+0–15 seconds
+- Thermal anomaly appears at 3:47:03 AM.
+- AI does sensor fusion first: thermal, satellite IR, ground-burn check, pattern matching.
+- Operator is not interrupted immediately.
+- At 3:47:18 AM confidence crosses alert threshold and nearest drone launches autonomously.
+
+15–45 seconds
+- Operator receives a focused interrupt only after the AI has already triaged the signal.
+- The operator sees one question: is this real?
+- The system shows anomaly location, corroborating sources, drone ETA, and a visibly rising confidence bar.
+- Once drone visual corroborates the signal, operator chooses either Confirm Active Incident or Monitor Only.
+
+45–75 seconds
+- If the operator confirms, the interface shifts into CONTAIN.
+- The alert overlay disappears and the map becomes the dominant information-rich surface.
+- The AI presents a reconstructed terrain view, spread projections, zone boundaries, wind direction, proposed drone deployment positions, and one sentence of causal reasoning.
+- The operator’s question is now: what level of response is justified?
+- Operator authorizes containment with deliberate press-and-hold confirmation or uses override to choose an alternate prebuilt plan.
+
+75–90 seconds
+- After authorization, the system executes autonomously in RESCUE.
+- Ghost drone positions become active units.
+- Evacuation routes, ingress paths, cleared structures, and active execution overlays appear.
+- The operator no longer sees a dominant CTA; they supervise and respond only to surfaced exceptions.
+
+5. Current Implementation Direction
+- One persistent desktop route and one persistent shell.
+- Full-width fixed navbar.
+- Left Intel / Corroboration panel remains persistent across all phases.
+- Right panel changes purpose by phase:
+  - intelligence / analysis during VERIFY,
+  - containment reasoning during CONTAIN,
+  - exception feed during RESCUE.
+- Static image-backed map with coded overlays.
+- Selections from map entities route into the left panel, not a modal.
+
+6. CONTAIN Requirements
+- Map becomes the dominant protection surface.
+- Show fire origin, reconstructed terrain context, and spread projections at 15 / 30 / 60 minutes.
+- Show wind arrow, zone boundaries, and four ghost drone deployments labeled as proposed pending authorization.
+- Right panel stays narrow and contains spread rate, wind data, structures-at-risk summary, and one causal AI recommendation sentence.
+- Bottom action surface emphasizes the human consequence number: residential structures in the projected 30-minute zone.
+- Primary action is Authorize Containment with a 2-second press-and-hold confirmation.
+- Override path exists as a compact panel:
+  - choose one override reason,
+  - switch to a prebuilt alternate containment recommendation,
+  - authorize that alternate plan if desired.
+- Include one degraded contain state:
+  - terrain model confidence warning,
+  - raw-feed fallback surface,
+  - honest uncertainty signaling.
+
+7. RESCUE Requirements
+- Containment authorization transitions directly into rescue execution.
+- Proposed drones become active execution markers.
+- Show evacuation corridors, fire-department ingress route, structure-cleared indicators, and live progress.
+- Right panel becomes an exception feed.
+- Bottom surface becomes supervision UI: passive audit receipt, evacuation progress, and low-prominence abort control.
+- First-class rescue edge case for this build is signal degradation with autonomous reroute while execution continues.
+
+8. In-Scope Edge States For This Build
+- CONTAIN override to alternate prebuilt plan.
+- CONTAIN terrain-model-confidence degraded state with raw-feed fallback.
+- RESCUE signal-degraded exception with autonomous reroute.
+
+9. Deferred / Explicitly Out of Scope For Now
+- Multi-incident prioritization and split triage.
+- Offline continuity mode.
+- Fire-shift re-planning as a first-class interactive state.
+- Full manual drone editor.
+- Mobile and field-commander variants.
+- Real video integration.
+
+10. Evaluation Metrics
+- Median time from alert arrival to authorization.
+- AI recommendation acceptance vs override rate, segmented by outcomes.
+- False positive escalation rate.
+
+Part II — Long-Form Appendix
+
+FlytBase Sentinel is an AI-native decision surface intended to collapse wildfire response from 48 minutes to 90 seconds. The key thesis is that the bottleneck is human verification and coordination latency, not drone speed or sensor speed. That means the product is not a generic dashboard. It is a carefully staged command interface for high-consequence judgment.
+
+The scenario is intentionally stressful: California, 3:47 AM, thermal anomaly in the foothills, wind pushing northeast, low staffing, dimmed screens, and potentially multiple zones under watch. The design challenge is not simply presenting more telemetry. It is presenting the minimum spatially-clear, confidence-calibrated information needed for the operator to make the next correct decision quickly.
+
+The system wakes up before the operator does. A thermal sensor spike is not itself an emergency. The AI first performs triage: thermal cross-check, satellite IR corroboration, ground-burn validation, and pattern matching against known wildfire signatures. Only once confidence crosses the alert threshold does the AI launch the nearest drone and interrupt the operator. This is intentional. The operator should be interrupted at the right moment, not the first possible moment.
+
+During VERIFY, the operator’s question is simple: is this real? The interface therefore avoids a wall of data. It shows the anomaly on the map, the corroborating sources, the drone ETA, and a confidence bar that builds in real time. The operator is not asked to trust a static number. They are allowed to watch the system build its case. Once on-site drone visual and lidar corroborate the signal, the operator chooses whether to confirm the incident or keep it in monitor-only status.
+
+Once confirmed, the interface shifts from intelligence gathering to protection. This is the meaningful boundary in the product. In CONTAIN, the map becomes the dominant information surface and the operator sees the full situational picture: reconstructed terrain, spread predictions, wind direction, zone boundaries, and the AI’s proposed drone deployment plan. The system’s reasoning must remain causal rather than technical. The important question is not how the model works internally; it is why the system recommends this level of response now.
+
+The containment decision should make the consequences of inaction legible. That is why the number of structures in the projected 30-minute zone matters more than drone counts or sensor counts. The operator authorizes the plan, not the logistics. Press-and-hold is deliberate friction that replaces a clumsy “are you sure?” modal with a physical commitment.
+
+Override is necessary, but not equal in visual priority to following the recommendation. Sentinel takes a position: AI recommendation is the default path, and override is deliberate. The operator can reject the recommendation, choose a reason, and authorize an alternate prebuilt response if the context warrants it. This preserves human control without making the interface neutral between the default and the exceptional path.
+
+The system must also be honest when its reconstruction layer is weak. A polished but wrong terrain model is worse than a noisy but honest fallback. That is why a degraded contain state should explicitly surface low model confidence and provide raw-feed fallback access. Confidence is a spectrum, not a cosmetic layer.
+
+After authorization, the interface becomes RESCUE. The visual language must change with the operator’s role. The absence of a dominant CTA is the point: the system is executing what was approved, and the operator now supervises exceptions rather than running logistics. Ghost drones become live assets, evacuation routes appear, ingress routes appear, and structures begin to show cleared versus uncleared status. The right panel stops being an analysis panel and becomes an exception feed.
+
+The first rescue edge state to foreground is signal degradation. The important interaction pattern is that the system continues execution, handles rerouting autonomously, and surfaces the change as an exception rather than blocking the entire flow. The operator intervenes only if judgment is required.
+
+The handoff can be summarized simply:
+- AI performs low-level triage, routing, modeling, and coordination.
+- The operator does exactly three things: verify the signal is real, authorize the proportionate response, and supervise execution when exceptions require judgment.
+
+Neither side can do this alone. The AI has speed and coordination capacity. The operator has authority and judgment. The interface is what makes the handoff coherent.
+
+Research and reflection notes from the case-study work:
+- Human latency, not hardware latency, is the load-bearing bottleneck.
+- Cognitive tunneling under stress means dense dashboards are dangerous.
+- Alert fatigue is caused by poor confidence calibration as much as by false positives themselves.
+- Operators trust AI when they understand intent and causality, not internal mechanics.
+- Emergency operators reason spatially, which is why the map must remain the dominant surface.
+
+Known unresolved areas:
+- Multi-incident handling remains one of the hardest unresolved surfaces.
+- Auto-hold timing and fallback policy would need real operator validation.
+- Press-and-hold duration is still a design hypothesis rather than a validated threshold.
+- Low-confidence, uncertain-recommendation states remain harder than the clean success path and need future stress testing.
+
+The product should therefore be treated as a decision surface, not a dashboard, and the implementation should preserve that thesis in every screen state.

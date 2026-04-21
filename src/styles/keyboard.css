@@ -1,0 +1,79 @@
+/* ─── Keyboard Accessibility & Focus Management ─── */
+
+/*
+ * Focus-visible ring — only appears when navigating via keyboard.
+ * Uses the system cyan accent (#00C8FF) at 60% opacity to stay
+ * consistent with the Sentinel design language.
+ */
+:focus-visible {
+  outline: 2px solid rgba(0, 200, 255, 0.6);
+  outline-offset: 2px;
+}
+
+/* Remove default focus outlines (focus-visible handles keyboard users) */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Buttons and interactive elements get a subtle transition on focus */
+button:focus-visible,
+[role="button"]:focus-visible,
+[tabindex="0"]:focus-visible {
+  outline: 2px solid rgba(0, 200, 255, 0.6);
+  outline-offset: 2px;
+  transition: outline-offset 120ms ease;
+}
+
+/* ─── Screen-reader only utility ─── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ─── Reduced motion preference ─── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ─── Animation keyframes (moved from inline <style> in SentinelShell) ─── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@keyframes gridSweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes pulseBar {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ─── Global interactive resets ─── */
+button {
+  font-family: inherit;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+}
