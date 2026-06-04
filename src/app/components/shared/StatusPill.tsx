@@ -1,4 +1,4 @@
-import { T, font } from "../../tokens";
+import { T, font, radius, space, tint, typeScale, typeWeight } from "../../tokens";
 
 interface StatusPillProps {
   label: string;
@@ -11,15 +11,15 @@ export function StatusPill({ label, color }: StatusPillProps) {
     <span
       style={{
         fontFamily: font.sans,
-        fontSize: 10,
-        fontWeight: 700,
+        fontSize: typeScale.caption,
+        fontWeight: typeWeight.bold,
         letterSpacing: "0.06em",
         textTransform: "uppercase",
         color,
-        padding: "4px 8px",
-        borderRadius: 999,
-        border: `1px solid ${color}44`,
-        background: `${color}12`,
+        padding: `${space.xs}px ${space.md}px`,
+        borderRadius: radius.pill,
+        border: `1px solid ${tint(color, 0.28)}`,
+        background: tint(color, 0.08),
         whiteSpace: "nowrap",
       }}
       role="status"

@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from "react";
+import type { ReactNode } from "react";
 import { EVACUATION_ROUTES, ZONES, INCIDENT } from "../mockData";
 import type { QuickActionId, DroneRosterEntry, ShellState } from "../tokens";
 import { T, font } from "../tokens";
+import { OperationalIcon } from "./OperationalIcon";
 
 // ─── Mission Brief Data ───────────────────────────────────────────────────────
 // Maps each dispatch action to the context TALON presents in the Mission Brief
@@ -13,7 +15,6 @@ interface MissionBriefConfig {
   coverageNote: string;
   zoneHint: string;
   tone: string;
-  icon: string;
   droneClass: string;
   defaultZoneId: string;
 }
@@ -26,7 +27,6 @@ const MISSION_BRIEF_DATA: Partial<Record<QuickActionId, MissionBriefConfig>> = {
     coverageNote: "Scout drones fly a wide-arc pattern at 80m AGL, feeding HD visual and thermal data back to TALON in real time.",
     zoneHint: "forest-north",
     tone: T.cyan,
-    icon: "◉",
     droneClass: "surveillance",
     defaultZoneId: "forest-north",
   },
@@ -37,7 +37,6 @@ const MISSION_BRIEF_DATA: Partial<Record<QuickActionId, MissionBriefConfig>> = {
     coverageNote: "Lidar-02 will orbit the active fire boundary at 40m AGL, feeding real-time spread vectors to the TALON model.",
     zoneHint: "forest-north",
     tone: T.fire,
-    icon: "∿",
     droneClass: "thermal-lidar",
     defaultZoneId: "forest-north",
   },
@@ -48,7 +47,6 @@ const MISSION_BRIEF_DATA: Partial<Record<QuickActionId, MissionBriefConfig>> = {
     coverageNote: "Relay-01 will anchor at the buffer zone ingress point and broadcast a combined audio + light guidance signal for incoming teams.",
     zoneHint: "buffer-east",
     tone: T.yellow,
-    icon: "→",
     droneClass: "guidance-relay",
     defaultZoneId: "buffer-east",
   },
@@ -59,7 +57,6 @@ const MISSION_BRIEF_DATA: Partial<Record<QuickActionId, MissionBriefConfig>> = {
     coverageNote: "Herald-01 will orbit above Residential Zone 1 at 30m AGL, broadcasting the authenticated evacuation instruction sequence with visual strobe markers.",
     zoneHint: "residential-south",
     tone: T.fire,
-    icon: "⚠",
     droneClass: "evacuation-guidance",
     defaultZoneId: "residential-south",
   },
@@ -70,7 +67,6 @@ const MISSION_BRIEF_DATA: Partial<Record<QuickActionId, MissionBriefConfig>> = {
     coverageNote: "Relay-02 will position itself at the optimal elevation for a multi-hop relay chain from field assets back to the command platform.",
     zoneHint: "buffer-east",
     tone: T.cyan,
-    icon: "⇌",
     droneClass: "guidance-relay",
     defaultZoneId: "buffer-east",
   },
@@ -81,7 +77,6 @@ const MISSION_BRIEF_DATA: Partial<Record<QuickActionId, MissionBriefConfig>> = {
     coverageNote: "Relay-01 will fly the corridor marking the route with strobe signaling and live audio comms for field team coordination.",
     zoneHint: "buffer-east",
     tone: T.yellow,
-    icon: "→",
     droneClass: "guidance-relay",
     defaultZoneId: "buffer-east",
   },
@@ -92,7 +87,6 @@ const MISSION_BRIEF_DATA: Partial<Record<QuickActionId, MissionBriefConfig>> = {
     coverageNote: "Herald-01 and Herald-02 will split the residential zone into two guidance sectors, each covering one egress route with strobe lighting and speaker broadcast.",
     zoneHint: "residential-south",
     tone: T.fire,
-    icon: "⚠",
     droneClass: "evacuation-guidance",
     defaultZoneId: "residential-south",
   },
@@ -107,6 +101,7 @@ export interface ModalPayload {
   zoneTarget?: string;
   resourceType?: string;
   urgency?: string;
+  passcode?: string;
 }
 
 interface ActionModalProps {
@@ -228,13 +223,11 @@ function Chip({ label, selected, onClick, color }: { label: string; selected: bo
   );
 }
 
-function ModalHeader({ title, subtitle, accentColor, icon }: { title: string; subtitle: string; accentColor: string; icon?: string }) {
+function ModalHeader({ title, subtitle, accentColor, icon }: { title: string; subtitle: string; accentColor: string; icon?: ReactNode }) {
   return (
     <div style={{ padding: "22px 24px 0" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-        {icon && (
-          <span style={{ fontSize: 18, color: accentColor }}>{icon}</span>
-        )}
+        {icon}
         <div style={{ fontFamily: font.sans, fontSize: 16, fontWeight: 700, color: T.textPrimary, letterSpacing: "-0.01em" }}>
           {title}
         </div>
@@ -336,7 +329,7 @@ function EvacuationModal({ state, onClose, onConfirm }: { state: ShellState; onC
 
       {/* Warning bar */}
       <div style={{ margin: "14px 24px 0", padding: "10px 14px", borderRadius: 10, background: "rgba(229,83,60,0.12)", border: `1px solid ${T.red}33`, display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ color: T.fire, fontSize: 14 }}>⚠</span>
+        <OperationalIcon name="warning" color={T.fire} size={14} />
         <span style={{ fontFamily: font.sans, fontSize: 12, color: T.fire, fontWeight: 500 }}>This will initiate immediate evacuation procedures</span>
       </div>
 
@@ -439,7 +432,7 @@ function AbortModal({ onClose, onConfirm }: { onClose: () => void; onConfirm: ()
         <div style={{
           width: 38, height: 38, borderRadius: 10, background: "rgba(245,166,35,0.15)", border: `1px solid ${T.amber}44`,
           display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 18,
-        }}>⚠</div>
+        }}><OperationalIcon name="warning" color={T.amber} size={18} /></div>
         <div>
           <div style={{ fontFamily: font.sans, fontSize: 15, fontWeight: 700, color: T.textPrimary, letterSpacing: "-0.01em" }}>Abort Drone Mission</div>
           <div style={{ fontFamily: font.sans, fontSize: 12, color: T.textSecondary, marginTop: 3 }}>Confirm your decision</div>
@@ -529,27 +522,89 @@ function BackupModal({ onClose, onConfirm }: { onClose: () => void; onConfirm: (
 
 /** Modal 4: Notify Authorities */
 function NotifyAuthoritiesModal({ onClose, onConfirm }: { onClose: () => void; onConfirm: () => void }) {
-  return (
-    <div style={{ ...GLASS_MODAL, width: 460 }}>
-      <ModalHeader title="Notify Emergency Authorities" subtitle="Transmit incident report to fire management and emergency dispatch." accentColor={T.cyan} icon="📡" />
+  const packetItems = [
+    { label: "Incident class", value: "Authority-notifiable wildfire risk", tone: T.red },
+    { label: "Packet ID", value: "AUD-90-0847", tone: T.cyan },
+    { label: "Confidence", value: "78%", tone: T.amber },
+    { label: "Human gate", value: "Operator send required", tone: T.teal },
+  ];
 
-      <div style={{ padding: "16px 24px" }}>
-        <div style={{ background: "rgba(0,200,255,0.07)", border: `1px solid ${T.cyan}22`, borderRadius: 12, padding: "14px" }}>
-          {[
-            "Current incident scope and active protection zones",
-            "Projected fire spread path and affected structures",
-            "Active drone assets and their current assignments",
-            "Ground team status and staging positions",
-          ].map((line) => (
-            <div key={line} style={{ fontFamily: font.sans, fontSize: 12, color: T.textSecondary, lineHeight: 1.8, display: "flex", gap: 8 }}>
-              <span style={{ color: T.cyan, flexShrink: 0 }}>✓</span> {line}
+  const evidence = [
+    "Thermal delta exceeds seasonal baseline",
+    "Satellite IR confirms spread orientation",
+    "Scout LiDAR validates ridge-side heat bloom",
+    "Wind vector projects northeast movement",
+  ];
+
+  const gaps = [
+    "Ground fuel survey is 48h stale",
+    "Drone visual confidence reduced by smoke",
+  ];
+
+  return (
+    <div style={{ ...GLASS_MODAL, width: 520 }}>
+      <ModalHeader
+        title="Send Authority Packet"
+        subtitle="Marks the 90-second milestone. Operations planning begins after dispatch receives this packet."
+        accentColor={T.cyan}
+        icon={<OperationalIcon actionId="notify-authorities" color={T.cyan} size={18} />}
+      />
+
+      <div style={{ padding: "16px 24px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+            gap: 8,
+          }}
+        >
+          {packetItems.map((item) => (
+            <div
+              key={item.label}
+              style={{
+                borderRadius: 10,
+                background: "rgba(255,255,255,0.035)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                padding: "9px 10px",
+              }}
+            >
+              <div style={{ fontFamily: font.mono, fontSize: 8, color: T.textMuted, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>
+                {item.label}
+              </div>
+              <div style={{ fontFamily: font.sans, fontSize: 12, fontWeight: 700, color: item.tone, lineHeight: 1.25 }}>
+                {item.value}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ background: "rgba(0,200,255,0.07)", border: `1px solid ${T.cyan}22`, borderRadius: 12, padding: "12px 14px" }}>
+          <div style={{ fontFamily: font.mono, fontSize: 9, color: T.cyan, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>
+            TALON evidence summary
+          </div>
+          {evidence.map((line) => (
+            <div key={line} style={{ fontFamily: font.sans, fontSize: 12, color: T.textSecondary, lineHeight: 1.7, display: "flex", alignItems: "center", gap: 8 }}>
+              <OperationalIcon name="check" color={T.cyan} size={13} />
+              <span>{line}</span>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ background: "rgba(245,166,35,0.07)", border: `1px solid ${T.amber}26`, borderRadius: 12, padding: "12px 14px" }}>
+          <div style={{ fontFamily: font.mono, fontSize: 9, color: T.amber, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>
+            Included uncertainty
+          </div>
+          {gaps.map((line) => (
+            <div key={line} style={{ fontFamily: font.sans, fontSize: 12, color: T.textSecondary, lineHeight: 1.7, display: "flex", alignItems: "center", gap: 8 }}>
+              <OperationalIcon name="warning" color={T.amber} size={13} />
+              <span>{line}</span>
             </div>
           ))}
         </div>
       </div>
 
       <Divider />
-      <ModalFooter onClose={onClose} onConfirm={onConfirm} confirmLabel="Send Notification" confirmColor={T.cyan} />
+      <ModalFooter onClose={onClose} onConfirm={onConfirm} confirmLabel="Send Authority Packet" confirmColor={T.cyan} />
     </div>
   );
 }
@@ -558,7 +613,7 @@ function NotifyAuthoritiesModal({ onClose, onConfirm }: { onClose: () => void; o
 function NotifyTeamsModal({ onClose, onConfirm }: { onClose: () => void; onConfirm: () => void }) {
   return (
     <div style={{ ...GLASS_MODAL, width: 460 }}>
-      <ModalHeader title="Alert Ground Teams" subtitle="Notify teams with current assignments and staging instructions." accentColor={T.yellow} icon="📋" />
+      <ModalHeader title="Alert Ground Teams" subtitle="Notify teams with current assignments and staging instructions." accentColor={T.yellow} icon={<OperationalIcon actionId="notify-teams" color={T.yellow} size={18} />} />
 
       <div style={{ padding: "16px 24px" }}>
         <div style={{ background: "rgba(255,209,102,0.07)", border: `1px solid ${T.yellow}22`, borderRadius: 12, padding: "14px" }}>
@@ -581,11 +636,193 @@ function NotifyTeamsModal({ onClose, onConfirm }: { onClose: () => void; onConfi
   );
 }
 
+/** Modal: Shift Handover */
+function ShiftHandoverModal({
+  state,
+  onClose,
+  onConfirm,
+}: {
+  state: ShellState;
+  onClose: () => void;
+  onConfirm: (payload: ModalPayload) => void;
+}) {
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState("");
+
+  const handleConfirm = () => {
+    if (pin === "8842") {
+      onConfirm({ passcode: pin });
+    } else {
+      setError("INVALID SECURITY IDENTIFICATION PIN");
+    }
+  };
+
+  const activeDronesCount = state.drones.filter(d => d.assignedMission && d.assignedMission !== "patrol").length;
+  const activeMissions = state.drones
+    .filter(d => d.assignedMission && d.assignedMission !== "patrol")
+    .map(d => `${d.name} (${d.assignedMission})`)
+    .join(", ") || "No active operational missions";
+
+  return (
+    <div style={{ ...GLASS_MODAL, width: 500 }}>
+      <ModalHeader
+        title="Shift Handover Transfer"
+        subtitle="Cryptographic transfer of active tactical incident command."
+        accentColor={T.amber}
+        icon={<OperationalIcon actionId="shift-handover" color={T.amber} size={18} />}
+      />
+
+      <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+        {/* Operators block */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div style={{
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 10,
+            padding: "10px 14px",
+          }}>
+            <div style={{ fontFamily: font.sans, fontSize: 10, color: T.textMuted, textTransform: "uppercase" }}>Outgoing Operator</div>
+            <div style={{ fontFamily: font.sans, fontSize: 13, fontWeight: 700, color: T.textPrimary, marginTop: 4 }}>Asha Rao</div>
+            <div style={{ fontFamily: font.mono, fontSize: 10, color: T.amber, marginTop: 2 }}>[Altadena Sector Lead]</div>
+          </div>
+          <div style={{
+            background: "rgba(245,166,35,0.06)",
+            border: `1px solid ${T.amber}33`,
+            borderRadius: 10,
+            padding: "10px 14px",
+          }}>
+            <div style={{ fontFamily: font.sans, fontSize: 10, color: T.amber, textTransform: "uppercase" }}>Incoming Operator</div>
+            <div style={{ fontFamily: font.sans, fontSize: 13, fontWeight: 700, color: T.textPrimary, marginTop: 4 }}>R. Sharma</div>
+            <div style={{ fontFamily: font.mono, fontSize: 10, color: T.teal, marginTop: 2 }}>[Shift Command Lead]</div>
+          </div>
+        </div>
+
+        {/* Operational state summary */}
+        <div style={{
+          background: "rgba(0,0,0,0.2)",
+          border: "1px solid rgba(255,255,255,0.06)",
+          borderRadius: 12,
+          padding: 14,
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+        }}>
+          <div style={{ fontFamily: font.sans, fontSize: 11, fontWeight: 700, color: T.textPrimary, borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: 6 }}>
+            Tactical Operational Summary
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <span style={{ fontFamily: font.sans, fontSize: 10, color: T.textMuted }}>Active Fleet Missions</span>
+              <div style={{ fontFamily: font.sans, fontSize: 11, fontWeight: 600, color: T.textSecondary, marginTop: 2 }}>
+                {activeDronesCount} Drones Assigned
+              </div>
+            </div>
+            <div>
+              <span style={{ fontFamily: font.sans, fontSize: 10, color: T.textMuted }}>Weather & Wind</span>
+              <div style={{ fontFamily: font.sans, fontSize: 11, fontWeight: 600, color: T.textSecondary, marginTop: 2 }}>
+                Wind NE @ 18 mph
+              </div>
+            </div>
+            <div>
+              <span style={{ fontFamily: font.sans, fontSize: 10, color: T.textMuted }}>Civilian Evac Routes</span>
+              <div style={{ fontFamily: font.sans, fontSize: 11, fontWeight: 600, color: T.textSecondary, marginTop: 2 }}>
+                {state.emergencyEvacuationActive ? "Routes Stage Active" : "Routes Pending"}
+              </div>
+            </div>
+            <div>
+              <span style={{ fontFamily: font.sans, fontSize: 10, color: T.textMuted }}>Threat delta</span>
+              <div style={{ fontFamily: font.mono, fontSize: 11, fontWeight: 600, color: T.red, marginTop: 2 }}>
+                -4.2% spread vector
+              </div>
+            </div>
+          </div>
+          <div style={{ fontSize: 10, fontFamily: font.mono, color: T.textMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            Missions: {activeMissions}
+          </div>
+        </div>
+
+        {/* Passcode validation block */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <label style={{ fontFamily: font.sans, fontSize: 11, fontWeight: 600, color: T.textSecondary }}>
+            Enter Shift Lead PIN to log handoff:
+          </label>
+          <div style={{ display: "flex", gap: 10 }}>
+            <input
+              type="password"
+              placeholder="••••"
+              value={pin}
+              maxLength={4}
+              onChange={(e) => {
+                setPin(e.target.value);
+                setError("");
+              }}
+              style={{
+                flex: 1,
+                background: "rgba(0,0,0,0.4)",
+                border: error ? `1px solid ${T.red}` : "1px solid rgba(255,255,255,0.12)",
+                borderRadius: 8,
+                padding: "8px 12px",
+                color: "#fff",
+                fontFamily: font.mono,
+                fontSize: 14,
+                textAlign: "center",
+                letterSpacing: "0.4em",
+                outline: "none",
+              }}
+            />
+            <button
+              onClick={handleConfirm}
+              style={{
+                background: T.amber,
+                color: "#000",
+                border: "none",
+                borderRadius: 8,
+                padding: "0 20px",
+                fontFamily: font.sans,
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              Verify PIN
+            </button>
+          </div>
+          {error && (
+            <span style={{ fontFamily: font.mono, fontSize: 10, color: T.red, fontWeight: 700, letterSpacing: "0.02em" }}>
+              {error}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <Divider />
+      <div style={{ padding: "16px 24px 22px", display: "flex", justifyContent: "flex-end", gap: 10 }}>
+        <button
+          type="button"
+          onClick={onClose}
+          style={{
+            padding: "8px 16px",
+            borderRadius: 8,
+            border: "1px solid rgba(255,255,255,0.12)",
+            background: "rgba(255,255,255,0.05)",
+            color: T.textSecondary,
+            fontFamily: font.sans,
+            fontSize: 12,
+            cursor: "pointer",
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** Modal 6: Stand Down */
 function StandDownModal({ onClose, onConfirm }: { onClose: () => void; onConfirm: () => void }) {
   return (
     <div style={{ ...GLASS_MODAL, width: 460 }}>
-      <ModalHeader title="Confirm Mission Stand Down" subtitle="All operations will be formally closed and assets recalled." accentColor={T.teal} icon="✓" />
+      <ModalHeader title="Confirm Mission Stand Down" subtitle="All operations will be formally closed and assets recalled." accentColor={T.teal} icon={<OperationalIcon actionId="stand-down" color={T.teal} size={18} />} />
 
       <div style={{ padding: "16px 24px" }}>
         <div style={{ background: "rgba(45,212,160,0.07)", border: `1px solid ${T.teal}22`, borderRadius: 12, padding: "14px" }}>
@@ -596,7 +833,7 @@ function StandDownModal({ onClose, onConfirm }: { onClose: () => void; onConfirm
             "System returns to passive monitoring mode",
           ].map((line) => (
             <div key={line} style={{ fontFamily: font.sans, fontSize: 12, color: T.textSecondary, lineHeight: 1.8, display: "flex", gap: 8 }}>
-              <span style={{ color: T.teal, flexShrink: 0 }}>✓</span> {line}
+              <OperationalIcon name="check" color={T.teal} size={13} /> {line}
             </div>
           ))}
         </div>
@@ -752,7 +989,7 @@ function MissionBriefModal({
                 background: `${tone}18`, border: `1px solid ${tone}44`,
                 display: "flex", alignItems: "center", justifyContent: "center",
                 fontSize: 18, color: tone, flexShrink: 0,
-              }}>{cfg.icon}</div>
+              }}><OperationalIcon actionId={actionId} color={cfg.tone} size={18} /></div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: font.sans, fontSize: 14, fontWeight: 700, color: T.textPrimary }}>{candidateDrone.name}</div>
                 <div style={{ fontFamily: font.mono, fontSize: 10, color: T.textSecondary, marginTop: 2 }}>{candidateDrone.capabilityLabel}</div>
@@ -770,7 +1007,7 @@ function MissionBriefModal({
             </div>
           ) : (
             <div style={{ background: "rgba(245,166,35,0.08)", border: "1px solid rgba(245,166,35,0.25)", borderRadius: 12, padding: "12px 14px", color: T.amber, fontFamily: font.sans, fontSize: 12 }}>
-              ⚠ No available asset found. A multi-role fallback will be used.
+              No available asset found. A multi-role fallback will be used.
             </div>
           )}
         </div>
@@ -868,7 +1105,11 @@ function MissionBriefModal({
                 flexShrink: 0,
                 fontSize: 14,
               }}>
-                {voiceState === "listening" ? "🎙️" : voiceState === "processing" ? "⟳" : "✓"}
+                <OperationalIcon
+                  name={voiceState === "responded" ? "check" : "mic"}
+                  color={voiceState === "responded" ? T.teal : T.amber}
+                  size={14}
+                />
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{
@@ -996,7 +1237,7 @@ function MissionBriefModal({
             }}
           >
             <span style={{ fontSize: 15, lineHeight: 1 }}>
-              {voiceState === "responded" ? "↺" : "🎙"}
+              <OperationalIcon name={voiceState === "responded" ? "reset" : "mic"} color="currentColor" size={15} />
             </span>
             <span>{voiceState === "responded" ? "Reset" : "Change Plan"}</span>
           </button>
@@ -1057,6 +1298,8 @@ export function ActionModal({ modalId, state: _state, onClose, onConfirm, onVoic
       switch (modalId) {
         case "emergency-evacuate":
           return <EvacuationModal state={_state} onClose={onClose} onConfirm={(p) => onConfirm(modalId, p)} />;
+        case "shift-handover":
+          return <ShiftHandoverModal state={_state} onClose={onClose} onConfirm={(p) => onConfirm(modalId, p)} />;
       case "abort-mission":
         return <AbortModal onClose={onClose} onConfirm={() => onConfirm(modalId)} />;
       case "deploy-backup":

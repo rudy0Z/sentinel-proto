@@ -1,14 +1,22 @@
 import { useState, useEffect } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { ActionBar } from "./ActionBar";
+import { ActionBar, TalonMicButton } from "./ActionBar";
+import { ExceptionBanner, ExceptionInterrupt } from "./ExceptionSurface";
 import { ActionModal } from "./ActionModal";
 import type { ModalPayload } from "./ActionModal";
 import { MapCanvas } from "./MapCanvas";
 import { Navbar } from "./Navbar";
 import { ActionGlyph } from "./actionVisuals";
+import { OperationalIcon } from "./OperationalIcon";
 import droneThermalFeed from "../../assets/drone-thermal-feed.png";
 import { ActivityLogPanel, DroneFleetPanel, IntelPanel } from "./panels/LeftPanel";
-import { GroundTeamsPanel, PriorityPanel } from "./panels/RightPanel";
+import { ExceptionPanel, GroundTeamsPanel, PriorityPanel } from "./panels/RightPanel";
+import { TalonCopilotPanel } from "./panels/TalonCopilotPanel";
+import { RailPanelFrame } from "./shared/RailPanelFrame";
+import { createCommandAction } from "../domain/commands";
+import { getOperationalException } from "../domain/exceptions";
+import { getPanelLayout, type PanelLayoutSlot } from "../domain/panels";
+import { getTalonChipResponse, getTalonVoiceResponse } from "../domain/talon";
 import {
   ANOMALY,
   CONTAINMENT_PLAN_SUMMARY,
@@ -26,8 +34,6 @@ import {
 import {
   GLASS,
   GI,
-  ACTIONBAR_H,
-  ACTIONBAR_H_EXPANDED,
   DroneClass,
   DroneMissionType,
   OperationalMode,
@@ -39,17 +45,23 @@ import {
   SelectedEntity,
   ShellDraft,
   ShellState,
+  TalonChipId,
+  TalonConversationState,
+  WorkflowPhase,
+  getWorkflowPhase,
   T,
   font,
+  layer,
+  shell as shellTokens,
 } from "../tokens";
 
-const SCREEN_INSET = 16;
-const NAVBAR_H = 52;
-const LEFT_RAIL_W = 300;
-const RIGHT_RAIL_W = 300;
-const PANEL_TOP = NAVBAR_H + 12;
-const LEFT_PANEL_GAP = 8;
-const RIGHT_PANEL_GAP = 8;
+const SCREEN_INSET = shellTokens.screenInset;
+const NAVBAR_H = shellTokens.navHeight;
+const LEFT_RAIL_W = shellTokens.railWidth;
+const RIGHT_RAIL_W = shellTokens.railWidth;
+const PANEL_TOP = NAVBAR_H + shellTokens.railGap + 4;
+const LEFT_PANEL_GAP = shellTokens.railGap;
+const RIGHT_PANEL_GAP = shellTokens.railGap;
 
 let activityCounter = 1000;
 
@@ -80,6 +92,10 @@ function nextLogTimestamp(): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+function createVoiceTalonResponse(scene: SceneId) {
+  return getTalonVoiceResponse(scene);
+}
+
 /** Convert hex color to rgba with alpha */
 function hexToRgba(hex: string, alpha: number): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -92,11 +108,12 @@ export function SentinelShell() {
   const [state, setState] = useState<ShellState>(() => createSceneState("baseline", 0));
   const [reviewDockOpen, setReviewDockOpen] = useState(false);
   const [activeModal, setActiveModal] = useState<QuickActionId | null>(null);
+  const [burnPermitVerified, setBurnPermitVerified] = useState(false);
   const [isActionBarExpanded, setIsActionBarExpanded] = useState(false);
   const [simTime, setSimTime] = useState(() => parseTimeSeconds(INCIDENT.detectedAt));
   const [incidentElapsed, setIncidentElapsed] = useState(0);
   const [investigationElapsed, setInvestigationElapsed] = useState(0);
-  const [voiceState, setVoiceState] = useState<"idle" | "listening" | "processing" | "responded">("idle");
+  // voiceState is now owned by state.talonConversation — no local duplicate
   const [showSituationResolved, setShowSituationResolved] = useState(false);
   const [experienceMode, setExperienceMode] = useState<"entry" | "brief" | "simulation" | "free">("entry");
   const [showEndCard, setShowEndCard] = useState(false);
@@ -104,6 +121,19 @@ export function SentinelShell() {
   const [edgeCaseFired, setEdgeCaseFired] = useState(false);
   const [showEscalationOverlay, setShowEscalationOverlay] = useState(false);
   const [escalationElapsed, setEscalationElapsed] = useState(0);
+
+  useEffect(() => {
+    const handleDevShortcut = (event: KeyboardEvent) => {
+      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "d") {
+        // Only toggle the review dock when already in free/explore mode
+        if (experienceMode === "free") {
+          setReviewDockOpen((current) => !current);
+        }
+      }
+    };
+    window.addEventListener("keydown", handleDevShortcut);
+    return () => window.removeEventListener("keydown", handleDevShortcut);
+  }, [experienceMode]);
 
   // Global ticking timer
   useEffect(() => {
@@ -184,12 +214,14 @@ export function SentinelShell() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rescueElapsed, edgeCaseFired, showEndCard, experienceMode, state.mode]);
 
-  // Always collapse action bar and reset to collapsed state on scene change
+  // Always collapse action bar and reset to collapsed state on scene change.
+  // Voice state lives in talonConversation, which createSceneState resets to idle.
   const setScene = (scene: SceneId) => {
     setIsActionBarExpanded(false);
-    setVoiceState("idle");
+    setBurnPermitVerified(false);
     if (scene === "baseline") {
       logTimeSeconds = 49 * 60 + 18;
+      activityCounter = 1000;
       setSimTime(parseTimeSeconds(INCIDENT.detectedAt));
       setIncidentElapsed(0);
       setInvestigationElapsed(0);
@@ -259,6 +291,7 @@ export function SentinelShell() {
     const modalActions: QuickActionId[] = [
       // Standard confirmation modals
       "emergency-evacuate",
+      "shift-handover",
       "abort-mission",
       "deploy-backup",
       "notify-authorities",
@@ -292,12 +325,12 @@ export function SentinelShell() {
         setScene("baseline");
         return;
       case "confirm-incident":
-        setScene("contain-recommended");
+        setScene("authority-notification-ready");
         return;
       case "override-plan":
         updateState((draft) => {
           draft.scene = "contain-alternate";
-          draft.overrideReason = "Operator judgment / visual confirmation";
+          draft.overrideReason = "Operational constraint";
           return draft;
         });
         return;
@@ -346,16 +379,112 @@ export function SentinelShell() {
   };
 
   const canToggleSurface = state.mode === "contain" || state.mode === "rescue";
-  const showsActionBar = state.mode === "contain" || state.mode === "rescue";
-  const actionBarHeight = showsActionBar ? (isActionBarExpanded ? ACTIONBAR_H_EXPANDED : ACTIONBAR_H) : 0;
+
+  const handleSurfaceModeChange = (mode: ShellState["surfaceMode"]) => {
+    setState((current) => {
+      if (!canToggleSurface) return current;
+      return syncState(
+        { ...stripDerived(current), surfaceMode: mode },
+        current.scene === "investigation-pending" ? investigationElapsed : 0,
+      );
+    });
+  };
+  // V2: The command bar is the persistent TALON control surface, including quiet watch.
+  const showsActionBar = true;
+  const actionBarHeight = showsActionBar ? (isActionBarExpanded ? shellTokens.commandBarExpandedHeight : shellTokens.commandBarHeight) : 0;
   const railBottomInset = SCREEN_INSET + (showsActionBar ? actionBarHeight + 12 : 0);
   const reviewDockBottom = SCREEN_INSET + (showsActionBar ? actionBarHeight + 12 : 12);
+
+  const handleTalonChip = (chipId: TalonChipId) => {
+    setState((current) => {
+      const prevConvo = current.talonConversation;
+      const sameChip = prevConvo.activeChip === chipId;
+      const nextConvo: TalonConversationState = sameChip
+        ? { activeChip: null, response: null, voiceState: "idle" }
+        : { activeChip: chipId, response: getTalonChipResponse(chipId), voiceState: "responded" };
+
+      return {
+        ...current,
+        talonConversation: nextConvo,
+      };
+    });
+  };
+
+  const handleTalonVoice = (vs: "idle" | "listening" | "processing" | "responded") => {
+    setState((current) => ({
+      ...current,
+      talonConversation: {
+        ...current.talonConversation,
+        activeChip: vs === "responded" ? null : current.talonConversation.activeChip,
+        response: vs === "responded" ? createVoiceTalonResponse(current.scene) : current.talonConversation.response,
+        voiceState: vs,
+      },
+    }));
+  };
+
+  const panelLayout = getPanelLayout(state);
+  const renderPanelSlot = (slot: PanelLayoutSlot) => {
+    let content: ReactNode = null;
+
+    switch (slot.id) {
+      case "intel":
+        content = (
+          <IntelPanel
+            state={state}
+            onClearSelection={() =>
+              updateState((draft) => ({
+                ...draft,
+                selectedEntity: null,
+                selectedZoneId: null,
+              }))
+            }
+          />
+        );
+        break;
+      case "fleet":
+        content = (
+          <DroneFleetPanel
+            state={state}
+            onSelectDrone={(droneId) => handleSelectEntity({ type: "drone", id: droneId })}
+            canToggleSurface={canToggleSurface}
+            onSurfaceModeChange={handleSurfaceModeChange}
+          />
+        );
+        break;
+      case "activity":
+        content = <ActivityLogPanel state={state} incidentElapsed={incidentElapsed} />;
+        break;
+      case "investigation":
+        content = <InvestigationStrip investigationElapsed={investigationElapsed} />;
+        break;
+      case "talon":
+        content = <TalonCopilotPanel state={state} />;
+        break;
+      case "priority":
+        content = <PriorityPanel state={state} onAcknowledgePriority={handleAcknowledgePriority} />;
+        break;
+      case "ground-teams":
+        content = <GroundTeamsPanel state={state} onSelectTeam={(teamId) => handleSelectEntity({ type: "team", id: teamId })} />;
+        break;
+      case "exceptions":
+        content = <ExceptionPanel state={state} />;
+        break;
+      default:
+        content = null;
+    }
+
+    return (
+      <RailPanelFrame key={`${slot.rail}-${slot.id}`} flex={slot.flex} variant={slot.variant} minHeight={slot.minHeight}>
+        {content}
+      </RailPanelFrame>
+    );
+  };
 
   return (
     <div
       style={{
         width: "100vw",
-        height: "100vh",
+        height: "100dvh",
         overflow: "hidden",
         position: "relative",
         fontFamily: font.sans,
@@ -369,10 +498,40 @@ export function SentinelShell() {
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 999px; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+        @keyframes talonIdlePulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(0,200,255,0.0), 0 0 8px rgba(0,200,255,0.15); }
+          50% { box-shadow: 0 0 0 6px rgba(0,200,255,0.08), 0 0 16px rgba(0,200,255,0.3); }
+        }
+        @keyframes talonListeningPulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(229,83,60,0.0), 0 0 8px rgba(229,83,60,0.2); }
+          50% { box-shadow: 0 0 0 8px rgba(229,83,60,0.12), 0 0 20px rgba(229,83,60,0.4); }
+        }
+        @keyframes talonProcessingFlow {
+          0% { background-position: 0% 50%; }
+          100% { background-position: 200% 50%; }
+        }
+        @keyframes evidenceSourcePulse {
+          0%, 100% { opacity: 0.7; } 50% { opacity: 1; }
+        }
+        @keyframes agentTaskRunning {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(200%); }
+        }
+        @keyframes waveBar1 { 0%, 100% { height: 4px; } 50% { height: 18px; } }
+        @keyframes waveBar2 { 0%, 100% { height: 8px; } 40% { height: 22px; } }
+        @keyframes waveBar3 { 0%, 100% { height: 12px; } 60% { height: 28px; } }
+        @keyframes waveBar4 { 0%, 100% { height: 6px; } 50% { height: 20px; } }
+        @keyframes waveBar5 { 0%, 100% { height: 10px; } 45% { height: 16px; } }
+        @keyframes pulseBar { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+        @keyframes slideInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideInDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        @media (prefers-reduced-motion: reduce) {
+          *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+        }
       `}</style>
 
       <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
-        <MapCanvas state={state} onSelectEntity={handleSelectEntity} />
+        <MapCanvas state={state} onSelectEntity={handleSelectEntity} onUpdateState={(updater) => updateState((draft) => { updater(draft); return draft; })} />
       </div>
 
       <div
@@ -393,7 +552,7 @@ export function SentinelShell() {
           left: 0,
           right: 0,
           height: NAVBAR_H,
-          zIndex: 40,
+          zIndex: layer.nav,
           background: "rgba(6,10,18,0.82)",
           backdropFilter: "blur(24px)",
           WebkitBackdropFilter: "blur(24px)",
@@ -407,20 +566,12 @@ export function SentinelShell() {
         <Navbar
           state={state}
           timeString={formatTime(simTime)}
-          surfaceMode={state.surfaceMode}
-          canToggleSurface={canToggleSurface}
-          onSurfaceModeChange={(mode) =>
-            setState((current) => {
-              if (!canToggleSurface) {
-                return current;
-              }
-              return syncState({ ...stripDerived(current), surfaceMode: mode }, current.scene === "investigation-pending" ? investigationElapsed : 0);
-            })
-          }
+          incidentElapsed={incidentElapsed}
+          onShiftHandover={() => handleAction("shift-handover")}
         />
       </div>
 
-      {experienceMode !== "simulation" && (
+      {experienceMode === "free" && reviewDockOpen && (
         <ReviewDock
           open={reviewDockOpen}
           activeScene={state.scene}
@@ -437,7 +588,7 @@ export function SentinelShell() {
           left: SCREEN_INSET,
           width: LEFT_RAIL_W,
           bottom: railBottomInset,
-          zIndex: 20,
+          zIndex: layer.rail,
           display: "flex",
           flexDirection: "column",
           gap: LEFT_PANEL_GAP,
@@ -445,24 +596,7 @@ export function SentinelShell() {
         role="region"
         aria-label="Intelligence panels"
       >
-        <RailCard flex={4}>
-          <IntelPanel
-            state={state}
-            onClearSelection={() =>
-              updateState((draft) => ({
-                ...draft,
-                selectedEntity: null,
-                selectedZoneId: null,
-              }))
-            }
-          />
-        </RailCard>
-        <RailCard flex={3.2}>
-          <DroneFleetPanel state={state} onSelectDrone={(droneId) => handleSelectEntity({ type: "drone", id: droneId })} />
-        </RailCard>
-        <RailCard flex={2.8}>
-          <ActivityLogPanel state={state} incidentElapsed={incidentElapsed} />
-        </RailCard>
+        {panelLayout.left.map(renderPanelSlot)}
       </div>
 
       <div
@@ -472,7 +606,7 @@ export function SentinelShell() {
           right: SCREEN_INSET,
           width: RIGHT_RAIL_W,
           bottom: railBottomInset,
-          zIndex: 20,
+          zIndex: layer.rail,
           display: "flex",
           flexDirection: "column",
           gap: RIGHT_PANEL_GAP,
@@ -480,17 +614,7 @@ export function SentinelShell() {
         role="region"
         aria-label="Priority and team panels"
       >
-        {state.scene === "investigation-pending" ? (
-          <RailCard flex={0.8}>
-            <InvestigationStrip investigationElapsed={investigationElapsed} />
-          </RailCard>
-        ) : null}
-        <RailCard flex={state.scene === "investigation-pending" ? 5.3 : 7}>
-          <PriorityPanel state={state} onAcknowledgePriority={handleAcknowledgePriority} />
-        </RailCard>
-        <RailCard flex={state.scene === "investigation-pending" ? 3 : 3}>
-          <GroundTeamsPanel state={state} onSelectTeam={(teamId) => handleSelectEntity({ type: "team", id: teamId })} />
-        </RailCard>
+        {panelLayout.right.map(renderPanelSlot)}
       </div>
 
       {showsActionBar ? (
@@ -501,7 +625,7 @@ export function SentinelShell() {
             right: RIGHT_RAIL_W + SCREEN_INSET + 18,
             bottom: SCREEN_INSET,
             height: actionBarHeight,
-            zIndex: 30,
+            zIndex: layer.command,
             ...GLASS,
             display: "flex",
             alignItems: "stretch",
@@ -509,13 +633,17 @@ export function SentinelShell() {
             transition: "height 220ms cubic-bezier(0.34,1.30,0.64,1)",
           }}
           role="region"
-          aria-label="Action bar"
+          aria-label="TALON command bar"
         >
           <ActionBar
             state={state}
             onAction={handleAction}
             expanded={isActionBarExpanded}
             onToggleExpand={() => setIsActionBarExpanded((value) => !value)}
+            onTalonVoiceChange={handleTalonVoice}
+            onTalonChip={handleTalonChip}
+            burnPermitVerified={burnPermitVerified}
+            onBurnPermitVerifyChange={setBurnPermitVerified}
           />
         </div>
       ) : null}
@@ -554,35 +682,34 @@ export function SentinelShell() {
             ))}
           </div>
           
-          {/* Voice to TALON override strip */}
+          {/* Voice to TALON override strip — uses the unified TALON conversation system */}
           <div style={{ marginTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 16 }}>
              <div style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>Brief TALON by voice</div>
-             <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                <button
-                   onClick={() => {
-                      if (voiceState !== "idle") return;
-                      setVoiceState("listening");
-                      setTimeout(() => setVoiceState("processing"), 3000);
-                      setTimeout(() => setVoiceState("responded"), 4500);
-                   }}
-                   style={{
-                     width: 44, height: 44, borderRadius: "50%",
-                     background: voiceState === "idle" ? "rgba(0,200,255,0.1)" : voiceState === "listening" ? "rgba(229,83,60,0.2)" : "rgba(45,212,160,0.1)",
-                     border: `1px solid ${voiceState === "idle" ? T.cyan : voiceState === "listening" ? T.red : T.teal}`,
-                     cursor: voiceState === "idle" ? "pointer" : "default",
-                     display: "flex", alignItems: "center", justifyContent: "center",
-                     flexShrink: 0,
-                     transition: "all 0.3s ease",
-                   }}
-                >
-                   {voiceState === "idle" ? <span style={{fontSize: 20}}>🎙️</span> : voiceState === "listening" ? <span style={{fontSize: 20}}>🔴</span> : <span style={{fontSize: 20}}>✅</span>}
-                </button>
+             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                <TalonMicButton voiceState={state.talonConversation.voiceState} onVoiceChange={handleTalonVoice} />
 
                 <div style={{ flex: 1, padding: "12px 14px", background: "rgba(255,255,255,0.03)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", minHeight: 44, display: "flex", alignItems: "center" }}>
-                  {voiceState === "idle" && <span style={{ fontFamily: font.sans, fontSize: 13, color: T.textMuted }}>"TALON, wind shifted northeast, move perimeter hold to buffer east instead..."</span>}
-                  {voiceState === "listening" && <span style={{ fontFamily: font.sans, fontSize: 13, color: T.textPrimary, fontStyle: "italic" }}>Listening...</span>}
-                  {voiceState === "processing" && <span style={{ fontFamily: font.mono, fontSize: 11, color: T.cyan }}>Processing voice input...</span>}
-                  {voiceState === "responded" && <span style={{ fontFamily: font.sans, fontSize: 13, color: T.teal, lineHeight: 1.5 }}>Voice input received. Recomputing plan with NE wind vector correction. Staging perimeter hold: Buffer East. Updated plan ready for review.</span>}
+                  {state.talonConversation.voiceState === "idle" && (
+                    <span style={{ fontFamily: font.sans, fontSize: 12, color: T.textMuted }}>
+                      "TALON, wind shifted northeast — move perimeter hold to buffer east..."
+                    </span>
+                  )}
+                  {state.talonConversation.voiceState === "listening" && (
+                    <span style={{ fontFamily: font.sans, fontSize: 12, color: T.textPrimary, fontStyle: "italic" }}>Listening...</span>
+                  )}
+                  {state.talonConversation.voiceState === "processing" && (
+                    <span style={{ fontFamily: font.mono, fontSize: 11, color: T.cyan }}>TALON processing...</span>
+                  )}
+                  {state.talonConversation.voiceState === "responded" && state.talonConversation.response && (
+                    <span style={{ fontFamily: font.sans, fontSize: 12, color: T.teal, lineHeight: 1.55 }}>
+                      {state.talonConversation.response.body}
+                    </span>
+                  )}
+                  {state.talonConversation.voiceState === "responded" && !state.talonConversation.response && (
+                    <span style={{ fontFamily: font.sans, fontSize: 12, color: T.teal, lineHeight: 1.55 }}>
+                      Plan recomputed with operator correction. Review the updated alternate plan.
+                    </span>
+                  )}
                 </div>
              </div>
           </div>
@@ -693,7 +820,9 @@ export function SentinelShell() {
           <div style={{ maxWidth: 560, width: "100%", padding: "0 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 32 }}>
             {/* Icon + header */}
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-              <div style={{ width: 64, height: 64, borderRadius: 16, background: "rgba(229,83,60,0.12)", border: "1px solid rgba(229,83,60,0.35)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>⚠</div>
+              <div style={{ width: 64, height: 64, borderRadius: 16, background: "rgba(229,83,60,0.12)", border: "1px solid rgba(229,83,60,0.35)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <OperationalIcon name="warning" color={T.red} size={28} />
+              </div>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontFamily: font.mono, fontSize: 10, letterSpacing: "0.16em", color: T.red, textTransform: "uppercase", marginBottom: 10 }}>
                   CRITICAL SYSTEM FAILURE
@@ -769,140 +898,54 @@ export function SentinelShell() {
         </div>
       )}
 
-      {/* ── SATELLITE FEED LOSS BANNER ────────────────────────────────────────
-          Persistent amber strip below the navbar when satellite is offline.
-          Operations continue on drone-only telemetry at reduced confidence.
+      {/* ── UNIFIED EXCEPTION BANNER ──────────────────────────────────────────
+          One design language for persistent degraded states. Driven by the
+          OperationalException model — the same model that powers the right-rail
+          Exception Queue and the blocked agents in TALON Workforce. The failure
+          is therefore felt across the entire system, not shown in one frame.
       ────────────────────────────────────────────────────────────────────── */}
-      {state.scene === "satellite-feed-loss" && (
-        <div style={{
-          position: "absolute",
-          top: NAVBAR_H,
-          left: 0,
-          right: 0,
-          zIndex: 50,
-          background: "rgba(245,166,35,0.10)",
-          borderBottom: `1px solid rgba(245,166,35,0.30)`,
-          padding: "8px 24px",
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-        }}>
-          <div style={{ width: 7, height: 7, borderRadius: "50%", background: T.amber, animation: "pulse 1.2s infinite", flexShrink: 0 }} />
-          <div style={{ fontFamily: font.mono, fontSize: 10, fontWeight: 700, color: T.amber, letterSpacing: "0.1em", textTransform: "uppercase", flexShrink: 0 }}>
-            SATELLITE FEED OFFLINE
-          </div>
-          <div style={{ fontFamily: font.sans, fontSize: 11, color: T.textSecondary }}>
-            TALON operating on drone telemetry only · Spatial model confidence reduced to <strong style={{ color: T.amber }}>40%</strong> · Fire spread margin ±200m
-          </div>
-          <div style={{ marginLeft: "auto", fontFamily: font.mono, fontSize: 10, color: T.textMuted, flexShrink: 0 }}>
-            EST. RESTORE: 04:22 UTC
-          </div>
+      {(state.scene === "satellite-feed-loss" || state.scene === "network-degraded") && state.operationalException && (
+        <div
+          style={{
+            position: "absolute",
+            top: PANEL_TOP,
+            left: LEFT_RAIL_W + SCREEN_INSET + 18,
+            right: RIGHT_RAIL_W + SCREEN_INSET + 18,
+            zIndex: 50,
+          }}
+        >
+          <ExceptionBanner
+            exception={state.operationalException}
+            restoreEta={state.scene === "satellite-feed-loss" ? "04:22 UTC" : "Auto-recovering"}
+            onRecover={(cmd) => handleAction(cmd)}
+          />
         </div>
       )}
 
-      {/* ── NETWORK DEGRADED BANNER ───────────────────────────────────────────
-          Subtle persistent latency warning. Ops continue but feeds may be
-          delayed — the "slow internet" failure state.
+      {/* ── BATTERY CRITICAL — SUPERVISED HANDOFF INTERRUPT ───────────────────
+          Acknowledge-required exception. Same visual language as the banner,
+          elevated to a human gate. Reinforces: TALON prepares, the human
+          authorizes. The same exception also populates the right-rail queue.
       ────────────────────────────────────────────────────────────────────── */}
-      {state.scene === "network-degraded" && (
-        <div style={{
-          position: "absolute",
-          top: NAVBAR_H,
-          left: 0,
-          right: 0,
-          zIndex: 50,
-          background: "rgba(255,209,102,0.07)",
-          borderBottom: `1px solid rgba(255,209,102,0.22)`,
-          padding: "7px 24px",
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-        }}>
-          <div style={{ width: 6, height: 6, borderRadius: "50%", background: T.yellow, animation: "pulse 2s infinite", flexShrink: 0 }} />
-          <div style={{ fontFamily: font.mono, fontSize: 10, fontWeight: 700, color: T.yellow, letterSpacing: "0.1em", textTransform: "uppercase", flexShrink: 0 }}>
-            CONNECTION DEGRADED
-          </div>
-          <div style={{ fontFamily: font.mono, fontSize: 10, color: T.textMuted, flexShrink: 0 }}>340ms avg latency</div>
-          <div style={{ fontFamily: font.sans, fontSize: 11, color: T.textSecondary }}>
-            · Drone telemetry feeds may arrive with delay · TALON processing at reduced throughput · All decisions remain valid
-          </div>
-          <div style={{
-            marginLeft: "auto", padding: "2px 8px", borderRadius: 5,
-            background: "rgba(255,209,102,0.1)", border: "1px solid rgba(255,209,102,0.2)",
-            fontFamily: font.mono, fontSize: 9, color: T.yellow, flexShrink: 0,
-            letterSpacing: "0.08em",
-          }}>
-            MONITORING
-          </div>
-        </div>
-      )}
-
-      {/* ── BATTERY CRITICAL TALON NOTICE ────────────────────────────────────
-          When the battery-critical scene is active, show a TALON interrupt
-          floating in the center top area (like the alert popup style).
-      ────────────────────────────────────────────────────────────────────── */}
-      {state.scene === "rescue-battery-critical" && (
-        <div style={{
-          position: "absolute",
-          top: NAVBAR_H + 20,
-          left: "50%",
-          transform: "translateX(-50%)",
-          width: 460,
-          zIndex: 60,
-          background: "rgba(6, 10, 18, 0.92)",
-          backdropFilter: "blur(32px)",
-          WebkitBackdropFilter: "blur(32px)",
-          borderRadius: 16,
-          border: `1px solid ${T.amber}44`,
-          boxShadow: `0 0 0 1px rgba(245,166,35,0.08), 0 20px 48px rgba(0,0,0,0.48)`,
-          padding: "16px 20px",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-            <div style={{ width: 7, height: 7, borderRadius: "50%", background: T.amber, animation: "pulse 1s infinite", flexShrink: 0 }} />
-            <div style={{ fontFamily: font.mono, fontSize: 9, fontWeight: 700, color: T.amber, letterSpacing: "0.12em", textTransform: "uppercase" }}>TALON · Asset Management · Interrupt</div>
-          </div>
-          <div style={{ fontFamily: font.sans, fontSize: 15, fontWeight: 700, color: T.textPrimary, marginBottom: 6 }}>Battery critical — autonomous handoff initiated</div>
-          <div style={{ fontFamily: font.sans, fontSize: 12, color: T.textSecondary, lineHeight: 1.55, marginBottom: 12 }}>
-            <strong style={{ color: T.amber }}>Lidar-02 battery at 14%.</strong> TALON has initiated an autonomous recall and mission handoff to Scout-03. No operator action required — perimeter hold will remain continuous.
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(229,83,60,0.08)", border: "1px solid rgba(229,83,60,0.2)" }}>
-              <div style={{ fontFamily: font.mono, fontSize: 9, color: T.red, letterSpacing: "0.08em", marginBottom: 4 }}>RECALLING</div>
-              <div style={{ fontFamily: font.sans, fontSize: 12, fontWeight: 600, color: T.textPrimary }}>Lidar-02</div>
-              <div style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted }}>14% · RTB in progress</div>
-            </div>
-            <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(45,212,160,0.08)", border: "1px solid rgba(45,212,160,0.2)" }}>
-              <div style={{ fontFamily: font.mono, fontSize: 9, color: T.teal, letterSpacing: "0.08em", marginBottom: 4 }}>TAKING OVER</div>
-              <div style={{ fontFamily: font.sans, fontSize: 12, fontWeight: 600, color: T.textPrimary }}>Scout-03</div>
-              <div style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted }}>En route · ETA 00:42</div>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => updateState((draft) => {
-               // Acknowledge the battery critical issue and return to nominal rescue
-               draft.scene = "rescue-nominal";
-               return draft;
+      {state.scene === "rescue-battery-critical" && state.operationalException && (
+        <div
+          style={{
+            position: "absolute",
+            top: NAVBAR_H + 20,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 60,
+          }}
+        >
+          <ExceptionInterrupt
+            exception={state.operationalException}
+            recallAsset={{ name: "Lidar-02", detail: "14% · RTB in progress" }}
+            coverageAsset={{ name: "Scout-03", detail: "En route · ETA 00:42" }}
+            onAcknowledge={() => updateState((draft) => {
+              draft.scene = "rescue-nominal";
+              return draft;
             })}
-            style={{
-              width: "100%",
-              marginTop: 16,
-              padding: "10px 0",
-              borderRadius: 8,
-              background: "rgba(245,166,35,0.12)",
-              border: "1px solid rgba(245,166,35,0.3)",
-              color: T.amber,
-              fontFamily: font.sans,
-              fontSize: 12,
-              fontWeight: 700,
-              letterSpacing: "0.05em",
-              textTransform: "uppercase",
-              cursor: "pointer",
-            }}
-          >
-            Acknowledge Exception
-          </button>
+          />
         </div>
       )}
 
@@ -950,6 +993,7 @@ export function SentinelShell() {
             handleAction(state.scene === "verify-ready" ? "open-verification" : "confirm-incident")
           }
           onSecondaryAction={() => handleAction("monitor-only")}
+          primaryDisabled={state.scene === "verify-active" && !burnPermitVerified}
         />
       )}
 
@@ -966,6 +1010,13 @@ export function SentinelShell() {
             setActiveModal(null);
             // Execute the actual state change after modal confirm
             switch (actionId) {
+              case "shift-handover":
+                updateState((draft) => {
+                  const next = { ...draft, activeOperator: "R. Sharma" };
+                  appendLog(next, "System", "Audit", "Operational Authority transferred from A. Rao to R. Sharma · Cryptographic Receipt: AUDIT-8842", "safe");
+                  return next;
+                });
+                break;
               case "emergency-evacuate":
                 updateState((draft) => {
                   const assignments = payload?.teamAssignments ?? [];
@@ -1026,8 +1077,17 @@ export function SentinelShell() {
               case "notify-authorities":
                 updateState((draft) => {
                   if (draft.authoritiesNotified) return draft;
-                  const next = { ...draft, authoritiesNotified: true };
-                  appendLog(next, "Operator", "Authority", "Authorities notified with the current incident scope and active protection zones.", "info");
+                  const next = {
+                    ...draft,
+                    authoritiesNotified: true,
+                    mode: "contain" as OperationalMode,
+                    scene: "contain-recommended" as SceneId,
+                    incidentStatus: "confirmed" as const,
+                    selectedEntity: { type: "zone", id: INCIDENT.activeZoneId } as SelectedEntity,
+                    selectedZoneId: INCIDENT.activeZoneId,
+                    highlightedZoneIds: ["residential-south"],
+                  };
+                  appendLog(next, "Operator", "Authority", "Authorities notified with TALON packet AUD-90-0847. Operations planning is now active.", "info");
                   return next;
                 });
                 break;
@@ -1118,7 +1178,7 @@ export function SentinelShell() {
             <div style={{ width: 6, height: 6, borderRadius: "50%", background: T.teal, marginTop: 6, flexShrink: 0 }} />
             <div>
               <div style={{ fontFamily: font.mono, fontSize: 10, color: T.teal, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>TALON · Final Audit Log</div>
-              <div style={{ fontFamily: font.sans, fontSize: 13, color: T.textSecondary, lineHeight: 1.6 }}>Incident closed. All autonomous drone assets recalled. Ground team staging returned to nominal. The complete audit trail has been filed and preserved contextually. Returning system to passive monitoring.</div>
+              <div style={{ fontFamily: font.sans, fontSize: 13, color: T.textSecondary, lineHeight: 1.6 }}>Incident closed. Supervised drone assets recalled. Ground team staging returned to nominal. The complete audit trail has been filed and preserved contextually. Returning system to passive monitoring.</div>
             </div>
           </div>
         </div>
@@ -1132,7 +1192,7 @@ export function SentinelShell() {
           onExplore={() => {
             setExperienceMode("free");
             setShowEndCard(false);
-            setReviewDockOpen(true);
+            setReviewDockOpen(false);
           }}
         />
       )}
@@ -1160,25 +1220,10 @@ export function SentinelShell() {
           onExploreFree={() => {
             setScene("baseline");
             setExperienceMode("free");
-            setReviewDockOpen(true);
+            setReviewDockOpen(false);
           }}
         />
       )}
-    </div>
-  );
-}
-
-function RailCard({ flex, children }: { flex: number; children: ReactNode }) {
-  return (
-    <div
-      style={{
-        ...GLASS,
-        flex,
-        minHeight: 0,
-        overflow: "hidden",
-      }}
-    >
-      {children}
     </div>
   );
 }
@@ -1204,7 +1249,7 @@ function ReviewDock({
         right: RIGHT_RAIL_W + SCREEN_INSET + 12,
         width: open ? 232 : "auto",
         maxHeight: open ? 420 : "auto",
-        zIndex: 35,
+        zIndex: layer.popover,
         ...GLASS,
         borderRadius: 16,
         overflow: "hidden",
@@ -1772,14 +1817,16 @@ function VerifyLiveFeed({
   scene,
   onPrimaryAction,
   onSecondaryAction,
+  primaryDisabled,
 }: {
   scene: "verify-ready" | "verify-active";
   onPrimaryAction: () => void;
   onSecondaryAction: () => void;
+  primaryDisabled?: boolean;
 }) {
   const mapLoaded = scene === "verify-active";
   const primaryAction = scene === "verify-ready" ? "open-verification" : "confirm-incident";
-  const primaryLabel = scene === "verify-ready" ? "Open verification" : "Confirm active incident";
+  const primaryLabel = scene === "verify-ready" ? "Open verification" : "Prepare authority packet";
   const secondaryLabel = scene === "verify-ready" ? "Hold in background" : "Monitor only";
 
   return (
@@ -1977,6 +2024,7 @@ function VerifyLiveFeed({
           tone={T.amber}
           compact
           emphasis
+          disabled={primaryDisabled}
           onClick={onPrimaryAction}
         />
       </div>
@@ -1986,16 +2034,19 @@ function VerifyLiveFeed({
 
 
 function stripDerived(state: ShellState): ShellDraft {
-  const { activePriorities, quickActionStates, actionSurface, ...draft } = state;
+  const { activePriorities, quickActionStates, actionSurface, workflowPhase, ...draft } = state;
   return draft;
 }
 
 function syncState(draft: ShellDraft, investigationElapsed: number): ShellState {
+  const operationalException = getOperationalException(draft.scene);
   const actionSurface = deriveQuickActions(draft, investigationElapsed);
   const quickActionStates = [...actionSurface.primary, ...actionSurface.secondary];
   const activePriorities = derivePriorities(draft, quickActionStates);
   return {
     ...draft,
+    workflowPhase: getWorkflowPhase(draft.mode),
+    operationalException,
     quickActionStates,
     actionSurface,
     activePriorities,
@@ -2026,6 +2077,8 @@ function createSceneState(scene: SceneId, investigationElapsed: number): ShellSt
     acknowledgedPriorityIds: [],
     overrideReason: scene === "contain-alternate" ? "Operational constraint" : "Incomplete data",
     rescueProgress: createRescueProgress(),
+    operationalException: getOperationalException(scene),
+    talonConversation: { activeChip: null, response: null, voiceState: "idle" },
   };
 
   if (scene === "alert-command") {
@@ -2040,9 +2093,9 @@ function createSceneState(scene: SceneId, investigationElapsed: number): ShellSt
     assignDroneToMission(base, "investigation", "forest-north");
   }
 
-  if (scene === "verify-ready" || scene === "verify-active") {
+  if (scene === "verify-ready" || scene === "verify-active" || scene === "authority-notification-ready") {
     base.mode = "verify";
-    base.incidentStatus = "assessment-ready";
+    base.incidentStatus = scene === "authority-notification-ready" ? "notification-ready" : "assessment-ready";
     base.selectedEntity = { type: "anomaly", id: ANOMALY.id };
     base.selectedZoneId = ANOMALY.zoneId;
     const assignment = assignDroneToMission(base, "investigation", "forest-north");
@@ -2102,7 +2155,7 @@ function createSceneState(scene: SceneId, investigationElapsed: number): ShellSt
       if (degradedDrone) {
         degradedDrone.status = "signal-degraded";
         degradedDrone.signal = 46;
-        degradedDrone.route = "Autonomous reroute toward stronger relay corridor";
+        degradedDrone.route = "TALON reroute proposal toward stronger relay corridor";
       }
     }
   }
@@ -2127,8 +2180,8 @@ function createSceneState(scene: SceneId, investigationElapsed: number): ShellSt
     if (criticalDrone) {
       criticalDrone.battery = 14;
       criticalDrone.status = "en-route"; // returning to base
-      criticalDrone.note = "Recall in progress — returning to base";
-      criticalDrone.route = "RTB (Return to Base) — Autonomous recall";
+      criticalDrone.note = "Recall prepared - returning to base after acknowledgement";
+      criticalDrone.route = "RTB (Return to Base) - supervised recall";
     }
     // Mark a substitute drone as picking up the mission
     const substitutePool = base.drones.filter((d) => d.status === "available" && d.droneClass === "surveillance");
@@ -2136,7 +2189,7 @@ function createSceneState(scene: SceneId, investigationElapsed: number): ShellSt
       substitutePool[0].status = "en-route";
       substitutePool[0].assignedMission = "perimeter-monitor";
       substitutePool[0].role = "Perimeter monitor (handoff)";
-      substitutePool[0].route = "En route — taking over perimeter hold";
+      substitutePool[0].route = "En route - ready for perimeter handoff";
     }
   }
 
@@ -2180,7 +2233,7 @@ function createSceneState(scene: SceneId, investigationElapsed: number): ShellSt
 }
 
 function sceneToMode(scene: SceneId): OperationalMode {
-  if (scene === "verify-ready" || scene === "verify-active") {
+  if (scene === "verify-ready" || scene === "verify-active" || scene === "authority-notification-ready") {
     return "verify";
   }
   if (scene === "contain-recommended" || scene === "contain-alternate" || scene === "contain-degraded" || scene === "satellite-feed-loss" || scene === "network-degraded") {
@@ -2217,18 +2270,16 @@ function deriveQuickActions(draft: ShellDraft, investigationElapsed: number): Ac
     description: string,
     tone: string,
     requiresZone?: boolean,
-  ): QuickActionState => ({ id, label, status, description, tone, requiresZone });
+  ): QuickActionState => createCommandAction({ id, label, status, description, tone, requiresZone });
 
   switch (draft.scene) {
     // ── Scan scenes: popups own the actions, not the global bar ──────────
     case "baseline":
       return flat([]);
 
+    // alert-command: AlertPopup IS the command surface — action bar shows TALON status only
     case "alert-command":
-      return flat([
-        mk("dispatch-scout", "Dispatch Lidar-02", "recommended", "Launch investigation drone toward Grid 4C.", T.amber),
-        mk("monitor-only", "Dismiss", "available", "Clear the interrupt and return to quiet watch.", T.textSecondary),
-      ]);
+      return flat([]);
 
     case "investigation-pending": {
       const arrived = investigationElapsed >= 5;
@@ -2243,17 +2294,19 @@ function deriveQuickActions(draft: ShellDraft, investigationElapsed: number): Ac
       ]);
     }
 
-    // ── Verify scenes: single row, no split ───────────────────────────────
+    // verify-ready / verify-active: VerifyLiveFeed is the command surface — action bar shows TALON status only
     case "verify-ready":
-      return flat([
-        mk("open-verification", "Open verification", "recommended", "Bring the corroborated incident into assessment.", T.amber),
-        mk("monitor-only", "Hold in background", "available", "Return to background watch.", T.textSecondary),
-      ]);
+      return flat([]);
 
     case "verify-active":
+      return flat([]);
+
+    case "authority-notification-ready":
       return flat([
-        mk("confirm-incident", "Confirm active incident", "recommended", "Escalate into containment planning.", T.amber),
-        mk("monitor-only", "Monitor only", "available", "Keep under observation without escalating.", T.textSecondary),
+        mk("notify-authorities", "Send Authority Packet", draft.authoritiesNotified ? "complete" : "recommended",
+          "Send TALON packet AUD-90-0847 and start Operations after the human gate.", T.red),
+        mk("monitor-only", "Hold escalation", "available",
+          "Keep the packet staged without notifying authorities.", T.textSecondary),
       ]);
 
     // ── Contain scenes: 5 primary staging tiles + 3 secondary ─────────────
@@ -2286,8 +2339,8 @@ function deriveQuickActions(draft: ShellDraft, investigationElapsed: number): Ac
       ];
 
       const secondaryContain = [
-        mk("notify-authorities", "Notify auth.", draft.authoritiesNotified ? "complete" : "available",
-          "Share incident scope with fire management and dispatch.", T.textSecondary),
+        mk("notify-authorities", "Send Authority Packet", draft.authoritiesNotified ? "complete" : "available",
+          "Send incident scope to fire management and dispatch.", T.textSecondary),
         mk("notify-teams", "Notify teams", draft.teamsNotified ? "complete" : "available",
           "Alert and stage ground teams.", T.textSecondary),
         mk("stand-down", "Stand down", "available",
@@ -2306,10 +2359,10 @@ function deriveQuickActions(draft: ShellDraft, investigationElapsed: number): Ac
     case "rescue-signal-degraded": {
       if (!draft.emergencyEvacuationActive) {
         const primaryPreEvac = [
-          mk("emergency-evacuate", "Emergency evacuate", "recommended",
+          mk("emergency-evacuate", "Start evacuation", "recommended",
             "Activate residential evacuation for the projected path.", T.fire),
-          mk("notify-authorities", "Notify auth.", draft.authoritiesNotified ? "complete" : "available",
-            "Notify authorities of the active rescue scope.", T.textSecondary),
+          mk("notify-authorities", "Send rescue update", draft.authoritiesNotified ? "complete" : "available",
+            "Send active rescue scope to authorities.", T.textSecondary),
           mk("notify-teams", "Notify teams", draft.teamsNotified ? "complete" : "available",
             "Alert and brief all ground teams.", T.textSecondary),
           mk("abort-mission", "Abort mission", "available",
@@ -2319,13 +2372,13 @@ function deriveQuickActions(draft: ShellDraft, investigationElapsed: number): Ac
       }
 
       const primaryPostEvac: QuickActionState[] = [
-        mk("activate-automatic-route", "Residential evac drone",
+        mk("activate-automatic-route", "Guided evac drone",
           draft.residentialRouteActive ? "complete" : "recommended",
-          "Drone-guided egress path — speakers + lighting for residents.", T.cyan),
+          "Drone-guided egress path with speakers and lighting for residents.", T.cyan),
         mk("deploy-navigation-drone", "Guide personnel",
           draft.responderRouteActive ? "complete" : "recommended",
           "Responder-guidance drone via safest ingress corridor.", T.yellow),
-        mk("notify-authorities", "Notify auth.", draft.authoritiesNotified ? "complete" : "available",
+        mk("notify-authorities", "Send rescue update", draft.authoritiesNotified ? "complete" : "available",
           "Confirm rescue scope with authorities.", T.textSecondary),
         mk("notify-teams", "Notify teams", draft.teamsNotified ? "complete" : "available",
           "Reconfirm field team staging readiness.", T.textSecondary),
@@ -2505,7 +2558,7 @@ function derivePriorities(draft: ShellDraft, actions: QuickActionState[]): Prior
       title: "Residential evacuation path remains the top human priority",
       severity: "danger",
       rationale: "The rescue phase is active and the residential zone remains inside the projected spread path.",
-      nextStep: "Activate or maintain automatic routes and evacuation guidance.",
+      nextStep: "Activate or maintain guided routes and evacuation support.",
       status:
         actionToPriority("activate-automatic-route") === "complete" && actionToPriority("emergency-evacuate") === "complete"
           ? "in-progress"
@@ -2773,7 +2826,7 @@ function EntryScreen({ onBeginScenario, onExploreFree }: { onBeginScenario: () =
               cursor: "pointer",
             }}
           >
-            Explore freely →
+            Explore freely
           </button>
         </div>
       </div>
@@ -2819,10 +2872,10 @@ function ScenarioBrief({ onReady }: { onReady: () => void }) {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {(["Scan", "Verify", "Contain", "Rescue"] as const).map((phase, i) => (
+          {(["Intelligence", "Authority Packet", "Operations"] as const).map((phase, i) => (
             <div key={phase} style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontFamily: font.mono, fontSize: 10, color: T.textSecondary, letterSpacing: "0.06em" }}>{phase}</span>
-              {i < 3 && <span style={{ color: T.textMuted, fontSize: 9 }}>·</span>}
+              {i < 2 && <span style={{ color: T.textMuted, fontSize: 9 }}>·</span>}
             </div>
           ))}
         </div>
@@ -2855,14 +2908,16 @@ function ScenarioBrief({ onReady }: { onReady: () => void }) {
 
 function GuidanceStrip({ mode, scene, bottom }: { mode: OperationalMode; scene: SceneId; bottom: number }) {
   const PHASE_INFO: Record<OperationalMode, { label: string; index: number; prompt: string }> = {
-    scan:    { label: "Scan",    index: 1, prompt: "TALON flagged an anomaly. Dispatch or dismiss." },
-    verify:  { label: "Verify",  index: 2, prompt: "Evidence received. Confirm incident or override." },
-    contain: { label: "Contain", index: 3, prompt: "TALON recommends containment. Authorize or revise." },
-    rescue:  { label: "Rescue",  index: 4, prompt: "System executing. Supervise exceptions only." },
+    scan:    { label: "Intelligence", index: 1, prompt: "TALON is watching for evidence convergence." },
+    verify:  { label: "Intelligence", index: 1, prompt: "Evidence received. Confirm escalation or hold." },
+    contain: { label: "Operations",   index: 2, prompt: "Authorities notified. Stage resources and authorize field actions." },
+    rescue:  { label: "Operations",   index: 2, prompt: "Authorized plan executing. Supervise exceptions." },
   };
   const info = { ...PHASE_INFO[mode] };
   if (scene === "investigation-pending") {
     info.prompt = "Drone dispatched. Awaiting live feed.";
+  } else if (scene === "authority-notification-ready") {
+    info.prompt = "Authority packet ready. Human send starts Operations.";
   }
   return (
     <div
@@ -2889,7 +2944,7 @@ function GuidanceStrip({ mode, scene, bottom }: { mode: OperationalMode; scene: 
         {info.label}
       </span>
       <span style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted, flexShrink: 0 }}>
-        Phase {info.index} of 4
+        Phase {info.index} of 2
       </span>
       <div style={{ width: 1, height: 14, background: "rgba(255,255,255,0.10)", flexShrink: 0 }} />
       <span style={{ fontFamily: font.sans, fontSize: 12, color: T.textSecondary, lineHeight: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -3062,7 +3117,7 @@ function EscalationProtocolOverlay({
               fontFamily: font.sans, fontSize: 18, fontWeight: 700,
               color: T.textPrimary, marginBottom: 6, lineHeight: 1.25,
             }}>
-              No operator response detected
+              Operator approval unavailable
             </div>
             <div style={{
               fontFamily: font.sans, fontSize: 12, color: T.textSecondary, lineHeight: 1.6,

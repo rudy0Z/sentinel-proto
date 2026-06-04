@@ -59,21 +59,22 @@ export interface MissionAnchor {
 }
 
 export const REVIEW_SCENES: Array<{ id: SceneId; label: string; note: string }> = [
-  { id: "baseline", label: "Baseline", note: "Calm monitoring environment." },
-  { id: "alert-command", label: "Alert Command", note: "Initial TALON interrupt for dispatch." },
-  { id: "investigation-pending", label: "Investigation Pending", note: "Scout-02 en route." },
-  { id: "verify-ready", label: "Verify Ready", note: "Assessment interrupt ready." },
-  { id: "verify-active", label: "Verify Active", note: "Operator assessing TALON-corroborated data." },
-  { id: "contain-recommended", label: "Contain Recommended", note: "TALON-recommended containment plan." },
-  { id: "contain-alternate", label: "Contain Alternate", note: "Override plan for review." },
-  { id: "contain-degraded", label: "Contain Degraded", note: "Terrain-model fallback view." },
-  { id: "rescue-nominal", label: "Rescue Nominal", note: "Authorized operations nominal." },
-  { id: "rescue-signal-degraded", label: "Rescue Degraded", note: "Signal exception while rescue continues." },
-  // ── Edge Case / Failure Scenes ──
-  { id: "rescue-battery-critical", label: "Battery Critical", note: "Drone at 14% — TALON initiating autonomous handoff." },
-  { id: "satellite-feed-loss", label: "Satellite Feed Loss", note: "Aerial intelligence offline, drone-only telemetry." },
-  { id: "infrastructure-total-loss", label: "Infrastructure Failure", note: "Total system breakdown — operator manual protocol." },
-  { id: "network-degraded", label: "Network Degraded", note: "High latency across all feeds — 340ms average." },
+  { id: "baseline", label: "Intelligence: Quiet Watch", note: "Passive data monitoring before an incident." },
+  { id: "alert-command", label: "Intelligence: Anomaly Alert", note: "Initial TALON interrupt for scout verification." },
+  { id: "investigation-pending", label: "Intelligence: Scout En Route", note: "Lidar-02 moving toward Grid 4C." },
+  { id: "verify-ready", label: "Intelligence: Evidence Ready", note: "Assessment interrupt ready." },
+  { id: "verify-active", label: "Intelligence: Operator Review", note: "Operator assessing TALON-corroborated data." },
+  { id: "authority-notification-ready", label: "Intelligence: Authority Packet", note: "90-second milestone ready for human send." },
+  { id: "contain-recommended", label: "Operations: Plan Staging", note: "Post-notification containment plan." },
+  { id: "contain-alternate", label: "Operations: Recomputed Plan", note: "Operator override plan for review." },
+  { id: "contain-degraded", label: "Operations: Degraded Terrain", note: "Terrain-model fallback view." },
+  { id: "rescue-nominal", label: "Operations: Active Rescue", note: "Authorized operations nominal." },
+  { id: "rescue-signal-degraded", label: "Operations: Signal Exception", note: "Signal exception while rescue continues." },
+  // Edge Case / Failure Scenes
+  { id: "rescue-battery-critical", label: "Operations: Battery Critical", note: "Drone at 14%; TALON preparing a supervised handoff." },
+  { id: "satellite-feed-loss", label: "Failure: Satellite Loss", note: "Aerial intelligence offline, drone-only telemetry." },
+  { id: "infrastructure-total-loss", label: "Failure: Infrastructure Loss", note: "Total system breakdown; operator manual protocol." },
+  { id: "network-degraded", label: "Failure: Network Degraded", note: "High latency across all feeds; 340ms average." },
 ];
 
 export const INCIDENT = {
@@ -230,7 +231,7 @@ export const MISSION_ANCHORS: Record<
     "prepare-residential-evacuation": { x: 1377, y: 780, route: "Residential Zone 1 guidance hold" },
     "guide-emergency-personnel": { x: 1192, y: 708, route: "Residential responder ingress" },
     "relay-field-intel": { x: 1098, y: 636, route: "Residential edge relay" },
-    "automatic-route": { x: 1304, y: 842, route: "Autonomous residential egress" },
+    "automatic-route": { x: 1304, y: 842, route: "Guided residential egress" },
     "backup-support": { x: 1218, y: 704, route: "Residential backup staging" },
   },
 };

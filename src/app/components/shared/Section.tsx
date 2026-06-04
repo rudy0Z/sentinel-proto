@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { T, font } from "../../tokens";
+import { T, font, space, typeScale } from "../../tokens";
 
 interface SectionProps {
   label: string;
@@ -13,16 +13,16 @@ export function Section({ label, children }: SectionProps) {
       <div
         style={{
           fontFamily: font.mono,
-          fontSize: 10,
+          fontSize: typeScale.caption,
           color: T.textMuted,
           letterSpacing: "0.08em",
           textTransform: "uppercase",
-          marginBottom: 10,
+          marginBottom: space.lg,
         }}
       >
         {label}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>{children}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: space.lg }}>{children}</div>
     </div>
   );
 }

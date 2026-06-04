@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import svgPaths from "./mapSvgPaths";
 import mapBackdrop from "../../assets/sentinel-map-overhaul.png";
 import mapPreIncident from "../../assets/map-preincident.png";
@@ -6,12 +6,14 @@ import droneThermalFeed from "../../assets/drone-thermal-feed.png";
 import droneNvgFeed from "../../assets/drone-nvg-feed.png";
 import droneThermalRes from "../../assets/drone-thermal-residential.png";
 import droneLowlight from "../../assets/drone-lowlight-road.png";
+import { OperationalIcon } from "./OperationalIcon";
 import {
   ANOMALY,
   EVACUATION_ROUTES,
   RESPONDER_ROUTE,
   TERRAIN_MODEL_STATUS,
   getZoneLabel,
+  ZONES,
 } from "../mockData";
 import { DroneMissionType, ShellState, T, font } from "../tokens";
 
@@ -20,6 +22,7 @@ interface MapCanvasProps {
   state: ShellState;
   onSelectEntity: (selection: ShellState["selectedEntity"]) => void;
   mapImageSrc?: string;
+  onUpdateState?: (updater: (draft: any) => void) => void;
 }
 
 // ─── Scaling: Figma canvas 1691×914 → display 1440×900 ─────────────────────
@@ -58,77 +61,216 @@ const TEAM_MARKERS = {
   bravo: { cx: 950, cy: 640, color: T.fire,   dashColor: "#E5533C", label: "BRAVO" },
 } as const;
 
-// ─── Ground-team vehicle cluster (new Figma-style glowing dot with dashed ring)
+const MAP_OPERATION_ANCHORS: Array<{ id: string; label: string; x: number; y: number; allowed: Array<"drone" | "team"> }> = [
+  { id: "forest-overwatch", label: "Forest Overwatch", x: 610, y: 302, allowed: ["drone"] },
+  { id: "ridge-lidar", label: "Ridge LiDAR Hold", x: 1086, y: 433, allowed: ["drone"] },
+  { id: "buffer-relay-west", label: "Buffer Relay West", x: 538, y: 570, allowed: ["drone", "team"] },
+  { id: "buffer-relay-east", label: "Buffer Relay East", x: 954, y: 603, allowed: ["drone", "team"] },
+  { id: "residential-egress", label: "Residential Egress Anchor", x: 1378, y: 781, allowed: ["drone", "team"] },
+  { id: "alpha-staging", label: "Alpha Staging", x: 530, y: 616, allowed: ["team"] },
+  { id: "bravo-staging", label: "Bravo Staging", x: 950, y: 640, allowed: ["team"] },
+];
+
+function nearestOperationalAnchor(x: number, y: number, type: "drone" | "team") {
+  return MAP_OPERATION_ANCHORS
+    .filter((anchor) => anchor.allowed.includes(type))
+    .map((anchor) => ({
+      ...anchor,
+      distance: Math.hypot(anchor.x - x, anchor.y - y),
+    }))
+    .sort((a, b) => a.distance - b.distance)[0];
+}
+
+// ─── Ground-unit marker — designed unit body inside a dashed coverage ring ────
 function Vehicle({ cx, cy, mainColor, dashColor, r = 4.5 }: {
   cx: number; cy: number; mainColor: string; dashColor: string; r?: number;
 }) {
   return (
     <g>
-      <circle cx={cx} cy={cy} r={r * 3.2} fill={mainColor} fillOpacity={0.1} />
-      <circle cx={cx} cy={cy} r={r * 0.7} fill="white" />
-      <circle cx={cx} cy={cy} r={r * 1.4} fill="none" stroke={mainColor} strokeOpacity={0.5} strokeWidth={0.65} />
-      <circle cx={cx} cy={cy} r={r * 2.0} fill="none" stroke={dashColor} strokeOpacity={0.88} strokeWidth={1.0} strokeDasharray="8.22 5.87" />
+      {/* coverage glow + dashed ring */}
+      <circle cx={cx} cy={cy} r={r * 2.8} fill={mainColor} fillOpacity={0.1} />
+      <circle cx={cx} cy={cy} r={r * 2.0} fill="none" stroke={dashColor} strokeOpacity={0.85} strokeWidth={0.95} strokeDasharray="7 5" />
+      {/* unit body */}
+      <rect
+        x={cx - r * 0.95} y={cy - r * 0.72} width={r * 1.9} height={r * 1.44} rx={r * 0.5}
+        fill={mainColor} stroke="#0A0F18" strokeWidth={0.5} strokeOpacity={0.5}
+      />
+      {/* core */}
+      <circle cx={cx} cy={cy} r={r * 0.4} fill="#0A0F18" fillOpacity={0.8} />
     </g>
   );
 }
 
-// ─── Drone / Relay crosshair marker (new Figma-style with pulse animation) ───
-function NewDroneMarker({
-  cx, cy, label, active, degraded, muted, isHovered, onEnter, onLeave, onClick,
+// ─── Class-specific accent glyph drawn in the drone body center ──────────────
+function DroneClassGlyph({ droneClass, color }: { droneClass: string; color: string }) {
+  switch (droneClass) {
+    case "thermal-lidar":
+      // scan diamond
+      return <path d="M0,-3.2 L3.2,0 L0,3.2 L-3.2,0 Z" fill={color} />;
+    case "guidance-relay":
+      // broadcast arcs
+      return (
+        <g>
+          <g fill="none" stroke={color} strokeWidth={0.9} strokeLinecap="round">
+            <path d="M-3.2,-1.8 A4 4 0 0 1 3.2,-1.8" />
+            <path d="M-1.7,-0.4 A2.2 2.2 0 0 1 1.7,-0.4" />
+          </g>
+          <circle cx={0} cy={1.6} r={1} fill={color} />
+        </g>
+      );
+    case "evacuation-guidance":
+      // downward beacon cone
+      return (
+        <g>
+          <circle cx={0} cy={-2.1} r={1.2} fill={color} />
+          <path d="M-2.5,3 L0,-1 L2.5,3 Z" fill={color} fillOpacity={0.55} />
+        </g>
+      );
+    case "multi-role":
+      // 4-point star
+      return <path d="M0,-3.4 L0.9,-0.9 L3.4,0 L0.9,0.9 L0,3.4 L-0.9,0.9 L-3.4,0 L-0.9,-0.9 Z" fill={color} />;
+    case "surveillance":
+    default:
+      // camera lens
+      return (
+        <g>
+          <circle cx={0} cy={0} r={2.4} fill="none" stroke={color} strokeWidth={1} />
+          <circle cx={0} cy={0} r={1} fill={color} />
+        </g>
+      );
+  }
+}
+
+// ─── Drone marker — designed top-down quadcopter, class- and state-aware ──────
+function DroneMarker({
+  cx, cy, label, active, degraded, muted, isHovered, droneClass, status,
+  onEnter, onLeave, onClick, onMouseDown,
 }: {
   cx: number; cy: number; label: string; active: boolean;
   degraded?: boolean; muted?: boolean; isHovered: boolean;
+  droneClass: string; status: string;
   onEnter: () => void; onLeave: () => void;
   onClick: (e: React.MouseEvent<SVGGElement>) => void;
+  onMouseDown?: (e: React.MouseEvent<SVGGElement>) => void;
 }) {
-  const scale = isHovered ? 1.12 : 1;
-  const color = degraded ? T.amber : "#00C8FF";
-  const opacity = muted ? 0.52 : 0.96;
-  const R   = 14.0 * SX;
-  const hw  = 9.4  * SX;
-  const hh  = 1.76 * SY;
+  const color = degraded ? T.amber : status === "available" ? "#5AD1FF" : "#00C8FF";
+  const opacity = muted ? 0.6 : 0.98;
+  const enRoute = status === "en-route";
+  const scale = (isHovered ? 1.14 : 1) * 0.82;
+  const arm = 8.4;
+  const rotorR = 3.5;
+  const rotors: Array<[number, number]> = [[arm, arm], [-arm, arm], [arm, -arm], [-arm, -arm]];
 
   return (
     <g
       transform={`translate(${cx},${cy})`}
-      style={{ cursor: "pointer", pointerEvents: "all" }}
+      style={{ cursor: "grab", pointerEvents: "all" }}
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
       onClick={onClick}
+      onMouseDown={(e) => {
+        e.stopPropagation();
+        if (onMouseDown) onMouseDown(e);
+      }}
     >
       <g style={{ transform: `scale(${scale})`, transformOrigin: "0 0", transition: "transform 0.2s ease", opacity }}>
-        {/* Pulse ring */}
+        {/* active pulse ring */}
         {active && (
-          <circle cx={0} cy={0} r={R} fill="none" stroke={color} strokeWidth={0.9} strokeOpacity={0.35}>
-            <animate attributeName="r" from={`${R}`} to={`${R * 1.75}`} dur="2.2s" repeatCount="indefinite" />
-            <animate attributeName="stroke-opacity" from="0.42" to="0" dur="2.2s" repeatCount="indefinite" />
+          <circle cx={0} cy={0} r={13} fill="none" stroke={color} strokeWidth={0.8} strokeOpacity={0.4}>
+            <animate attributeName="r" from="13" to="22" dur="2.2s" repeatCount="indefinite" />
+            <animate attributeName="stroke-opacity" from="0.45" to="0" dur="2.2s" repeatCount="indefinite" />
           </circle>
         )}
-        {/* Outer glow circle */}
-        <circle cx={0} cy={0} r={R}
-          fill={color} fillOpacity={muted ? 0.06 : 0.11}
-          stroke={color} strokeWidth={1.4 * SX}
-          filter="url(#marker-glow-l3)"
-        />
-        {/* Crosshair: horizontal bar */}
-        <rect x={-hw} y={-hh} width={hw * 2} height={hh * 2} fill={color} rx={hh} />
-        {/* Crosshair: vertical bar */}
-        <rect x={-hh} y={-hw} width={hh * 2} height={hw * 2} fill={color} rx={hh} />
-        {/* Center dot */}
-        <circle cx={0} cy={0} r={2.8 * SX} fill={color} />
+        {/* soft glow disc */}
+        <circle cx={0} cy={0} r={12} fill={color} fillOpacity={muted ? 0.05 : 0.09} filter="url(#marker-glow-l3)" />
+        {/* arms */}
+        <g stroke={color} strokeWidth={1.1} strokeOpacity={0.8} strokeLinecap="round">
+          <line x1={0} y1={0} x2={arm} y2={arm} />
+          <line x1={0} y1={0} x2={-arm} y2={arm} />
+          <line x1={0} y1={0} x2={arm} y2={-arm} />
+          <line x1={0} y1={0} x2={-arm} y2={-arm} />
+        </g>
+        {/* rotors */}
+        {rotors.map(([rx, ry], i) => (
+          <g key={i}>
+            <circle cx={rx} cy={ry} r={rotorR} fill={color} fillOpacity={0.14} stroke={color} strokeWidth={0.9} />
+            {(active || enRoute) && (
+              <circle cx={rx} cy={ry} r={rotorR} fill="none" stroke={color} strokeWidth={0.7} strokeOpacity={0.65} strokeDasharray={`${rotorR * 1.1} ${rotorR * 2.2}`}>
+                <animateTransform attributeName="transform" type="rotate" from={`0 ${rx} ${ry}`} to={`360 ${rx} ${ry}`} dur="0.85s" repeatCount="indefinite" />
+              </circle>
+            )}
+          </g>
+        ))}
+        {/* center body */}
+        <rect x={-4.6} y={-4.6} width={9.2} height={9.2} rx={2.4} fill="#0A0F18" fillOpacity={0.82} stroke={color} strokeWidth={1} />
+        <DroneClassGlyph droneClass={droneClass} color={color} />
+        {/* en-route heading chevron */}
+        {enRoute && <path d="M0,-13 L3,-8 L-3,-8 Z" fill={color} fillOpacity={0.85} />}
       </g>
-      {/* Label — not scaled */}
+      {/* label — not scaled */}
       <text
-        x={R + 5 * SX}
-        y={3.8 * SY}
+        x={15} y={4}
         fill={color}
-        fontSize={9.393 * SX}
+        fontSize={9.4 * SX}
         fontFamily="'JetBrains Mono', monospace"
         fontWeight="bold"
-        opacity={opacity}
+        opacity={muted ? 0.7 : 0.96}
       >
         {label}
       </text>
+    </g>
+  );
+}
+
+// ─── Deterministic ember field for the living fire FX ────────────────────────
+const FIRE_EMBERS = [
+  { dx: -44, dy: 6,  r: 1.0, rise: 70, dur: 2.6, delay: 0.0, drift: 6,  color: "#FFB047" },
+  { dx: -30, dy: -4, r: 1.4, rise: 84, dur: 3.0, delay: 0.5, drift: -7, color: "#FF6B4A" },
+  { dx: -18, dy: 8,  r: 0.9, rise: 62, dur: 2.2, delay: 1.1, drift: 5,  color: "#FFD166" },
+  { dx: -6,  dy: -6, r: 1.6, rise: 92, dur: 3.2, delay: 0.3, drift: -5, color: "#E5533C" },
+  { dx: 4,   dy: 5,  r: 1.1, rise: 74, dur: 2.7, delay: 0.8, drift: 7,  color: "#FF8F3D" },
+  { dx: 16,  dy: -3, r: 1.3, rise: 80, dur: 2.9, delay: 1.4, drift: -6, color: "#FF6B4A" },
+  { dx: 28,  dy: 7,  r: 0.8, rise: 58, dur: 2.0, delay: 0.2, drift: 4,  color: "#FFD166" },
+  { dx: 40,  dy: -5, r: 1.5, rise: 88, dur: 3.1, delay: 0.9, drift: -8, color: "#E5533C" },
+  { dx: -36, dy: -8, r: 1.0, rise: 66, dur: 2.4, delay: 1.7, drift: 6,  color: "#FFB047" },
+  { dx: 10,  dy: 9,  r: 1.2, rise: 78, dur: 2.8, delay: 2.0, drift: -4, color: "#FF8F3D" },
+  { dx: -12, dy: 2,  r: 0.9, rise: 60, dur: 2.1, delay: 1.3, drift: 5,  color: "#FFD166" },
+  { dx: 22,  dy: -7, r: 1.4, rise: 86, dur: 3.0, delay: 0.6, drift: -6, color: "#FF6B4A" },
+];
+
+// ─── Living fire — pulsing thermal glow + rising embers at the ignition point ─
+function LiveFireFX({ cx, cy }: { cx: number; cy: number }) {
+  return (
+    <g pointerEvents="none">
+      <ellipse cx={cx} cy={cy} rx={72} ry={34} fill="url(#fireGlow)">
+        <animate attributeName="opacity" values="0.55;0.85;0.55" dur="2.4s" repeatCount="indefinite" />
+        <animate attributeName="rx" values="72;78;72" dur="3.1s" repeatCount="indefinite" />
+      </ellipse>
+      {FIRE_EMBERS.map((e, i) => {
+        const ox = cx + e.dx;
+        const oy = cy + e.dy;
+        return (
+          <circle key={i} cx={ox} cy={oy} r={e.r} fill={e.color} opacity={0}>
+            <animate attributeName="cy" from={`${oy}`} to={`${oy - e.rise}`} dur={`${e.dur}s`} begin={`${e.delay}s`} repeatCount="indefinite" />
+            <animate attributeName="cx" values={`${ox};${ox + e.drift};${ox}`} dur={`${e.dur}s`} begin={`${e.delay}s`} repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0;0.9;0" keyTimes="0;0.3;1" dur={`${e.dur}s`} begin={`${e.delay}s`} repeatCount="indefinite" />
+          </circle>
+        );
+      })}
+    </g>
+  );
+}
+
+// ─── LiDAR scan-sweep — periodic reconstruction pass across the vision map ────
+function LidarScanSweep() {
+  return (
+    <g pointerEvents="none" opacity={0.6}>
+      <rect x={0} y={-72} width={1440} height={72} fill="url(#scanGrad)">
+        <animateTransform attributeName="transform" type="translate" from="0 0" to="0 972" dur="5.5s" repeatCount="indefinite" />
+      </rect>
+      <line x1={0} y1={0} x2={1440} y2={0} stroke="#00C8FF" strokeWidth={1} strokeOpacity={0.45}>
+        <animateTransform attributeName="transform" type="translate" from="0 0" to="0 972" dur="5.5s" repeatCount="indefinite" />
+      </line>
     </g>
   );
 }
@@ -177,19 +319,199 @@ function AnomalyMarker({ selected, onClick }: { selected: boolean; onClick: (e: 
 }
 
 // ─── Main MapCanvas export ───────────────────────────────────────────────────
-export function MapCanvas({ state, onSelectEntity, mapImageSrc = mapBackdrop }: MapCanvasProps) {
+export function MapCanvas({ state, onSelectEntity, mapImageSrc = mapBackdrop, onUpdateState }: MapCanvasProps) {
   if (state.surfaceMode === "drone-grid") {
     return <DroneGridSurface state={state} onSelectEntity={onSelectEntity} />;
   }
-  return <MapView state={state} onSelectEntity={onSelectEntity} mapImageSrc={mapImageSrc} />;
+  return <MapView state={state} onSelectEntity={onSelectEntity} mapImageSrc={mapImageSrc} onUpdateState={onUpdateState} />;
 }
 
 // ─── MapView (the real map — split out so hooks are never called conditionally)
-function MapView({ state, onSelectEntity, mapImageSrc }: Required<MapCanvasProps>) {
+function MapView({ state, onSelectEntity, mapImageSrc, onUpdateState }: MapCanvasProps & { mapImageSrc: string }) {
   // ── Internal hover/selection for new Figma zone visuals ──────────────────
   const [hoveredZone,   setHoveredZone]   = useState<ZoneId | null>(null);
   const [selectedZone,  setSelectedZone]  = useState<ZoneId | null>(null);
   const [hoveredMarker, setHoveredMarker] = useState<string | null>(null);
+
+  // ── Drag and Drop State & Handlers ─────────────────────────────────────────
+  const [draggingEntity, setDraggingEntity] = useState<{ type: "drone" | "team"; id: string } | null>(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
+
+  // Self-contained appendLog helper for manual overrides inside MapCanvas context
+  const appendLog = (
+    draft: any,
+    actor: "AI" | "TALON" | "Operator" | "System",
+    type: string,
+    text: string,
+    severity: "danger" | "caution" | "info" | "safe",
+  ) => {
+    const nextId = `log-manual-${Date.now()}`;
+    let timestamp = "03:48:55";
+    if (draft.activityLog && draft.activityLog.length > 0) {
+      const latest = draft.activityLog[0].ts;
+      const parts = latest.split(":").map(Number);
+      if (parts.length === 3) {
+        let s = parts[0] * 3600 + parts[1] * 60 + parts[2] + 5;
+        const h = Math.floor(s / 3600) % 24;
+        const m = Math.floor((s % 3600) / 60);
+        const sec = s % 60;
+        timestamp = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+      }
+    }
+    draft.activityLog = [
+      {
+        id: nextId,
+        ts: timestamp,
+        actor,
+        type,
+        text,
+        severity,
+      },
+      ...draft.activityLog,
+    ];
+  };
+
+  const handleDroneMouseDown = (droneId: string) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setDraggingEntity({ type: "drone", id: droneId });
+  };
+
+  const handleTeamMouseDown = (teamId: string) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setDraggingEntity({ type: "team", id: teamId });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!draggingEntity || !svgRef.current || !onUpdateState) return;
+
+    const svg = svgRef.current;
+    const rect = svg.getBoundingClientRect();
+
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+
+    const svgX = (clickX / rect.width) * 1440;
+    const svgY = (clickY / rect.height) * 900;
+
+    const figmaX = Math.round(svgX / SX);
+    const figmaY = Math.round(svgY / SY);
+
+    onUpdateState((draft) => {
+      if (draggingEntity.type === "drone") {
+        const drone = draft.drones.find((d: any) => d.id === draggingEntity.id);
+        if (drone) {
+          drone.x = figmaX;
+          drone.y = figmaY;
+        }
+      } else if (draggingEntity.type === "team") {
+        const team = draft.groundTeams.find((t: any) => t.id === draggingEntity.id);
+        if (team) {
+          team.x = figmaX;
+          team.y = figmaY;
+        }
+      }
+    });
+  };
+
+  const handleMouseUp = () => {
+    if (!draggingEntity) return;
+
+    const entityId = draggingEntity.id;
+    const entityType = draggingEntity.type;
+    setDraggingEntity(null);
+
+    if (!onUpdateState) return;
+
+    onUpdateState((draft) => {
+      const zonesInteractive = state.mode === "contain" || state.mode === "rescue";
+
+      if (entityType === "drone") {
+        const drone = draft.drones.find((d: any) => d.id === entityId);
+        const droneName = drone ? drone.name : entityId.toUpperCase();
+        let anchorLabel = "nearest valid anchor";
+
+        if (drone) {
+          const anchor = nearestOperationalAnchor(drone.x, drone.y, "drone");
+          if (anchor) {
+            drone.x = anchor.x;
+            drone.y = anchor.y;
+            anchorLabel = anchor.label;
+          }
+
+          let closestZoneId = drone.zoneId;
+          let minDistance = Infinity;
+          for (const zone of ZONES) {
+            const dx = drone.x - zone.center.x;
+            const dy = drone.y - zone.center.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < minDistance) {
+              minDistance = dist;
+              closestZoneId = zone.id;
+            }
+          }
+          if (closestZoneId !== drone.zoneId) {
+            drone.zoneId = closestZoneId;
+          }
+        }
+
+        appendLog(
+          draft,
+          "Operator",
+          "Override",
+          `Operator repositioned Drone ${droneName}. TALON snapped it to ${anchorLabel} and is recomputing the authorized flight path.`,
+          "caution"
+        );
+
+        if (zonesInteractive) {
+          draft.scene = "contain-alternate";
+          draft.overrideReason = "Operator judgment / visual confirmation";
+        }
+      } else if (entityType === "team") {
+        const team = draft.groundTeams.find((t: any) => t.id === entityId);
+        const teamName = team ? team.name : entityId.toUpperCase();
+        let anchorLabel = "nearest valid anchor";
+
+        if (team) {
+          const anchor = nearestOperationalAnchor(team.x, team.y, "team");
+          if (anchor) {
+            team.x = anchor.x;
+            team.y = anchor.y;
+            anchorLabel = anchor.label;
+          }
+
+          let closestZoneId = team.linkedZoneId;
+          let minDistance = Infinity;
+          for (const zone of ZONES) {
+            const dx = team.x - zone.center.x;
+            const dy = team.y - zone.center.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < minDistance) {
+              minDistance = dist;
+              closestZoneId = zone.id;
+            }
+          }
+          if (closestZoneId !== team.linkedZoneId) {
+            team.linkedZoneId = closestZoneId;
+          }
+        }
+
+        appendLog(
+          draft,
+          "Operator",
+          "Override",
+          `Operator repositioned Ground Team ${teamName}. TALON snapped it to ${anchorLabel} and is recomputing ingress guidance.`,
+          "caution"
+        );
+
+        if (zonesInteractive) {
+          draft.scene = "contain-alternate";
+          draft.overrideReason = "Operator judgment / visual confirmation";
+        }
+      }
+    });
+  };
 
   // ── Phase/flow visibility flags ──────────────────────────────────────────
   const showIncident   = state.scene !== "baseline";
@@ -208,7 +530,8 @@ function MapView({ state, onSelectEntity, mapImageSrc }: Required<MapCanvasProps
   const showInvestigationPath =
     state.scene === "investigation-pending" ||
     state.scene === "verify-ready"          ||
-    state.scene === "verify-active";
+    state.scene === "verify-active"         ||
+    state.scene === "authority-notification-ready";
 
   // Zones are only interactive in contain/rescue modes
   const zonesInteractive = showContain || showRescue;
@@ -219,6 +542,7 @@ function MapView({ state, onSelectEntity, mapImageSrc }: Required<MapCanvasProps
   // ── PROGRESSIVE REVEAL — each element gated by the action that triggers it ─
   // Coverage drones deployed → fire spread boundary + forest zone label appear
   const showFireSpreadBoundary =
+    state.scene === "authority-notification-ready" ||
     hasMission("survey-zone") ||
     hasMission("perimeter-monitor") ||
     showRescue;
@@ -251,6 +575,10 @@ function MapView({ state, onSelectEntity, mapImageSrc }: Required<MapCanvasProps
   const showTeams = state.teamsNotified;
 
   const showContainDegraded = showContain && state.scene === "contain-degraded";
+
+  // Living-fire embers + LiDAR scan only on the active vision/fire map (post-verify)
+  const showFireFX = showIncident && !isPreVerify;
+  const showScan = !isPreVerify && state.scene !== "infrastructure-total-loss";
 
   // ── Zone opacity/filter for interactive hover/selection ──────────────────
   const getZoneOpacity = useCallback((id: ZoneId) => {
@@ -299,6 +627,7 @@ function MapView({ state, onSelectEntity, mapImageSrc }: Required<MapCanvasProps
             objectFit: "cover",
             objectPosition: "50% 44%",
             transition: "opacity 600ms ease",
+            opacity: state.scene === "network-degraded" ? 0.04 : 1,
             filter: (showContain || showRescue)
               ? "saturate(0.96) brightness(0.84)"
               : isPreVerify
@@ -323,12 +652,44 @@ function MapView({ state, onSelectEntity, mapImageSrc }: Required<MapCanvasProps
         }} />
       </div>
 
+      {state.scene === "network-degraded" && (
+        <div style={{
+          position: "absolute",
+          top: 20,
+          left: 20,
+          right: 20,
+          background: "rgba(229, 83, 60, 0.15)",
+          border: `1px solid ${T.red}`,
+          borderRadius: 8,
+          padding: "10px 16px",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          zIndex: 60,
+          backdropFilter: "blur(8px)",
+        }}>
+          <OperationalIcon name="warning" color={T.red} size={16} />
+          <div>
+            <div style={{ fontFamily: font.mono, fontSize: 11, fontWeight: 700, color: T.red, letterSpacing: "0.08em" }}>
+              LIVE HD VIDEO OFFLINE — CELL FAILBACK ACTIVE
+            </div>
+            <div style={{ fontFamily: font.sans, fontSize: 11, color: T.textSecondary, marginTop: 2 }}>
+              High network latency (340ms) detected. Satellite and live camera streams suspended. Displaying lightweight spatial LiDAR vector outlines.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ══ LAYER 2 — Zone + route SVG overlay ════════════════════════════════ */}
       <svg
+        ref={svgRef}
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
         viewBox="0 0 1440 900"
         xmlns="http://www.w3.org/2000/svg"
         overflow="hidden"
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
       >
         <defs>
           <filter id="glow-subtle" x="-25%" y="-25%" width="150%" height="150%">
@@ -372,7 +733,19 @@ function MapView({ state, onSelectEntity, mapImageSrc }: Required<MapCanvasProps
           <marker id="arrowhead-yellow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto">
             <path d="M0,0 L0,8 L10,4 Z" fill={T.yellow} />
           </marker>
+          <radialGradient id="fireGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#FF6B4A" stopOpacity="0.5" />
+            <stop offset="55%" stopColor="#E5533C" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="#E5533C" stopOpacity="0" />
+          </radialGradient>
+          <linearGradient id="scanGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#00C8FF" stopOpacity="0" />
+            <stop offset="100%" stopColor="#00C8FF" stopOpacity="0.16" />
+          </linearGradient>
         </defs>
+
+        {/* ── LiDAR scan-sweep — live reconstruction pass (vision map only) ──── */}
+        {showScan && <LidarScanSweep />}
 
         {/* ── BufferZone (left cyan dashed) — always visible, interactive in contain/rescue */}
         <g
@@ -499,6 +872,9 @@ function MapView({ state, onSelectEntity, mapImageSrc }: Required<MapCanvasProps
             )}
           </g>
         )}
+
+        {/* ── Living fire — pulsing glow + rising embers at the ignition point */}
+        {showFireFX && <LiveFireFX cx={sx(ANOMALY.x)} cy={sy(ANOMALY.y)} />}
 
         {/* ── Anomaly dot (thermal spike) — shown once incident is surfaced */}
         {showIncident && (
@@ -628,22 +1004,19 @@ function MapView({ state, onSelectEntity, mapImageSrc }: Required<MapCanvasProps
           </g>
         )}
 
-        {/* ── Signal-degraded autonomous reroute annotation */}
+        {/* Signal-degraded TALON reroute proposal */}
         {state.exceptionState === "signal-degraded" && (
           <g pointerEvents="none">
             <path d="M 1380,782 C 1328,730 1260,704 1188,706"
               fill="none" stroke={T.amber} strokeWidth={2.8} strokeDasharray="7 6" />
             <text x="1214" y="742" fill={T.amber} fontSize={8.8} fontFamily={font.mono}>
-              AUTONOMOUS REROUTE
+              TALON REROUTE PROPOSAL
             </text>
           </g>
         )}
 
         {/* ── Drone / Relay markers — controlled by original visibility rules */}
         {state.drones.map((drone) => {
-          const pos = DRONE_MARKER_MAP[drone.id];
-          if (!pos) return null;
-
           const { mode, scene } = state;
 
           // ── Phase-specific drone visibility ──────────────────────────────────
@@ -677,16 +1050,19 @@ function MapView({ state, onSelectEntity, mapImageSrc }: Required<MapCanvasProps
           const active   = state.selectedEntity?.type === "drone" && state.selectedEntity.id === drone.id;
           const degraded = drone.status === "signal-degraded";
           const muted    = !drone.assignedMission || drone.assignedMission === "patrol";
+          const label    = DRONE_MARKER_MAP[drone.id]?.label || drone.name.toUpperCase();
 
           return (
-            <NewDroneMarker
+            <DroneMarker
               key={drone.id}
-              cx={sx(pos.cx)}
-              cy={sy(pos.cy)}
-              label={pos.label}
+              cx={sx(drone.x)}
+              cy={sy(drone.y)}
+              label={label}
               active={active}
               degraded={degraded}
               muted={muted}
+              droneClass={drone.droneClass}
+              status={drone.status}
               isHovered={hoveredMarker === drone.id}
               onEnter={() => setHoveredMarker(drone.id)}
               onLeave={() => setHoveredMarker(null)}
@@ -694,58 +1070,82 @@ function MapView({ state, onSelectEntity, mapImageSrc }: Required<MapCanvasProps
                 e.stopPropagation();
                 onSelectEntity({ type: "drone", id: drone.id });
               }}
+              onMouseDown={handleDroneMouseDown(drone.id)}
             />
           );
         })}
 
         {/* ── Ground teams — shown in contain/rescue or when teams notified */}
-        {showTeams && (
-          <>
-            {/* Team Alpha */}
-            <g pointerEvents="all" style={{ cursor: "pointer" }}
-              onClick={(e) => { e.stopPropagation(); onSelectEntity({ type: "team", id: "alpha" }); }}>
-              <g filter="url(#unit-glow-l3)" opacity={0.92}>
-                <Vehicle cx={sx(TEAM_MARKERS.alpha.cx - 31)} cy={sy(TEAM_MARKERS.alpha.cy + 6)}  mainColor="#F6B447" dashColor={TEAM_MARKERS.alpha.dashColor} r={4.2} />
-                <Vehicle cx={sx(TEAM_MARKERS.alpha.cx - 18)} cy={sy(TEAM_MARKERS.alpha.cy)}     mainColor="#F6B447" dashColor={TEAM_MARKERS.alpha.dashColor} r={4.2} />
-                <Vehicle cx={sx(TEAM_MARKERS.alpha.cx - 24)} cy={sy(TEAM_MARKERS.alpha.cy + 14)} mainColor="#F6B447" dashColor={TEAM_MARKERS.alpha.dashColor} r={4.2} />
-              </g>
-              <g filter="url(#unit-glow-l3)" opacity={0.92}>
-                <Vehicle cx={sx(TEAM_MARKERS.alpha.cx)} cy={sy(TEAM_MARKERS.alpha.cy - 5)} mainColor="#F6B447" dashColor={TEAM_MARKERS.alpha.dashColor} r={4.8} />
-              </g>
-              {state.selectedEntity?.type === "team" && state.selectedEntity.id === "alpha" && (
-                <ellipse cx={sx(TEAM_MARKERS.alpha.cx - 10)} cy={sy(TEAM_MARKERS.alpha.cy + 5)}
-                  rx={sx(38)} ry={sy(20)} fill={`rgba(245,166,35,0.16)`} filter="url(#unit-glow-l3)" />
-              )}
-              <text x={sx(TEAM_MARKERS.alpha.cx - 20)} y={sy(TEAM_MARKERS.alpha.cy - 15)}
-                fill={TEAM_MARKERS.alpha.color} fontSize={9.393 * SX}
-                fontFamily="'JetBrains Mono', monospace" fontWeight="bold">
-                {TEAM_MARKERS.alpha.label}
-              </text>
-            </g>
+        {/* ── Ground teams — shown in contain/rescue or when teams notified */}
+        {showTeams && (() => {
+          const getTeamCoords = (teamId: "alpha" | "bravo") => {
+            const team = state.groundTeams.find(t => t.id === teamId);
+            const base = TEAM_MARKERS[teamId];
+            return {
+              cx: team && typeof team.x === 'number' ? team.x : base.cx,
+              cy: team && typeof team.y === 'number' ? team.y : base.cy,
+            };
+          };
 
-            {/* Team Bravo */}
-            <g pointerEvents="all" style={{ cursor: "pointer" }}
-              onClick={(e) => { e.stopPropagation(); onSelectEntity({ type: "team", id: "bravo" }); }}>
-              <g filter="url(#unit-glow-l3)" opacity={0.92}>
-                <Vehicle cx={sx(TEAM_MARKERS.bravo.cx - 30)} cy={sy(TEAM_MARKERS.bravo.cy + 9)}  mainColor="#F6B447" dashColor={TEAM_MARKERS.bravo.dashColor} r={4.2} />
-                <Vehicle cx={sx(TEAM_MARKERS.bravo.cx - 17)} cy={sy(TEAM_MARKERS.bravo.cy + 3)}  mainColor="#F6B447" dashColor={TEAM_MARKERS.bravo.dashColor} r={4.2} />
-                <Vehicle cx={sx(TEAM_MARKERS.bravo.cx - 23)} cy={sy(TEAM_MARKERS.bravo.cy + 17)} mainColor="#F6B447" dashColor={TEAM_MARKERS.bravo.dashColor} r={4.2} />
+          const alphaCoords = getTeamCoords("alpha");
+          const bravoCoords = getTeamCoords("bravo");
+
+          return (
+            <>
+              {/* Team Alpha */}
+              <g
+                pointerEvents="all"
+                style={{ cursor: "grab" }}
+                onClick={(e) => { e.stopPropagation(); onSelectEntity({ type: "team", id: "alpha" }); }}
+                onMouseDown={handleTeamMouseDown("alpha")}
+              >
+                <g filter="url(#unit-glow-l3)" opacity={0.92}>
+                  <Vehicle cx={sx(alphaCoords.cx - 31)} cy={sy(alphaCoords.cy + 6)}  mainColor="#F6B447" dashColor={TEAM_MARKERS.alpha.dashColor} r={4.2} />
+                  <Vehicle cx={sx(alphaCoords.cx - 18)} cy={sy(alphaCoords.cy)}     mainColor="#F6B447" dashColor={TEAM_MARKERS.alpha.dashColor} r={4.2} />
+                  <Vehicle cx={sx(alphaCoords.cx - 24)} cy={sy(alphaCoords.cy + 14)} mainColor="#F6B447" dashColor={TEAM_MARKERS.alpha.dashColor} r={4.2} />
+                </g>
+                <g filter="url(#unit-glow-l3)" opacity={0.92}>
+                  <Vehicle cx={sx(alphaCoords.cx)} cy={sy(alphaCoords.cy - 5)} mainColor="#F6B447" dashColor={TEAM_MARKERS.alpha.dashColor} r={4.8} />
+                </g>
+                {state.selectedEntity?.type === "team" && state.selectedEntity.id === "alpha" && (
+                  <ellipse cx={sx(alphaCoords.cx - 10)} cy={sy(alphaCoords.cy + 5)}
+                    rx={sx(38)} ry={sy(20)} fill={`rgba(245,166,35,0.16)`} filter="url(#unit-glow-l3)" />
+                )}
+                <text x={sx(alphaCoords.cx - 20)} y={sy(alphaCoords.cy - 15)}
+                  fill={TEAM_MARKERS.alpha.color} fontSize={9.393 * SX}
+                  fontFamily="'JetBrains Mono', monospace" fontWeight="bold">
+                  {TEAM_MARKERS.alpha.label}
+                </text>
               </g>
-              <g filter="url(#unit-glow-l3)" opacity={0.92}>
-                <Vehicle cx={sx(TEAM_MARKERS.bravo.cx)} cy={sy(TEAM_MARKERS.bravo.cy - 2)} mainColor="#F6B447" dashColor={TEAM_MARKERS.bravo.dashColor} r={4.8} />
+
+              {/* Team Bravo */}
+              <g
+                pointerEvents="all"
+                style={{ cursor: "grab" }}
+                onClick={(e) => { e.stopPropagation(); onSelectEntity({ type: "team", id: "bravo" }); }}
+                onMouseDown={handleTeamMouseDown("bravo")}
+              >
+                <g filter="url(#unit-glow-l3)" opacity={0.92}>
+                  <Vehicle cx={sx(bravoCoords.cx - 30)} cy={sy(bravoCoords.cy + 9)}  mainColor="#F6B447" dashColor={TEAM_MARKERS.bravo.dashColor} r={4.2} />
+                  <Vehicle cx={sx(bravoCoords.cx - 17)} cy={sy(bravoCoords.cy + 3)}  mainColor="#F6B447" dashColor={TEAM_MARKERS.bravo.dashColor} r={4.2} />
+                  <Vehicle cx={sx(bravoCoords.cx - 23)} cy={sy(bravoCoords.cy + 17)} mainColor="#F6B447" dashColor={TEAM_MARKERS.bravo.dashColor} r={4.2} />
+                </g>
+                <g filter="url(#unit-glow-l3)" opacity={0.92}>
+                  <Vehicle cx={sx(bravoCoords.cx)} cy={sy(bravoCoords.cy - 2)} mainColor="#F6B447" dashColor={TEAM_MARKERS.bravo.dashColor} r={4.8} />
+                </g>
+                {state.selectedEntity?.type === "team" && state.selectedEntity.id === "bravo" && (
+                  <ellipse cx={sx(bravoCoords.cx - 10)} cy={sy(bravoCoords.cy + 8)}
+                    rx={sx(38)} ry={sy(20)} fill={`rgba(229,83,60,0.16)`} filter="url(#unit-glow-l3)" />
+                )}
+                <text x={sx(bravoCoords.cx - 20)} y={sy(bravoCoords.cy - 12)}
+                  fill={TEAM_MARKERS.bravo.color} fontSize={9.393 * SX}
+                  fontFamily="'JetBrains Mono', monospace" fontWeight="bold">
+                  {TEAM_MARKERS.bravo.label}
+                </text>
               </g>
-              {state.selectedEntity?.type === "team" && state.selectedEntity.id === "bravo" && (
-                <ellipse cx={sx(TEAM_MARKERS.bravo.cx - 10)} cy={sy(TEAM_MARKERS.bravo.cy + 8)}
-                  rx={sx(38)} ry={sy(20)} fill={`rgba(229,83,60,0.16)`} filter="url(#unit-glow-l3)" />
-              )}
-              <text x={sx(TEAM_MARKERS.bravo.cx - 20)} y={sy(TEAM_MARKERS.bravo.cy - 12)}
-                fill={TEAM_MARKERS.bravo.color} fontSize={9.393 * SX}
-                fontFamily="'JetBrains Mono', monospace" fontWeight="bold">
-                {TEAM_MARKERS.bravo.label}
-              </text>
-            </g>
-          </>
-        )}
+            </>
+          );
+        })()}
       </svg>
 
       {/* ══ Degraded terrain banner ═══════════════════════════════════════════ */}
@@ -807,7 +1207,7 @@ function DroneGridSurface({
       {drones.map((drone, index) => {
         const active = state.selectedEntity?.type === "drone" && state.selectedEntity.id === drone.id;
         const accent = drone.status === "signal-degraded" ? T.amber : drone.status === "available" ? T.teal : T.cyan;
-        
+
         let bgImage = droneThermalFeed;
         if (index === 1) bgImage = droneNvgFeed;
         if (index === 2) bgImage = droneThermalRes;
@@ -832,7 +1232,32 @@ function DroneGridSurface({
               flex: 1, position: "relative",
               background: "rgba(5,8,14,0.94)",
             }}>
-              <img src={bgImage} alt={drone.role} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.65 }} />
+              {state.scene === "network-degraded" ? (
+                <div style={{
+                  position: "absolute",
+                  inset: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "rgba(5, 8, 14, 0.96)",
+                  border: "1.5px dashed rgba(229, 83, 60, 0.3)",
+                  padding: 16,
+                  textAlign: "center",
+                }}>
+                  <div style={{ marginBottom: 6 }}>
+                    <OperationalIcon name="warning" color={T.red} size={20} />
+                  </div>
+                  <div style={{ fontFamily: font.mono, fontSize: 10, fontWeight: 700, color: T.red, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                    HD VIDEO DROPPED
+                  </div>
+                  <div style={{ fontFamily: font.sans, fontSize: 10, color: T.textMuted, marginTop: 4 }}>
+                    Cell Failback Mode Active (340ms Latency)
+                  </div>
+                </div>
+              ) : (
+                <img src={bgImage} alt={drone.role} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.65 }} />
+              )}
               <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,200,255,0.1) 0%, rgba(10,18,28,0.3) 48%, rgba(5,8,14,0.95) 100%)" }} />
               <div style={{
                 position: "absolute", inset: 0,

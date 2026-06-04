@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Logs
+*.log
+vite-dev.log
+
+# Editor / OS
+.DS_Store
+*.local
+.vscode/*
+!.vscode/extensions.json
+.idea/
