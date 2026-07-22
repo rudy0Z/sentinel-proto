@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { DissentDirection, OverrideReason } from "../tokens";
 import { T, font, layer, motion, radius, shadow, space, surface, tint, typeScale, typeWeight } from "../tokens";
 import { OVERRIDE_REASONS } from "../mockData";
@@ -67,12 +67,61 @@ export function DissentGate({
 }) {
   const [reason, setReason] = useState<OverrideReason | null>(null);
   const [note, setNote] = useState("");
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
   const copy = COPY[direction];
   const talon = TALON_STATEMENT[direction];
   const accent = direction === "talon-escalates" ? T.amber : T.red;
 
+  useEffect(() => {
+    restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const timer = window.setTimeout(() => {
+      dialogRef.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+      restoreFocusRef.current?.focus();
+    };
+  }, []);
+
+  useEffect(() => {
+    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      onCancel();
+    };
+    window.addEventListener("keydown", closeOnEscape, true);
+    return () => window.removeEventListener("keydown", closeOnEscape, true);
+  }, [onCancel]);
+
+  const trapFocus = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Tab") return;
+
+    const focusable = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>(
+        'button:not(:disabled), textarea:not(:disabled), [href], [tabindex]:not([tabindex="-1"])',
+      ),
+    );
+    if (focusable.length === 0) {
+      event.preventDefault();
+      event.currentTarget.focus();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last?.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first?.focus();
+    }
+  };
+
   return (
     <div
+      ref={dialogRef}
       style={{
         position: "absolute",
         inset: 0,
@@ -86,6 +135,8 @@ export function DissentGate({
       role="dialog"
       aria-modal="true"
       aria-label="Confirm disagreement with TALON"
+      tabIndex={-1}
+      onKeyDown={trapFocus}
     >
       <div
         style={{

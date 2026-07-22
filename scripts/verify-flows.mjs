@@ -16,10 +16,11 @@ const browser = await chromium.launch({
   headless: true,
   args: ["--no-first-run", "--no-default-browser-check"],
 });
+const headquartersViewport = { width: 1920, height: 1080 };
 const results = [];
 
 async function run(name, test) {
-  const page = await browser.newPage({ viewport: { width: 1366, height: 768 } });
+  const page = await browser.newPage({ viewport: headquartersViewport });
   try {
     await test(page);
     results.push({ name, status: "passed" });
@@ -55,6 +56,18 @@ try {
     await page.getByRole("button", { name: "False positive", exact: true }).click();
     await confirm.click();
     await page.getByText(/contested watch/i).first().waitFor();
+  });
+
+  await run("dissent gate traps and restores keyboard focus", async (page) => {
+    await page.goto(`${baseUrl}#/?scene=verify-active&core=1`, { waitUntil: "domcontentloaded" });
+    const trigger = page.getByRole("button", { name: "Decline escalation" });
+    await trigger.click();
+    await page.getByRole("dialog", { name: /Confirm disagreement with TALON/i }).waitFor();
+    await page.keyboard.press("Escape");
+    await page.getByRole("dialog", { name: /Confirm disagreement with TALON/i }).waitFor({ state: "hidden" });
+    if (!await trigger.evaluate((node) => document.activeElement === node)) {
+      throw new Error("Focus did not return to the dissent trigger after the gate closed.");
+    }
   });
 
   /* The contested state must show the bar TALON has to clear, and preserve both

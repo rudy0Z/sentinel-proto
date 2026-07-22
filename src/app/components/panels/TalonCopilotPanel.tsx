@@ -1328,6 +1328,11 @@ function IntelligenceBrief({
     <div
       style={{
         overflow: "visible",
+        padding: space.lg,
+        border: `1px solid ${border.default}`,
+        borderRadius: radius.lg,
+        background: surface.inset,
+        boxShadow: shadow.quiet,
       }}
       role="region"
       aria-label="TALON intelligence brief"
@@ -1339,7 +1344,10 @@ function IntelligenceBrief({
           position: "relative",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: space.xs, marginBottom: space.sm }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: space.sm, marginBottom: space.sm }}>
+          <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+            TALON decision brief
+          </span>
           <span
             style={{
               fontFamily: font.sans,
@@ -1355,7 +1363,7 @@ function IntelligenceBrief({
         <p
           style={{
             fontFamily: font.sans,
-            fontSize: typeScale.body,
+            fontSize: typeScale.label,
             color: T.textSecondary,
             lineHeight: 1.6,
             margin: 0,

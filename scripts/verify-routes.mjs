@@ -8,6 +8,7 @@ const require = createRequire(import.meta.url);
 const axePath = require.resolve("axe-core/axe.min.js");
 const baseUrl = process.env.SENTINEL_VERIFY_URL ?? "http://127.0.0.1:4190/embed/sentinel/";
 const outputDir = process.env.SENTINEL_VERIFY_OUTPUT ?? join(tmpdir(), "sentinel-route-matrix");
+const headquartersViewport = { width: 1920, height: 1080 };
 const executableCandidates = [
   process.env.CHROME_PATH,
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
@@ -45,18 +46,16 @@ const routes = [
   ...scenes.map((scene) => ({
     name: `scene-${scene}`,
     route: `/?scene=${scene}`,
-    width: 1440,
-    height: 900,
-    capture: ["verify-active", "authority-notification-ready", "contain-recommended", "network-degraded", "rescue-battery-critical", "monitoring-contested", "talon-reraise"].includes(scene),
+    ...headquartersViewport,
+    capture: true,
   })),
-  { name: "core-verify-active", route: "/?scene=verify-active&core=1", width: 1280, height: 800, core: true, capture: true },
-  { name: "core-contested", route: "/?scene=monitoring-contested&core=1", width: 1280, height: 800, core: true, capture: true },
-  { name: "core-authority", route: "/?scene=authority-notification-ready&core=1", width: 1280, height: 800, core: true, capture: true },
-  { name: "core-network", route: "/?scene=network-degraded&core=1", width: 1280, height: 800, core: true, capture: true },
-  { name: "core-contain-1366", route: "/?scene=contain-recommended&embed=1", width: 1366, height: 768, core: true, capture: true },
-  { name: "free-contain-1280", route: "/?scene=contain-recommended", width: 1280, height: 800 },
-  { name: "free-contain-1920", route: "/?scene=contain-recommended", width: 1920, height: 1080 },
-  { name: "escalation-direct", route: "/?escalation=1&core=1", width: 1280, height: 800, core: true },
+  { name: "core-verify-active", route: "/?scene=verify-active&core=1", ...headquartersViewport, core: true, capture: true },
+  { name: "core-contested", route: "/?scene=monitoring-contested&core=1", ...headquartersViewport, core: true, capture: true },
+  { name: "core-authority", route: "/?scene=authority-notification-ready&core=1", ...headquartersViewport, core: true, capture: true },
+  { name: "core-network", route: "/?scene=network-degraded&core=1", ...headquartersViewport, core: true, capture: true },
+  { name: "embed-contain", route: "/?scene=contain-recommended&embed=1", ...headquartersViewport, core: true, capture: true },
+  { name: "reduced-motion-contain", route: "/?scene=contain-recommended&core=1", ...headquartersViewport, core: true, reducedMotion: true, capture: true },
+  { name: "escalation-direct", route: "/?escalation=1&core=1", ...headquartersViewport, core: true, capture: true },
 ];
 
 const browser = await chromium.launch({
@@ -70,6 +69,9 @@ const report = [];
 try {
   for (const route of routes) {
     const page = await browser.newPage({ viewport: { width: route.width, height: route.height } });
+    if (route.reducedMotion) {
+      await page.emulateMedia({ reducedMotion: "reduce" });
+    }
     const consoleErrors = [];
     page.on("console", (message) => {
       if (message.type() === "error") consoleErrors.push(message.text());

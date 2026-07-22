@@ -8,7 +8,6 @@ import {
 } from "../domain/talon";
 import { COMMAND_LABELS } from "../domain/microcopy";
 import { TalonSession } from "./talon/TalonSession";
-import { TalonMark } from "./talon/TalonMark";
 import {
   DISABLED_OPACITY,
   TILE_GAP,
@@ -228,6 +227,14 @@ export function ActionBar({
         tone: state.talonConversation.response.tone,
       }
     : talonRecommendation;
+  const authorizationLabel = isGate
+    ? "Source conflict must be resolved"
+    : displayedRecommendation.requiresHumanGate
+      ? "Human authorization required"
+      : "Operator review remains in control";
+  const authorizationDetail = isGate
+    ? "TALON cannot prepare the packet until the permit conflict is verified."
+    : displayedRecommendation.blocker ?? "TALON can recommend and explain; only the operator can commit.";
 
   return (
     <div
@@ -288,10 +295,26 @@ export function ActionBar({
         </div>
       )}
 
-      {/* Premium TALON Control: Speak Orb + Inline Quick-Ask Chips */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: space.xl, position: "relative" }}>
+      <div
+        style={{
+          width: "min(980px, calc(100vw - 48px))",
+          minHeight: 84,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: space.md,
+          position: "relative",
+          padding: space.md,
+          background: surface.panel,
+          backdropFilter: "blur(18px) saturate(1.15)",
+          WebkitBackdropFilter: "blur(18px) saturate(1.15)",
+          border: `1px solid ${border.subtle}`,
+          borderRadius: radius.overlay,
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05), 0 16px 40px rgba(0,0,0,0.3)",
+        }}
+      >
         <TalonSession
-          variant="floating"
+          variant="command"
           conversation={state.talonConversation}
           onConversationChange={handleConversation}
           legacyMode={!onTalonConversationChange}
@@ -306,157 +329,40 @@ export function ActionBar({
           }}
         />
 
-        {/* Circular Speak Orb */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: space.xxs }}>
-          <button
-            type="button"
-            onClick={() => onToggleExpand()}
-            aria-expanded={expanded}
-            aria-label={expanded ? "Close TALON session" : "Open TALON session"}
-            title={expanded ? "Close TALON session" : "Open TALON session"}
-            style={{
-              position: "relative",
-              width: 52,
-              height: 52,
-              borderRadius: "50%",
-              background: tint(
-                state.talonConversation.voiceState === "listening"
-                  ? T.red
-                  : state.talonConversation.voiceState === "processing"
-                    ? T.amber
-                    : state.talonConversation.voiceState === "responded"
-                      ? T.teal
-                      : T.cyan,
-                0.14,
-              ),
-              border: `2px solid ${
-                state.talonConversation.voiceState === "listening"
-                  ? T.red
-                  : state.talonConversation.voiceState === "processing"
-                    ? T.amber
-                    : state.talonConversation.voiceState === "responded"
-                      ? T.teal
-                      : T.cyan
-              }`,
-              color:
-                state.talonConversation.voiceState === "listening"
-                  ? T.red
-                  : state.talonConversation.voiceState === "processing"
-                    ? T.amber
-                    : state.talonConversation.voiceState === "responded"
-                      ? T.teal
-                      : T.cyan,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              boxShadow: `0 0 16px ${tint(
-                state.talonConversation.voiceState === "listening"
-                  ? T.red
-                  : state.talonConversation.voiceState === "processing"
-                    ? T.amber
-                    : state.talonConversation.voiceState === "responded"
-                      ? T.teal
-                      : T.cyan,
-                0.4,
-              )}`,
-              transition: "background 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease",
-            }}
-          >
-            {state.talonConversation.voiceState === "listening" && (
-              <span
-                style={{
-                  position: "absolute",
-                  inset: -6,
-                  borderRadius: "50%",
-                  border: `1.5px solid ${T.red}`,
-                  animation: "talonRipple 1.4s ease-out infinite",
-                }}
-              />
-            )}
-            <TalonMark
-              color={
-                state.talonConversation.voiceState === "listening"
-                  ? T.red
-                  : state.talonConversation.voiceState === "processing"
-                    ? T.amber
-                    : state.talonConversation.voiceState === "responded"
-                      ? T.teal
-                      : T.cyan
-              }
-              size={28}
-              decorative
-            />
-          </button>
-          <div
+        <div
+          style={{
+            minWidth: 0,
+            flex: 1,
+            alignSelf: "stretch",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            gap: space.xxs,
+            padding: `0 ${space.md}px`,
+            borderLeft: `1px solid ${border.soft}`,
+          }}
+          role="status"
+          aria-live="polite"
+        >
+          <span
             style={{
               fontFamily: font.mono,
               fontSize: typeScale.metadata,
-              color: T.textMuted,
+              fontWeight: typeWeight.bold,
+              color: isGate || displayedRecommendation.requiresHumanGate ? T.amber : T.cyan,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
             }}
           >
-            {state.talonConversation.voiceState === "idle" || !state.talonConversation.voiceState
-              ? "CLICK TO SPEAK"
-              : state.talonConversation.voiceState.toUpperCase()}
-          </div>
+            Human decision boundary
+          </span>
+          <span style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.bold, color: T.textPrimary }}>
+            {authorizationLabel}
+          </span>
+          <span style={{ fontFamily: font.sans, fontSize: typeScale.caption, color: T.textSecondary, lineHeight: 1.35 }}>
+            {authorizationDetail}
+          </span>
         </div>
-
-        {/* Inline Quick-Ask Chips */}
-        {!coreMode && talonModel.chips.length > 0 && (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: space.xxs,
-              borderLeft: `1px solid ${border.subtle}`,
-              paddingLeft: space.lg,
-            }}
-          >
-            <div
-              style={{
-                fontFamily: font.mono,
-                fontSize: typeScale.metadata,
-                color: T.textMuted,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-              }}
-            >
-              Ask TALON
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: space.xs }}>
-              {talonModel.chips.map((chip) => {
-                const active = state.talonConversation.activeChip === chip.id;
-                return (
-                  <button
-                    key={chip.id}
-                    type="button"
-                    onClick={() => {
-                      handleChip(chip.id);
-                      if (!expanded) onToggleExpand();
-                    }}
-                    style={{
-                      padding: `${space.xs}px ${space.md}px`,
-                      borderRadius: radius.md,
-                      border: `1px solid ${active ? tint(T.cyan, 0.5) : border.strong}`,
-                      background: active ? tint(T.cyan, 0.16) : surface.control,
-                      color: active ? T.cyan : T.textSecondary,
-                      fontFamily: font.sans,
-                      fontSize: typeScale.caption,
-                      fontWeight: typeWeight.semibold,
-                      cursor: "pointer",
-                      whiteSpace: "nowrap",
-                      transition: "all 120ms ease",
-                    }}
-                  >
-                    {chip.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
         <TileGroup actions={flank} onAction={handleAction} state={state} />
         {menuActions.length > 0 && <DangerMenu actions={menuActions} onAction={handleAction} state={state} />}
       </div>

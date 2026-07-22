@@ -26,10 +26,9 @@ export const T = {
 export const DISABLED_OPACITY = 0.38;
 
 // ─── Action Bar Dimensions ────────────────────────────────────────────────────
-/** Tile width — fixed. 136px allows 3 tiles to fit at 1366x768 center lane (~700px). */
-export const TILE_W = 136;
-/** Tile height — fixed */
-export const TILE_H = 68;
+/** One accountable command in the 1920×1080 headquarters action dock. */
+export const TILE_W = 172;
+export const TILE_H = 64;
 /** Gap between adjacent tiles */
 export const TILE_GAP = 12;
 /** Action bar height — collapsed (primary row only) */
