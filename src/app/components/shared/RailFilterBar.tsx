@@ -42,7 +42,6 @@ export function RailFilterBar({
             background: surface.control,
             color: T.textPrimary,
             padding: `0 ${space.md}px`,
-            outline: "none",
             fontFamily: font.sans,
             fontSize: typeScale.label,
           }}

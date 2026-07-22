@@ -40,6 +40,9 @@ try {
     await page.getByText("SOURCE DISAGREEMENT", { exact: false }).waitFor();
     await page.getByLabel(/verified agricultural burn permits/i).check();
     await page.getByRole("button", { name: "Prepare authority packet" }).click();
+    const confirmation = page.getByRole("dialog", { name: /Prepare authority packet/i });
+    await confirmation.waitFor();
+    await confirmation.getByRole("button", { name: "Prepare authority packet", exact: true }).click();
     await page.getByRole("button", { name: /Send Authority Packet/i }).first().waitFor();
   });
 
@@ -100,6 +103,16 @@ try {
     await page.getByRole("dialog", { name: /reconciliation/i }).waitFor();
     await page.getByText(/Operator was right|TALON was right|Inconclusive/i).first().waitFor();
     await page.getByText(/System response/i).waitFor();
+  });
+
+  await run("reconciliation preserves an auditable verdict", async (page) => {
+    await page.goto(`${baseUrl}#/?scene=monitoring-contested`, { waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: /Ground truth arrived/i }).click();
+    const dialog = page.getByRole("dialog", { name: /reconciliation/i });
+    await dialog.waitFor();
+    await dialog.getByRole("button", { name: /File and return to watch/i }).click();
+    await page.getByRole("tab", { name: /Ledger/i }).click();
+    await page.getByText(/Operator judgment confirmed/i).first().waitFor();
   });
 
   /* Regression: the exception banner used to offer a recovery command that

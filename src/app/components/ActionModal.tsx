@@ -167,7 +167,6 @@ function ModalInput({ value, onChange, type = "text", placeholder }: { value: st
         color: T.textPrimary,
         fontFamily: font.sans,
         fontSize: 13,
-        outline: "none",
         boxSizing: "border-box",
       }}
     />
@@ -189,7 +188,6 @@ function ModalSelect({ value, onChange, options }: { value: string; onChange: (v
           color: T.textPrimary,
           fontFamily: font.sans,
           fontSize: 13,
-          outline: "none",
           appearance: "none",
           cursor: "pointer",
         }}
@@ -304,6 +302,61 @@ function ModalFooter({ onClose, onConfirm, confirmLabel, confirmColor, disabled 
 
 function Divider() {
   return <div style={{ height: 1, background: "rgba(255,255,255,0.07)", margin: "0 24px" }} />;
+}
+
+function ConfirmIncidentModal({ onClose, onConfirm }: { onClose: () => void; onConfirm: () => void }) {
+  return (
+    <div>
+      <ModalHeader
+        title="Prepare authority packet"
+        subtitle="TALON can assemble the packet, but it cannot send it or escalate independently."
+        accentColor={T.amber}
+      />
+      <div style={{ padding: "18px 24px", display: "grid", gap: 12 }}>
+        <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(245,166,35,0.10)", border: `1px solid ${T.amber}33` }}>
+          <div style={{ fontFamily: font.mono, fontSize: 11, color: T.amber, marginBottom: 6 }}>HUMAN AUTHORIZATION CHECK</div>
+          <div style={{ fontFamily: font.sans, fontSize: 12, color: T.textSecondary, lineHeight: 1.55 }}>
+            You are authorizing preparation only. A separate, explicit send gate remains before authorities are notified.
+          </div>
+        </div>
+        <div style={{ fontFamily: font.sans, fontSize: 12, color: T.textSecondary, lineHeight: 1.55 }}>
+          The authority packet will carry the active evidence summary, known uncertainty, and any recorded operator dissent.
+        </div>
+      </div>
+      <Divider />
+      <ModalFooter
+        onClose={onClose}
+        onConfirm={onConfirm}
+        confirmLabel="Prepare authority packet"
+        confirmColor={T.amber}
+      />
+    </div>
+  );
+}
+
+function CommandConfirmationModal({
+  title,
+  description,
+  tone,
+  onClose,
+  onConfirm,
+}: {
+  title: string;
+  description: string;
+  tone: string;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div>
+      <ModalHeader title={title} subtitle={description} accentColor={tone} />
+      <div style={{ padding: "18px 24px", fontFamily: font.sans, fontSize: 12, lineHeight: 1.55, color: T.textSecondary }}>
+        Confirm this operator action. TALON can prepare and explain the recommendation, but it does not execute the command independently.
+      </div>
+      <Divider />
+      <ModalFooter onClose={onClose} onConfirm={onConfirm} confirmLabel={`Confirm ${title.toLowerCase()}`} confirmColor={tone} />
+    </div>
+  );
 }
 
 /** Modal 1: Emergency Evacuation Protocol */
@@ -778,7 +831,6 @@ function ShiftHandoverModal({
                 fontSize: 14,
                 textAlign: "center",
                 letterSpacing: "0.4em",
-                outline: "none",
               }}
             />
             <button
@@ -1136,6 +1188,21 @@ const MODAL_ACCESSIBILITY: Partial<Record<QuickActionId, { title: string; descri
     description: "Review the evidence, uncertainty, and human send gate before notifying authorities.",
     width: 520,
   },
+  "confirm-incident": {
+    title: "Prepare authority packet",
+    description: "Confirm that TALON may prepare the evidence packet; sending remains a separate human gate.",
+    width: 480,
+  },
+  "dispatch-scout": {
+    title: "Dispatch scout drone",
+    description: "Confirm the corroboration flight before TALON begins evidence review.",
+    width: 460,
+  },
+  "override-plan": {
+    title: "Apply alternate containment plan",
+    description: "Confirm that the operator is changing the tactical assumption used by TALON.",
+    width: 480,
+  },
   "notify-teams": {
     title: "Alert ground teams",
     description: "Confirm the current team assignments and staging instructions.",
@@ -1256,6 +1323,19 @@ export function ActionModal({
         return <BackupModal onClose={onClose} onConfirm={(p) => onConfirm(modalId, p)} />;
       case "notify-authorities":
         return <NotifyAuthoritiesModal onClose={onClose} onConfirm={() => onConfirm(modalId)} />;
+      case "confirm-incident":
+        return <ConfirmIncidentModal onClose={onClose} onConfirm={() => onConfirm(modalId)} />;
+      case "dispatch-scout":
+      case "override-plan":
+        return (
+          <CommandConfirmationModal
+            title={meta.title}
+            description={meta.description}
+            tone={modalId === "override-plan" ? T.amber : T.cyan}
+            onClose={onClose}
+            onConfirm={() => onConfirm(modalId)}
+          />
+        );
       case "notify-teams":
         return <NotifyTeamsModal onClose={onClose} onConfirm={() => onConfirm(modalId)} />;
       case "stand-down":

@@ -17,7 +17,7 @@ import { MapLegend } from "./shared/MapLegend";
 import { RailStack, type RailView } from "./shared/RailStack";
 import { PopoverSurface, usePopoverDismissal } from "./shared/PopoverSurface";
 import { createCommandAction } from "../domain/commands";
-import { createDissent } from "../domain/disagreement";
+import { createDissent, resolveDissent } from "../domain/disagreement";
 import { getOperationalException } from "../domain/exceptions";
 import { COMMAND_LABELS } from "../domain/microcopy";
 import {
@@ -437,6 +437,37 @@ export function SentinelShell() {
     setState((current) => syncState(updater(stripDerived(current)), investigationElapsed));
   };
 
+  const recordTalonExecution = (actionId: QuickActionId, summary: string, auditId: string) => {
+    updateState((draft) => ({
+      ...draft,
+      talonConversation: {
+        ...draft.talonConversation,
+        phase: "executing",
+        contextActionId: actionId,
+        confirmedPhase: null,
+        receipt: null,
+      },
+    }));
+    window.setTimeout(() => {
+      updateState((draft) => {
+        if (draft.talonConversation.contextActionId !== actionId) return draft;
+        return {
+          ...draft,
+          talonConversation: {
+            ...draft.talonConversation,
+            phase: "receipt",
+            confirmedPhase: "receipt",
+            receipt: {
+              id: auditId,
+              summary,
+              createdAt: `${formatTime(simTime)} UTC`,
+            },
+          },
+        };
+      });
+    }, 720);
+  };
+
   const handleSelectEntity = (selection: SelectedEntity) => {
     updateState((draft) => {
       if (!selection) {
@@ -496,6 +527,9 @@ export function SentinelShell() {
       "abort-mission",
       "deploy-backup",
       "notify-authorities",
+      "confirm-incident",
+      "dispatch-scout",
+      "override-plan",
       "notify-teams",
       "stand-down",
       // Mission Brief modals — drone deployment actions
@@ -1345,8 +1379,31 @@ export function SentinelShell() {
           }
           resolvedAt={`${formatTime(simTime)} UTC`}
           onClose={() => {
+            const outcome = evidenceConfidence >= state.dissent!.reRaiseThreshold ? "talon-correct" : "operator-correct";
+            const groundTruth = outcome === "talon-correct"
+              ? "Fire crews confirmed an active vegetation fire at Grid 4C. The permit on file covered a parcel 1.2km east of the ignition point."
+              : "County records confirmed an active burn permit for Grid 4C. Thermal signature decayed on schedule and no ignition was reported.";
+            const resolvedAt = `${formatTime(simTime)} UTC`;
+            const resolvedDissent = resolveDissent(state.dissent!, outcome, groundTruth, resolvedAt);
             setReconciliation(false);
-            dispatch("operator.resolve-dissent");
+            setIsActionBarExpanded(false);
+            setBurnPermitVerified(false);
+            setSpatialHover(null);
+            setContestedElapsed(0);
+            setState((current) => {
+              const prior = stripDerived(current);
+              const next = stripDerived(createSceneState("baseline", 0));
+              next.dissent = resolvedDissent;
+              next.activityLog = prior.activityLog;
+              appendLog(
+                next,
+                "System",
+                "Reconciliation",
+                `${resolvedDissent.resolution?.outcome === "operator-correct" ? "Operator judgment confirmed" : "TALON assessment confirmed"} · ${resolvedDissent.auditId}`,
+                resolvedDissent.resolution?.outcome === "operator-correct" ? "safe" : "caution",
+              );
+              return syncState(next, 0);
+            });
           }}
         />
       )}
@@ -1502,10 +1559,64 @@ export function SentinelShell() {
                 });
                 break;
               case "abort-mission":
-                setScene("baseline");
+                setIsActionBarExpanded(false);
+                setBurnPermitVerified(false);
+                setSpatialHover(null);
+                setState((current) => {
+                  const prior = stripDerived(current);
+                  const next = stripDerived(createSceneState("baseline", 0));
+                  next.activityLog = prior.activityLog;
+                  appendLog(
+                    next,
+                    "Operator",
+                    "Abort",
+                    "Mission aborted by operator. Active assets recalled and command returned to passive monitoring.",
+                    "caution",
+                  );
+                  return syncState(next, 0);
+                });
                 break;
               case "deploy-backup":
                 updateState((draft) => applyMissionAction(draft, "deploy-backup"));
+                break;
+              case "dispatch-scout":
+                dispatch("dispatch-scout");
+                break;
+              case "override-plan":
+                dispatch("override-plan", () =>
+                  updateState((draft) => {
+                    draft.scene = "contain-alternate";
+                    draft.overrideReason = "Operational constraint";
+                    return draft;
+                  }),
+                );
+                break;
+              case "confirm-incident":
+                dispatch("confirm-incident", (transition) =>
+                  updateState((draft) => {
+                    const next = {
+                      ...draft,
+                      scene: transition.to,
+                      mode: "verify" as OperationalMode,
+                      incidentStatus: "notification-ready" as const,
+                      selectedEntity: { type: "anomaly", id: ANOMALY.id } as SelectedEntity,
+                      selectedZoneId: ANOMALY.zoneId,
+                    };
+                    appendLog(
+                      next,
+                      "Operator",
+                      "Authorization",
+                      "Authority packet preparation authorized. TALON assembled the packet; a separate human send gate remains.",
+                      "caution",
+                    );
+                    return next;
+                  }),
+                );
+                recordTalonExecution(
+                  "confirm-incident",
+                  "Authority packet prepared for operator review. TALON did not notify authorities.",
+                  "AUD-PKT-PREP-0847",
+                );
                 break;
               case "notify-authorities":
                 dispatch("notify-authorities", (transition) =>
@@ -1529,6 +1640,11 @@ export function SentinelShell() {
                     appendLog(next, "Operator", "Authority", `Authorities notified with TALON packet AUD-90-0847. Operations planning is now active.${basisNote}`, "info");
                     return next;
                   }),
+                );
+                recordTalonExecution(
+                  "notify-authorities",
+                  "Authority packet sent after explicit operator confirmation.",
+                  "AUD-AUTH-0847",
                 );
                 break;
               case "notify-teams":
@@ -3039,10 +3155,18 @@ function deriveQuickActions(draft: ShellDraft, investigationElapsed: number): Ac
 
     // ── Edge Case / Failure Scenes: all expose minimal action bar ─────────
     case "satellite-feed-loss":
-    case "network-degraded":
       return flat([
+        mk("deploy-survey", "Restore visual coverage", "recommended",
+          "Deploy a survey asset to replace the unavailable satellite feed.", T.cyan),
         mk("authorize-containment", "Authorize", "disabled",
           "Satellite feed required before authorization.", T.red),
+      ]);
+    case "network-degraded":
+      return flat([
+        mk("relay-field-intel", "Restore field relay", "recommended",
+          "Deploy a relay anchor to reopen telemetry and command visibility.", T.cyan),
+        mk("authorize-containment", "Authorize", "disabled",
+          "Network recovery is required before authorization.", T.red),
       ]);
     case "infrastructure-total-loss":
       return flat([]);

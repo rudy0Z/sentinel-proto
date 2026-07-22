@@ -1,3 +1,4 @@
+import { useEffect, useRef, type KeyboardEvent } from "react";
 import type { DissentOutcome, DissentRecord } from "../tokens";
 import { T, font, layer, motion, radius, shadow, space, surface, tint, typeScale, typeWeight } from "../tokens";
 import { getContestedWatch, getReRaiseBrief, resolveDissent } from "../domain/disagreement";
@@ -180,6 +181,7 @@ export function ContestedWatchPanel({
         animation: `slideInDown ${motion.normal}`,
       }}
       aria-label="Contested watch"
+      aria-live="polite"
     >
       <header style={{ display: "grid", gap: space.xs }}>
         <span style={{ fontFamily: font.mono, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: T.cyan }}>
@@ -446,9 +448,57 @@ export function ReconciliationPanel({
 }) {
   const resolved = resolveDissent(dissent, outcome, groundTruth, resolvedAt);
   const copy = OUTCOME_COPY[outcome];
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const frame = requestAnimationFrame(() => {
+      dialogRef.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      restoreFocusRef.current?.focus();
+    };
+  }, []);
+
+  useEffect(() => {
+    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape, true);
+    return () => window.removeEventListener("keydown", closeOnEscape, true);
+  }, [onClose]);
+
+  const trapFocus = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Tab") return;
+    const focusable = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>(
+        'button:not(:disabled), [href], [tabindex]:not([tabindex="-1"])',
+      ),
+    );
+    if (focusable.length === 0) {
+      event.preventDefault();
+      event.currentTarget.focus();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last?.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first?.focus();
+    }
+  };
 
   return (
     <div
+      ref={dialogRef}
       style={{
         position: "absolute",
         inset: 0,
@@ -462,6 +512,8 @@ export function ReconciliationPanel({
       role="dialog"
       aria-modal="true"
       aria-label="Disagreement reconciliation"
+      tabIndex={-1}
+      onKeyDown={trapFocus}
     >
       <div
         style={{
