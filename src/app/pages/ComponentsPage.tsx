@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { DISABLED_OPACITY, GLASS, GLASS_SUBTLE, GI, T, font } from "../tokens";
+import { DISABLED_OPACITY, GLASS, GLASS_SUBTLE, GI, TILE_H, TILE_W, T, font } from "../tokens";
 import { StatusPill } from "../components/shared/StatusPill";
 import { TinyMetric } from "../components/shared/TinyMetric";
 
@@ -45,7 +45,7 @@ export default function ComponentsPage() {
         {/* ════════════════════════════════════════════════════
             1. ACTION BAR TILES — all states
         ════════════════════════════════════════════════════ */}
-        <Section title="Action Bar Tiles" description="Fixed 152 × 68 px tiles. Larger CTA surface. Two-tier layout for complex scenes.">
+        <Section title="Action Bar Tiles" description={`${TILE_W} × ${TILE_H} px tiles. Core mode promotes one action; free mode reveals the full command set.`}>
           <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
 
             {/* State row */}
@@ -414,7 +414,7 @@ export default function ComponentsPage() {
         {/* ════════════════════════════════════════════════════
             11. TYPOGRAPHY
         ════════════════════════════════════════════════════ */}
-        <Section title="Typography" description="Type scale — Inter for UI, JetBrains Mono for telemetry and code.">
+        <Section title="Typography" description="Type scale: IBM Plex Sans for UI, JetBrains Mono for telemetry and audit data.">
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {[
               { label: "Panel Heading (16px / 700)", family: font.sans, size: 16, weight: 700, text: "Emergency Evacuation Protocol" },
@@ -506,8 +506,8 @@ function ActionTile({ label, status, tone, stateNote, note }: {
         type="button"
         disabled={isDisabled || isComplete}
         style={{
-          width: 152,
-          height: 68,
+          width: TILE_W,
+          height: TILE_H,
           flexShrink: 0,
           borderRadius: 14,
           border: `1px solid ${isDisabled ? "rgba(255,255,255,0.06)" : isComplete ? `${T.teal}50` : isRec ? `${tone}80` : `${tone}35`}`,
@@ -575,8 +575,8 @@ function HoldTile({ disabled = false }: { disabled?: boolean }) {
       onTouchStart={start}
       onTouchEnd={stop}
       style={{
-        width: 152,
-        height: 68,
+        width: TILE_W,
+        height: TILE_H,
         flexShrink: 0,
         borderRadius: 14,
         border: `1px solid ${disabled ? "rgba(255,255,255,0.08)" : holding ? T.red : `${T.red}66`}`,

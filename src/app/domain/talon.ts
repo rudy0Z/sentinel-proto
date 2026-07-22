@@ -1,4 +1,18 @@
-import type { EvidenceSource, SceneId, ShellState, TalonAgentTask, TalonChipId, TalonChipResponse, TalonToolCall } from "../tokens";
+import type {
+  EvidenceSource,
+  QuickActionId,
+  SceneId,
+  ShellState,
+  TalonAgentTask,
+  TalonChipId,
+  TalonChipResponse,
+  TalonConversationState,
+  TalonInputMode,
+  TalonSessionPhase,
+  TalonSessionRecommendation,
+  TalonToolCall,
+  TalonVoiceState,
+} from "../tokens";
 import { T } from "../tokens";
 import { getOperationalException } from "./exceptions";
 import { TALON_CHIP_RESPONSES, getVoiceResponseForScene } from "./microcopy";
@@ -35,8 +49,9 @@ const SCENE_CHIPS_MAP: Partial<Record<SceneId, TalonChipId[]>> = {
   baseline: ["why-now", "autonomous-scope"],
   "alert-command": ["why-now", "what-missing", "autonomous-scope"],
   "investigation-pending": ["why-now", "autonomous-scope", "confidence-breakdown"],
-  "verify-ready": ["confidence-breakdown", "what-missing", "show-alternate"],
   "verify-active": ["confidence-breakdown", "what-changed", "what-missing"],
+  "monitoring-contested": ["what-blocked", "confidence-breakdown", "autonomous-scope"],
+  "talon-reraise": ["what-changed", "confidence-breakdown", "what-missing"],
   "authority-notification-ready": ["confidence-breakdown", "what-missing", "autonomous-scope"],
   "contain-recommended": ["show-alternate", "what-blocked", "autonomous-scope", "confidence-breakdown"],
   "contain-alternate": ["why-now", "what-blocked", "confidence-breakdown"],
@@ -76,6 +91,119 @@ export interface TalonInteractionModel {
   };
 }
 
+export interface TalonSessionView {
+  phase: TalonSessionPhase;
+  inputMode: TalonInputMode;
+  transcript: string;
+  interimTranscript: string;
+  recommendation: TalonSessionRecommendation | null;
+  error: string | null;
+  scriptedFallback: boolean;
+  contextActionId: QuickActionId | null;
+  voiceState: TalonVoiceState;
+}
+
+const PHASE_TO_LEGACY_VOICE: Record<TalonSessionPhase, TalonVoiceState> = {
+  watching: "idle",
+  input: "listening",
+  review: "listening",
+  checking: "processing",
+  recommendation: "responded",
+  "human-gate": "responded",
+  executing: "processing",
+  receipt: "responded",
+  error: "idle",
+  cancelled: "idle",
+};
+
+function phaseFromLegacyConversation(conversation: TalonConversationState): TalonSessionPhase {
+  if (conversation.receipt) return "receipt";
+  if (conversation.voiceState === "listening") return "input";
+  if (conversation.voiceState === "processing") return "checking";
+  if (conversation.voiceState === "responded") {
+    return conversation.recommendation?.requiresHumanGate ? "human-gate" : "recommendation";
+  }
+  return conversation.response || conversation.recommendation ? "recommendation" : "watching";
+}
+
+export function getTalonSessionView(conversation: TalonConversationState): TalonSessionView {
+  return {
+    phase: conversation.phase ?? phaseFromLegacyConversation(conversation),
+    inputMode: conversation.inputMode ?? null,
+    transcript: conversation.transcript ?? "",
+    interimTranscript: conversation.interimTranscript ?? "",
+    recommendation: conversation.recommendation ?? null,
+    error: conversation.error ?? null,
+    scriptedFallback: conversation.scriptedFallback ?? false,
+    contextActionId: conversation.contextActionId ?? null,
+    voiceState: conversation.voiceState,
+  };
+}
+
+export function updateTalonConversation(
+  conversation: TalonConversationState,
+  patch: Partial<TalonConversationState> & { phase?: TalonSessionPhase },
+): TalonConversationState {
+  const phase = patch.phase ?? conversation.phase ?? phaseFromLegacyConversation(conversation);
+  return {
+    ...conversation,
+    ...patch,
+    phase,
+    voiceState: patch.voiceState ?? PHASE_TO_LEGACY_VOICE[phase],
+  };
+}
+
+/**
+ * Escape leaves completed recommendations and receipts intact while stopping
+ * capture, review, checking, or execution work.
+ */
+export function cancelTalonConversation(conversation: TalonConversationState): TalonConversationState {
+  const view = getTalonSessionView(conversation);
+  const preservedPhase: TalonSessionPhase = conversation.receipt
+    ? "receipt"
+    : conversation.recommendation
+      ? conversation.recommendation.requiresHumanGate
+        ? "human-gate"
+        : "recommendation"
+      : view.transcript
+        ? "cancelled"
+        : "watching";
+
+  return updateTalonConversation(conversation, {
+    phase: preservedPhase,
+    inputMode: null,
+    interimTranscript: "",
+    error: null,
+    confirmedPhase:
+      preservedPhase === "receipt" || preservedPhase === "human-gate" || preservedPhase === "recommendation"
+        ? preservedPhase
+        : conversation.confirmedPhase,
+  });
+}
+
+export function getTalonSessionRecommendation(state: ShellState): TalonSessionRecommendation {
+  const model = getTalonInteractionModel(state);
+  return {
+    title: model.recommendation.action,
+    body: model.recommendation.text,
+    actionLabel: model.answerFormat.nextAction,
+    actionId: getRecommendedActionId(state),
+    tone: model.recommendation.tone,
+    evidence: model.answerFormat.evidence,
+    blocker: model.answerFormat.blocker,
+    requiresHumanGate: Boolean(
+      model.activeAgents.some((agent) => agent.requiresHumanGate) ||
+      state.actionSurface.primary.some((action) => action.status === "recommended"),
+    ),
+  };
+}
+
+function getRecommendedActionId(state: ShellState): QuickActionId | undefined {
+  return [...state.actionSurface.primary, ...state.actionSurface.secondary].find(
+    (action) => action.status === "recommended" || action.status === "in-progress",
+  )?.id;
+}
+
 export function getTalonInteractionModel(state: ShellState): TalonInteractionModel {
   const agents = getAgentTasks(state.scene);
   const recommendation = getTalonRecommendation(state);
@@ -99,11 +227,178 @@ export function getTalonInteractionModel(state: ShellState): TalonInteractionMod
   };
 }
 
+/*
+ * Scene-entry clock — lets evidence confidence CONVERGE over real time while
+ * the operator watches, instead of sitting at frozen values. Resets whenever
+ * the scene changes, so `?scene=` deep links stay deterministic at entry
+ * (elapsed 0 → start values) and then visibly build toward their targets.
+ * The shell's one-second timers keep panels re-rendering, so no prop
+ * drilling is needed for the values to advance.
+ */
+let convergenceScene: SceneId | null = null;
+let convergenceEnteredAt = 0;
+
+function sceneElapsedSeconds(scene: SceneId): number {
+  if (scene !== convergenceScene) {
+    convergenceScene = scene;
+    convergenceEnteredAt = Date.now();
+  }
+  return (Date.now() - convergenceEnteredAt) / 1000;
+}
+
+const CONVERGENCE_WINDOW_S = 45;
+
+function easeToward(start: number, target: number, elapsed: number, windowS = CONVERGENCE_WINDOW_S): number {
+  const t = Math.min(1, Math.max(0, elapsed / windowS));
+  const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic — fast early gains, slow settle
+  return Math.round(start + (target - start) * eased);
+}
+
+/*
+ * ── Signal history ──────────────────────────────────────────────────────
+ *
+ * Trend charts used to be hand-written arrays per scene. That is a quiet lie:
+ * a time-series chart asserts that a time-series pipeline exists, and six
+ * invented numbers assert nothing the rest of the system could support.
+ *
+ * These series are sampled backwards through the same easing curve that drives
+ * evidence confidence, which gives one property that matters more than the
+ * shape: THE LAST POINT OF A SERIES IS THE CURRENT VALUE. A chart can never
+ * disagree with the number printed next to it, and both move together as
+ * evidence converges.
+ *
+ * What this stands in for in production: TALON's historical-behaviour model,
+ * fitted on prior Grid 4C burns, projecting forward from live sensor input.
+ * The shape here is authored; the contract — one model, one clock, one value —
+ * is the part that has to be real, and is.
+ */
+export interface SignalSeries {
+  thermal: number[];
+  structures: number[];
+  confidence: number[];
+  current: { thermal: number; structures: number; confidence: number };
+}
+
+type SignalRange = [start: number, target: number];
+
+interface SignalProfile {
+  thermal: SignalRange;
+  structures: SignalRange;
+  confidence: SignalRange;
+  /** Settled scenes sit at target; live ones are still travelling. */
+  live: boolean;
+  /**
+   * How far into its curve the signal already is on scene entry, 0–1.
+   *
+   * An operator joining at `verify-active` is not watching evidence begin —
+   * thermal has been climbing since the dispatch. Without this the trailing
+   * samples all clamp to the start value and the chart draws a flat line
+   * claiming nothing happened, which is as untrue as the hardcoded arrays were.
+   */
+  entryProgress: number;
+}
+
+const SIGNAL_PROFILES: Record<SceneId, SignalProfile> = {
+  /* Quiet watch genuinely is flat — that is the point of the scene. */
+  baseline: { thermal: [2, 4], structures: [0, 2], confidence: [0, 0], live: false, entryProgress: 0.9 },
+  "alert-command": { thermal: [4, 18], structures: [1, 6], confidence: [40, 62], live: true, entryProgress: 0.3 },
+  "investigation-pending": { thermal: [12, 34], structures: [4, 26], confidence: [54, 68], live: true, entryProgress: 0.4 },
+  "verify-active": { thermal: [22, 44], structures: [18, 40], confidence: [62, 78], live: true, entryProgress: 0.45 },
+  "authority-notification-ready": { thermal: [34, 48], structures: [32, 47], confidence: [70, 78], live: false, entryProgress: 0.75 },
+  "contain-recommended": { thermal: [40, 52], structures: [40, 47], confidence: [72, 78], live: false, entryProgress: 0.8 },
+  "contain-alternate": { thermal: [40, 50], structures: [40, 47], confidence: [70, 76], live: false, entryProgress: 0.8 },
+  /* Degraded terrain widens the envelope, so confidence settles lower. */
+  "contain-degraded": { thermal: [38, 48], structures: [36, 47], confidence: [58, 61], live: false, entryProgress: 0.8 },
+  /* Containment is working — thermal decays while cleared structures climb. */
+  "rescue-nominal": { thermal: [52, 20], structures: [14, 34], confidence: [78, 84], live: true, entryProgress: 0.25 },
+  "rescue-signal-degraded": { thermal: [46, 28], structures: [16, 29], confidence: [70, 66], live: false, entryProgress: 0.6 },
+  "rescue-battery-critical": { thermal: [44, 32], structures: [18, 27], confidence: [64, 54], live: false, entryProgress: 0.6 },
+  /* Contested: evidence keeps building precisely because nobody closed it. */
+  "monitoring-contested": { thermal: [24, 48], structures: [20, 34], confidence: [78, 94], live: true, entryProgress: 0.3 },
+  "talon-reraise": { thermal: [40, 54], structures: [30, 42], confidence: [86, 96], live: false, entryProgress: 0.85 },
+  /* Lost sources flatten out — the line goes quiet rather than inventing continuity. */
+  "satellite-feed-loss": { thermal: [32, 21], structures: [29, 31], confidence: [62, 40], live: false, entryProgress: 0.85 },
+  "network-degraded": { thermal: [34, 27], structures: [30, 34], confidence: [66, 52], live: false, entryProgress: 0.85 },
+  "infrastructure-total-loss": { thermal: [30, 22], structures: [18, 18], confidence: [40, 0], live: false, entryProgress: 0.9 },
+};
+
+const SERIES_POINTS = 6;
+const SERIES_STEP_S = 8;
+
+function sampleSeries(range: SignalRange, elapsed: number, points: number): number[] {
+  const [start, target] = range;
+  return Array.from({ length: points }, (_, index) => {
+    /* Point i sits (points-1-i) steps in the past; the final point is "now". */
+    const at = Math.max(0, elapsed - (points - 1 - index) * SERIES_STEP_S);
+    return easeToward(start, target, at);
+  });
+}
+
+export function getSignalHistory(
+  scene: SceneId,
+  overrides?: { confidence?: number },
+  points = SERIES_POINTS,
+): SignalSeries {
+  const profile = SIGNAL_PROFILES[scene];
+  /*
+   * Live scenes advance from wherever the signal already stood on entry;
+   * settled ones report their target so deep links stay deterministic.
+   */
+  const entryElapsed = profile.entryProgress * CONVERGENCE_WINDOW_S;
+  const elapsed = profile.live
+    ? entryElapsed + sceneElapsedSeconds(scene)
+    : Math.max(entryElapsed, CONVERGENCE_WINDOW_S);
+
+  const thermal = sampleSeries(profile.thermal, elapsed, points);
+  const structures = sampleSeries(profile.structures, elapsed, points);
+  const confidence = sampleSeries(profile.confidence, elapsed, points);
+
+  /*
+   * The shell owns contested-watch confidence, because it climbs on operator
+   * time rather than scene time. When it passes a value, the series is
+   * re-anchored so the chart still ends on the displayed number.
+   */
+  if (typeof overrides?.confidence === "number") {
+    const anchored = sampleSeries([profile.confidence[0], overrides.confidence], elapsed, points);
+    anchored[anchored.length - 1] = overrides.confidence;
+    return {
+      thermal,
+      structures,
+      confidence: anchored,
+      current: {
+        thermal: thermal[thermal.length - 1],
+        structures: structures[structures.length - 1],
+        confidence: overrides.confidence,
+      },
+    };
+  }
+
+  return {
+    thermal,
+    structures,
+    confidence,
+    current: {
+      thermal: thermal[thermal.length - 1],
+      structures: structures[structures.length - 1],
+      confidence: confidence[confidence.length - 1],
+    },
+  };
+}
+
 export function getEvidenceSources(scene: SceneId): EvidenceSource[] {
   const isEarly = scene === "baseline" || scene === "alert-command" || scene === "investigation-pending";
   const isAuthorityPacket = scene === "authority-notification-ready";
   const isSatelliteLoss = scene === "satellite-feed-loss";
   const isDegradedTerrain = scene === "contain-degraded";
+  /*
+   * Evidence builds live during the verification window. This used to be split
+   * across a separate "evidence ready" scene, which gated a decision the
+   * operator had already made by dispatching. Convergence is a property of the
+   * evidence, not a step for the operator: arrive early and watch it build,
+   * arrive late and it has settled.
+   */
+  const isConverging = scene === "verify-active";
+  const elapsed = isConverging ? sceneElapsedSeconds(scene) : 0;
 
   return [
     {
@@ -111,7 +406,7 @@ export function getEvidenceSources(scene: SceneId): EvidenceSource[] {
       kind: "thermal",
       label: "Thermal sensor",
       status: isEarly ? "active" : "active",
-      confidence: isEarly ? 62 : 91,
+      confidence: isEarly ? 62 : isConverging ? easeToward(62, 91, elapsed) : 91,
       lastUpdated: "03:47:01",
       note: isEarly ? "Ground thermal array is trending above baseline." : "Primary trigger source. Thermal rise sustained across three passes.",
     },
@@ -120,7 +415,7 @@ export function getEvidenceSources(scene: SceneId): EvidenceSource[] {
       kind: "satellite-ir",
       label: "Satellite IR",
       status: isSatelliteLoss ? "failed" : isEarly ? "pending" : "active",
-      confidence: isSatelliteLoss ? 0 : isEarly ? 0 : 87,
+      confidence: isSatelliteLoss ? 0 : isEarly ? 0 : isConverging ? easeToward(54, 87, elapsed) : 87,
       lastUpdated: "03:46:44",
       note: isSatelliteLoss ? "Unavailable. TALON is reducing confidence and increasing drone weighting." : "Confirms thermal hotspot orientation.",
     },
@@ -129,7 +424,7 @@ export function getEvidenceSources(scene: SceneId): EvidenceSource[] {
       kind: "drone-visual",
       label: "Drone visual",
       status: scene === "baseline" || scene === "alert-command" ? "pending" : "active",
-      confidence: scene === "baseline" || scene === "alert-command" ? 0 : 42,
+      confidence: scene === "baseline" || scene === "alert-command" ? 0 : isConverging ? easeToward(18, 42, elapsed) : 42,
       lastUpdated: "03:48:14",
       note: "Smoke-obscured visual feed. Useful for location, weak for fire-front certainty.",
     },
@@ -138,7 +433,7 @@ export function getEvidenceSources(scene: SceneId): EvidenceSource[] {
       kind: "lidar",
       label: "LiDAR 3D model",
       status: isDegradedTerrain ? "stale" : scene === "baseline" || scene === "alert-command" ? "pending" : "active",
-      confidence: isDegradedTerrain ? 38 : scene === "baseline" || scene === "alert-command" ? 0 : isAuthorityPacket ? 76 : 74,
+      confidence: isDegradedTerrain ? 38 : scene === "baseline" || scene === "alert-command" ? 0 : isAuthorityPacket ? 76 : isConverging ? easeToward(31, 74, elapsed) : 74,
       lastUpdated: "03:48:16",
       note: isDegradedTerrain ? "Partial ridge reconstruction. Raw feed remains visible." : "Terrain and ridge reconstruction feeding spread estimate.",
     },
@@ -147,7 +442,7 @@ export function getEvidenceSources(scene: SceneId): EvidenceSource[] {
       kind: "wind",
       label: "Wind model",
       status: "active",
-      confidence: isEarly ? 68 : 78,
+      confidence: isEarly ? 68 : isConverging ? easeToward(68, 78, elapsed) : 78,
       lastUpdated: "03:31:00",
       note: "NE 38 degrees at 18 mph. TALON applies freshness warning after 15 minutes.",
     },
@@ -180,6 +475,7 @@ type AgentBuildInput = Omit<TalonAgentTask, "toolCalls" | "inputs" | "dependenci
 };
 
 const AUTHORITY_AUDIT_ID = "AUD-90-0847";
+const DISSENT_AUDIT_ID = "AUD-DIS-0847";
 
 function tool(id: string, label: string, status: TalonToolCall["status"], input?: string, output?: string): TalonToolCall {
   return { id, label, status, input, output };
@@ -195,10 +491,13 @@ function agent(task: AgentBuildInput): TalonAgentTask {
   };
 }
 
-function phaseFor(scene: SceneId): "baseline" | "alert" | "verification" | "authority" | "operations" | "rescue" | "failure" {
+function phaseFor(
+  scene: SceneId,
+): "baseline" | "alert" | "verification" | "authority" | "operations" | "rescue" | "failure" | "contested" {
   if (scene === "baseline") return "baseline";
   if (scene === "alert-command") return "alert";
   if (scene === "authority-notification-ready") return "authority";
+  if (scene === "monitoring-contested" || scene === "talon-reraise") return "contested";
   if (scene === "contain-recommended" || scene === "contain-alternate" || scene === "contain-degraded") return "operations";
   if (scene === "rescue-nominal" || scene === "rescue-signal-degraded") return "rescue";
   if (scene === "satellite-feed-loss" || scene === "network-degraded" || scene === "rescue-battery-critical" || scene === "infrastructure-total-loss") return "failure";
@@ -220,6 +519,8 @@ export function getAgentTasks(scene: SceneId): TalonAgentTask[] {
   const isInfrastructureLoss = scene === "infrastructure-total-loss";
   const isTerrainDegraded = scene === "contain-degraded";
   const isAlternate = scene === "contain-alternate";
+  const isContested = phase === "contested";
+  const isReRaise = scene === "talon-reraise";
 
   const satelliteStatus: TalonAgentTask["status"] = isSatelliteLoss
     ? "failed"
@@ -251,34 +552,68 @@ export function getAgentTasks(scene: SceneId): TalonAgentTask[] {
   const valuesStatus: TalonAgentTask["status"] = isBaseline || isAlert ? "queued" : isAuthority || isOperations || isRescue ? "complete" : "running";
   const resourceStatus: TalonAgentTask["status"] = isBatteryCritical ? "blocked" : isOperations || isRescue || isFailure ? "running" : "queued";
   const droneControlStatus: TalonAgentTask["status"] = isBatteryCritical ? "blocked" : isOperations || isRescue || isFailure ? "running" : "queued";
-  const notificationStatus: TalonAgentTask["status"] = isAuthority ? "blocked" : isOperations || isRescue || isFailure ? "complete" : isVerification ? "running" : "queued";
+  /*
+   * Under contest the notification agent is blocked by a decision, not by
+   * missing evidence — and the two must not look alike. The blocker copy below
+   * names who is holding it: the operator while the watch is contested, the
+   * duty supervisor once TALON has appealed.
+   */
+  const notificationStatus: TalonAgentTask["status"] = isAuthority || isContested
+    ? "blocked"
+    : isOperations || isRescue || isFailure
+      ? "complete"
+      : isVerification
+        ? "running"
+        : "queued";
   const governanceStatus: TalonAgentTask["status"] = isAuthority || isOperations || isRescue || isFailure ? "running" : isBaseline ? "running" : "running";
 
   return [
     agent({
       id: "talon-orchestrator",
       agentName: "TALON Orchestrator",
-      shortLabel: isAuthority ? "Holding human gate" : isOperations || isRescue ? "Supervising operations" : "Coordinating agents",
+      shortLabel: isReRaise
+        ? "Appealing to second authority"
+        : isContested
+          ? "Standing down, watch retained"
+          : isAuthority
+            ? "Holding human gate"
+            : isOperations || isRescue
+              ? "Supervising operations"
+              : "Coordinating agents",
       category: "orchestrator",
       status: isAuthority ? "blocked" : "running",
       description: "Master supervisor that sequences specialist agents and converts outputs into operator-authorized next actions.",
-      currentTask: isAuthority
-        ? "Freeze the authority packet until the operator sends it."
-        : isOperations || isRescue
-          ? "Route live agent outputs into field-safe recommendations."
-          : "Fan out evidence processing across surveillance, simulation, and governance agents.",
+      currentTask: isReRaise
+        ? "Route new evidence to the duty supervisor rather than re-prompting the operator who declined."
+        : isContested
+          ? "Hold the rejected hypothesis at reduced weight and suppress escalation below the agreed threshold."
+          : isAuthority
+            ? "Freeze the authority packet until the operator sends it."
+            : isOperations || isRescue
+              ? "Route live agent outputs into field-safe recommendations."
+              : "Fan out evidence processing across surveillance, simulation, and governance agents.",
       inputs: ["Scene state", "Agent outputs", "Operator commands", "Human gates"],
       toolCalls: [
         tool("assign", "Assign specialist agents", "complete", "Current incident state", "Workforce plan synchronized"),
         tool("gate", "Check human gates", isAuthority ? "blocked" : "running", "Authorization policy", isAuthority ? "Authority send required" : "No field action released without approval"),
       ],
       dependencies: ["Sensor Fusion Agent", "Governance Agent"],
-      decisionImpact: isAuthority ? "Prevents TALON from notifying authorities without the operator." : "Controls when evidence becomes a recommendation, packet, or field plan.",
+      decisionImpact: isContested
+        ? "Keeps an overruled hypothesis alive without letting TALON overrule the operator."
+        : isAuthority
+          ? "Prevents TALON from notifying authorities without the operator."
+          : "Controls when evidence becomes a recommendation, packet, or field plan.",
       confidence: isAuthority ? 78 : isOperations || isRescue ? 84 : isBaseline ? 62 : 74,
-      blocker: isAuthority ? "Awaiting operator send" : undefined,
-      requiresHumanGate: isAuthority,
-      gateLabel: isAuthority ? "Send Authority Packet" : undefined,
-      blockedBy: isAuthority ? "Operator" : undefined,
+      blocker: isReRaise
+        ? "Awaiting supervisor review"
+        : isContested
+          ? "Operator declined escalation — suppressed below re-raise threshold"
+          : isAuthority
+            ? "Awaiting operator send"
+            : undefined,
+      requiresHumanGate: isAuthority || isReRaise,
+      gateLabel: isReRaise ? "Supervisor decision" : isAuthority ? "Send Authority Packet" : undefined,
+      blockedBy: isReRaise ? "Duty Supervisor" : isContested ? "Operator" : isAuthority ? "Operator" : undefined,
       auditId: isAuthority ? AUTHORITY_AUDIT_ID : undefined,
     }),
     agent({
@@ -434,11 +769,31 @@ export function getAgentTasks(scene: SceneId): TalonAgentTask[] {
     agent({
       id: "notification-brief",
       agentName: "Notification Brief Agent",
-      shortLabel: isAuthority ? "Packet ready" : notificationStatus === "complete" ? "Packet sent" : notificationStatus === "running" ? "Brief drafting" : "Awaiting evidence",
+      shortLabel: isReRaise
+        ? "Held for supervisor"
+        : isContested
+          ? "Withdrawn on operator call"
+          : isAuthority
+            ? "Packet ready"
+            : notificationStatus === "complete"
+              ? "Packet sent"
+              : notificationStatus === "running"
+                ? "Brief drafting"
+                : "Awaiting evidence",
       category: "governance",
       status: notificationStatus,
       description: "Builds the authority packet from evidence, uncertainty, risk path, and missing data for human send.",
-      currentTask: isAuthority ? "Hold prepared packet until the operator sends it." : notificationStatus === "running" ? "Assemble concise dispatch evidence and caveats." : notificationStatus === "complete" ? "Maintain sent receipt for audit and handover." : "Wait for incident confirmation.",
+      currentTask: isReRaise
+        ? "Hold the revised packet for the duty supervisor; the shift operator has already declined."
+        : isContested
+          ? "Stand the packet down and retain it unsent against the operator's logged reason."
+          : isAuthority
+            ? "Hold prepared packet until the operator sends it."
+            : notificationStatus === "running"
+              ? "Assemble concise dispatch evidence and caveats."
+              : notificationStatus === "complete"
+                ? "Maintain sent receipt for audit and handover."
+                : "Wait for incident confirmation.",
       inputs: ["Evidence bundle", "Risk score", "Missing data", "Audit log"],
       toolCalls: [
         tool("packet", "Compile authority packet", isAuthority || notificationStatus === "complete" ? "complete" : notificationStatus, "Confirmed evidence", isAuthority ? "Packet ready for send" : notificationStatus === "complete" ? "Packet sent to authority channels" : undefined),
@@ -447,11 +802,27 @@ export function getAgentTasks(scene: SceneId): TalonAgentTask[] {
       dependencies: ["Sensor Fusion Agent", "Fire Behavior Agent", "Values-at-Risk Agent", "Governance Agent"],
       decisionImpact: "Marks the 90-second success point only after human-authorized authority notification.",
       confidence: isAuthority ? 78 : notificationStatus === "running" ? 64 : notificationStatus === "complete" ? 82 : undefined,
-      blocker: isAuthority ? "Awaiting operator send" : isAlert ? "Awaiting incident confirmation" : undefined,
-      output: isAuthority ? `Dispatch packet ${AUTHORITY_AUDIT_ID} ready.` : notificationStatus === "complete" ? `Authority packet sent. Receipt ${AUTHORITY_AUDIT_ID}.` : undefined,
+      blocker: isReRaise
+        ? "Awaiting duty supervisor review"
+        : isContested
+          ? "Operator declined escalation — packet retained unsent"
+          : isAuthority
+            ? "Awaiting operator send"
+            : isAlert
+              ? "Awaiting incident confirmation"
+              : undefined,
+      output: isReRaise
+        ? "Revised packet prepared from post-override evidence only."
+        : isContested
+          ? `Packet withdrawn unsent. Operator reason and TALON position both retained under ${DISSENT_AUDIT_ID}.`
+          : isAuthority
+            ? `Dispatch packet ${AUTHORITY_AUDIT_ID} ready.`
+            : notificationStatus === "complete"
+              ? `Authority packet sent. Receipt ${AUTHORITY_AUDIT_ID}.`
+              : undefined,
       requiresHumanGate: true,
-      gateLabel: "Send Authority Packet",
-      blockedBy: isAuthority ? "Operator" : undefined,
+      gateLabel: isReRaise ? "Supervisor decision" : "Send Authority Packet",
+      blockedBy: isReRaise ? "Duty Supervisor" : isContested ? "Operator" : isAuthority ? "Operator" : undefined,
       auditId: isAuthority || notificationStatus === "complete" ? AUTHORITY_AUDIT_ID : undefined,
     }),
     agent({
@@ -493,15 +864,20 @@ export function getTalonRecommendation(state: ShellState): TalonRecommendationCo
       action: "Await on-station status",
       tone: T.cyan,
     },
-    "verify-ready": {
-      text: "Evidence sources are converging at 78%. Visual data is weak, but thermal, satellite, and burn-memory signals justify operator review.",
-      action: "Open verification",
-      tone: T.amber,
-    },
     "verify-active": {
       text: "Incident appears urgent and authority-notifiable. TALON can prepare the dispatch packet, but the operator must confirm escalation.",
       action: "Confirm incident",
       tone: T.red,
+    },
+    "monitoring-contested": {
+      text: "The operator closed this incident against TALON's recommendation. The hypothesis stays open at reduced weight; TALON will not re-raise below the agreed threshold.",
+      action: "Holding contested watch",
+      tone: T.cyan,
+    },
+    "talon-reraise": {
+      text: "New evidence has crossed the raised threshold set at override. TALON is presenting what changed — not the original case again — and has routed it to a second authority.",
+      action: "Review what changed",
+      tone: T.amber,
     },
     "authority-notification-ready": {
       text: "Authority packet is ready. TALON has synthesized evidence, uncertainty, risk path, and missing data. Operator approval sends it.",

@@ -5,21 +5,19 @@ interface StatusPillProps {
   color: string;
 }
 
-/** Consistent status pill used across all panels, map, and action bar */
+/** Compact semantic status used across operational surfaces. */
 export function StatusPill({ label, color }: StatusPillProps) {
   return (
     <span
       style={{
         fontFamily: font.sans,
-        fontSize: typeScale.caption,
-        fontWeight: typeWeight.bold,
-        letterSpacing: "0.06em",
-        textTransform: "uppercase",
+        fontSize: typeScale.label,
+        fontWeight: typeWeight.semibold,
         color,
-        padding: `${space.xs}px ${space.md}px`,
-        borderRadius: radius.pill,
-        border: `1px solid ${tint(color, 0.28)}`,
-        background: tint(color, 0.08),
+        padding: `${space.xxs}px ${space.sm}px`,
+        borderRadius: radius.md,
+        border: `1px solid ${tint(color, 0.24)}`,
+        background: tint(color, 0.06),
         whiteSpace: "nowrap",
       }}
       role="status"

@@ -1,7 +1,10 @@
 import type {
   ActivityLogEntry,
+  ContainmentPlanSummary,
   DroneMissionType,
   DroneRosterEntry,
+  FocusedIncidentDetail,
+  FocusedIncidentQueueItem,
   GroundTeamStatus,
   OverrideReason,
   PlanVariant,
@@ -22,6 +25,11 @@ export interface ZoneData {
   terrain: string;
   structures: string;
   note: string;
+  /** 1–3 word chip values — the full sentences above render as detail lines, never inside chips. */
+  riskShort: string;
+  spreadShort: string;
+  terrainShort: string;
+  structuresShort: string;
 }
 
 export interface IncidentMarker {
@@ -62,7 +70,6 @@ export const REVIEW_SCENES: Array<{ id: SceneId; label: string; note: string }> 
   { id: "baseline", label: "Intelligence: Quiet Watch", note: "Passive data monitoring before an incident." },
   { id: "alert-command", label: "Intelligence: Anomaly Alert", note: "Initial TALON interrupt for scout verification." },
   { id: "investigation-pending", label: "Intelligence: Scout En Route", note: "Lidar-02 moving toward Grid 4C." },
-  { id: "verify-ready", label: "Intelligence: Evidence Ready", note: "Assessment interrupt ready." },
   { id: "verify-active", label: "Intelligence: Operator Review", note: "Operator assessing TALON-corroborated data." },
   { id: "authority-notification-ready", label: "Intelligence: Authority Packet", note: "90-second milestone ready for human send." },
   { id: "contain-recommended", label: "Operations: Plan Staging", note: "Post-notification containment plan." },
@@ -70,6 +77,9 @@ export const REVIEW_SCENES: Array<{ id: SceneId; label: string; note: string }> 
   { id: "contain-degraded", label: "Operations: Degraded Terrain", note: "Terrain-model fallback view." },
   { id: "rescue-nominal", label: "Operations: Active Rescue", note: "Authorized operations nominal." },
   { id: "rescue-signal-degraded", label: "Operations: Signal Exception", note: "Signal exception while rescue continues." },
+  // Human/AI Disagreement Scenes
+  { id: "monitoring-contested", label: "Disagreement: Contested Watch", note: "Operator overruled TALON; the hypothesis stays open at reduced weight." },
+  { id: "talon-reraise", label: "Disagreement: TALON Appeals", note: "New evidence crossed the raised bar; routed to a second authority." },
   // Edge Case / Failure Scenes
   { id: "rescue-battery-critical", label: "Operations: Battery Critical", note: "Drone at 14%; TALON preparing a supervised handoff." },
   { id: "satellite-feed-loss", label: "Failure: Satellite Loss", note: "Aerial intelligence offline, drone-only telemetry." },
@@ -77,7 +87,7 @@ export const REVIEW_SCENES: Array<{ id: SceneId; label: string; note: string }> 
   { id: "network-degraded", label: "Failure: Network Degraded", note: "High latency across all feeds; 340ms average." },
 ];
 
-export const INCIDENT = {
+export const INCIDENT: FocusedIncidentDetail = {
   id: "INC-2024-0847",
   location: "Grid 4C · Forest ridge",
   coords: "37.8821°N, 122.4194°W",
@@ -92,6 +102,51 @@ export const INCIDENT = {
   evacuationScope: 47,
   activeZoneId: "forest-north",
 };
+
+/**
+ * Only the selected incident carries full operational context. The other
+ * entries are intentionally read-only summaries and do not own scene state,
+ * simulations, routes, resources, or executable commands.
+ */
+export const FOCUSED_INCIDENT_QUEUE: FocusedIncidentQueueItem[] = [
+  {
+    kind: "active",
+    readOnly: false,
+    id: INCIDENT.id,
+    label: "Grid 4C ridge fire",
+    location: INCIDENT.location,
+    status: "confirmed",
+    severity: "danger",
+    lastUpdated: "03:49:07 UTC",
+    detail: INCIDENT,
+  },
+  {
+    kind: "summary",
+    readOnly: true,
+    independentSimulation: false,
+    id: "INC-2024-0846",
+    label: "Reservoir access smoke report",
+    location: "Sector 2A · Reservoir road",
+    status: "monitoring",
+    severity: "caution",
+    lastUpdated: "03:42:18 UTC",
+    summary: "Single field report is awaiting a corroborating sensor source. No operational scene is loaded.",
+    dataFreshness: "Operator note · 7 min old",
+  },
+  {
+    kind: "summary",
+    readOnly: true,
+    independentSimulation: false,
+    id: "INC-2024-0845",
+    label: "West buffer thermal transient",
+    location: "Buffer Zone 2 · Utility corridor",
+    status: "investigating",
+    severity: "info",
+    lastUpdated: "03:39:44 UTC",
+    summary: "Thermal transient remains below escalation threshold. This queue entry exposes summary metadata only.",
+    dataFreshness: "Thermal grid · 10 min old",
+  },
+];
 
 export const ANOMALY: IncidentMarker = {
   id: "grid-4c",
@@ -119,6 +174,10 @@ export const ZONES: ZoneData[] = [
     terrain: "Steep ridge with smoke pooling in the central fold and heavy vegetation across the upper slope.",
     structures: "No occupied residences inside the forest zone; this remains the source zone for all downstream risk.",
     note: "Primary fire zone. Thermal verification and perimeter coverage should anchor here first.",
+    riskShort: "Spread origin",
+    spreadShort: "15 min to buffers",
+    terrainShort: "Steep ridge",
+    structuresShort: "None occupied",
   },
   {
     id: "buffer-west",
@@ -133,6 +192,10 @@ export const ZONES: ZoneData[] = [
     terrain: "Low-density edge corridor with road access and intermittent tree cover.",
     structures: "Sparse structures only; mainly useful as a routing reserve.",
     note: "Secondary corridor kept clear in case the primary guidance routes need to widen.",
+    riskShort: "Passive edge",
+    spreadShort: "Low direct risk",
+    terrainShort: "Road corridor",
+    structuresShort: "Sparse",
   },
   {
     id: "buffer-east",
@@ -147,6 +210,10 @@ export const ZONES: ZoneData[] = [
     terrain: "Open service roads, shallow drainage cuts, and fewer vertical obstructions for relay coverage.",
     structures: "Minimal occupied structures; strongest corridor for comms and responder access.",
     note: "Primary ingress and relay corridor. Responder guidance should reference this zone.",
+    riskShort: "Ingress lane",
+    spreadShort: "30 min to roads",
+    terrainShort: "Open roads",
+    structuresShort: "Minimal",
   },
   {
     id: "residential-west",
@@ -161,6 +228,10 @@ export const ZONES: ZoneData[] = [
     terrain: "Dense residential grid with long street corridors and limited turnaround space.",
     structures: "Primary west-side residential cluster with multiple internal streets.",
     note: "Residential zone 2 should remain visible in the map even when the primary rescue focus is east.",
+    riskShort: "Exposed west block",
+    spreadShort: "< 30 min",
+    terrainShort: "Dense grid",
+    structuresShort: "West cluster",
   },
   {
     id: "residential-south",
@@ -175,6 +246,10 @@ export const ZONES: ZoneData[] = [
     terrain: "Dense residential grid, primary eastbound exit, and clearer guidance lane along the lower roads.",
     structures: "94 tracked structures; 47 remain inside the projected 30-minute path.",
     note: "Primary human consequence zone. Evacuation and route guidance should anchor here.",
+    riskShort: "Highest human risk",
+    spreadShort: "< 30 min",
+    terrainShort: "Dense grid · east exit",
+    structuresShort: "94 tracked · 47 at risk",
   },
 ];
 
@@ -197,9 +272,9 @@ export const EVACUATION_ROUTES: RoutePath[] = [
     id: "route-b",
     label: "GUIDED ROUTE B",
     color: "rgba(255,255,255,0.92)",
-    path: "M 1128,746 C 1210,770 1324,812 1482,866",
-    textX: 1296,
-    textY: 814,
+    path: "M 1128,746 C 1198,766 1290,800 1396,844",
+    textX: 1250,
+    textY: 806,
   },
 ];
 
@@ -207,7 +282,7 @@ export const RESPONDER_ROUTE: RoutePath = {
   id: "responder-route",
   label: "RESPONDER INGRESS",
   color: "#FFD166",
-  path: "M 1120,612 C 1012,664 938,724 854,820 C 814,864 776,894 744,924",
+  path: "M 1120,612 C 1012,664 938,724 854,820 C 822,858 792,876 762,888",
   textX: 900,
   textY: 736,
 };
@@ -451,17 +526,7 @@ export const OVERRIDE_REASONS: OverrideReason[] = [
   "Other",
 ];
 
-export const CONTAINMENT_PLAN_SUMMARY: Record<
-  PlanVariant,
-  {
-    title: string;
-    sentence: string;
-    reasoning: string;
-    spreadRate: string;
-    wind: string;
-    structuresAtRisk: string;
-  }
-> = {
+export const CONTAINMENT_PLAN_SUMMARY: Record<PlanVariant, ContainmentPlanSummary> = {
   recommended: {
     title: "Recommended contain response",
     sentence: "Expand aerial coverage, stage responder guidance, and prepare residential evacuation before authorizing the full protection plan.",
@@ -470,6 +535,40 @@ export const CONTAINMENT_PLAN_SUMMARY: Record<
     spreadRate: "0.8 km² / hr",
     wind: "NE · 18 mph",
     structuresAtRisk: "47 inside 30 min path",
+    spread: {
+      baselineRate: "0.8 km² / hr",
+      projectedResidualRate: "0.3 km² / hr after perimeter staging",
+      direction: "NE ridge front, checked before the eastern road edge",
+      uncertaintyMarginMeters: 110,
+    },
+    exposure: {
+      structuresInPath: 47,
+      structuresAtResidualRisk: 8,
+      affectedZoneIds: ["forest-north", "buffer-east", "residential-south"],
+      routeExposure: "Responder ingress remains open; residential Route A is staged before the 15-minute decision point.",
+    },
+    protectedStructures: {
+      structuresCovered: 39,
+      coveragePercent: 83,
+      protectionWindow: "Coverage in place within 12 min",
+    },
+    resourceCost: {
+      dronesCommitted: 4,
+      groundTeamsCommitted: 2,
+      reserveImpact: "Six drones and the Charlie medical unit remain uncommitted.",
+      tradeoff: "Higher initial asset use buys earlier residential coverage and a verified responder corridor.",
+    },
+    confidence: {
+      score: 82,
+      level: "high",
+      basis: ["Thermal and satellite alignment", "LiDAR ridge model", "Current east-corridor road telemetry"],
+      constraints: ["Fuel survey is 48h stale", "Fine visual detail is smoke-obscured"],
+    },
+    eta: {
+      stagingMinutes: 6,
+      protectionReadyMinutes: 12,
+      label: "Stage 6 min · protection ready 12 min",
+    },
   },
   alternate: {
     title: "Alternate contain response",
@@ -479,6 +578,40 @@ export const CONTAINMENT_PLAN_SUMMARY: Record<
     spreadRate: "0.8 km² / hr",
     wind: "NE · 18 mph",
     structuresAtRisk: "47 inside 30 min path",
+    spread: {
+      baselineRate: "0.8 km² / hr",
+      projectedResidualRate: "0.5 km² / hr while terrain confidence recovers",
+      direction: "NE ridge front, with a wider eastern uncertainty envelope",
+      uncertaintyMarginMeters: 180,
+    },
+    exposure: {
+      structuresInPath: 47,
+      structuresAtResidualRisk: 16,
+      affectedZoneIds: ["forest-north", "buffer-east", "residential-south"],
+      routeExposure: "East responder ingress is prioritized, but residential Route A guidance begins about 7 min later.",
+    },
+    protectedStructures: {
+      structuresCovered: 31,
+      coveragePercent: 66,
+      protectionWindow: "Coverage in place within 19 min",
+    },
+    resourceCost: {
+      dronesCommitted: 3,
+      groundTeamsCommitted: 1,
+      reserveImpact: "Seven drones and two ground units remain uncommitted.",
+      tradeoff: "Lower initial commitment preserves reserve capacity but leaves more structures exposed during staging.",
+    },
+    confidence: {
+      score: 68,
+      level: "moderate",
+      basis: ["Thermal alignment", "Partial LiDAR ridge model", "East-corridor road telemetry"],
+      constraints: ["Terrain mesh is incomplete", "Delayed residential guidance increases residual exposure"],
+    },
+    eta: {
+      stagingMinutes: 8,
+      protectionReadyMinutes: 19,
+      label: "Stage 8 min · protection ready 19 min",
+    },
   },
 };
 
@@ -540,6 +673,46 @@ export function getZoneById(zoneId: string | null | undefined) {
 
 export function getZoneLabel(zoneId: string | null | undefined) {
   return getZoneById(zoneId)?.shortLabel ?? "Unassigned zone";
+}
+
+export function getIncidentQueueItem(incidentId: string | null | undefined) {
+  return FOCUSED_INCIDENT_QUEUE.find((incident) => incident.id === incidentId) ?? null;
+}
+
+export function getActiveIncidentQueueItem() {
+  return FOCUSED_INCIDENT_QUEUE.find((incident) => incident.kind === "active") ?? null;
+}
+
+export function getContainmentPlan(variant: PlanVariant): ContainmentPlanSummary {
+  return CONTAINMENT_PLAN_SUMMARY[variant];
+}
+
+export function compareContainmentPlans(
+  primary: PlanVariant,
+  comparison: PlanVariant,
+) {
+  const primaryPlan = getContainmentPlan(primary);
+  const comparisonPlan = getContainmentPlan(comparison);
+
+  return {
+    protectedStructuresDelta:
+      primaryPlan.protectedStructures.structuresCovered -
+      comparisonPlan.protectedStructures.structuresCovered,
+    residualExposureDelta:
+      primaryPlan.exposure.structuresAtResidualRisk -
+      comparisonPlan.exposure.structuresAtResidualRisk,
+    dronesCommittedDelta:
+      primaryPlan.resourceCost.dronesCommitted -
+      comparisonPlan.resourceCost.dronesCommitted,
+    groundTeamsCommittedDelta:
+      primaryPlan.resourceCost.groundTeamsCommitted -
+      comparisonPlan.resourceCost.groundTeamsCommitted,
+    confidenceDelta:
+      primaryPlan.confidence.score - comparisonPlan.confidence.score,
+    protectionReadyMinutesDelta:
+      primaryPlan.eta.protectionReadyMinutes -
+      comparisonPlan.eta.protectionReadyMinutes,
+  };
 }
 
 export function createActivityLog(scene: SceneId): ActivityLogEntry[] {
@@ -608,7 +781,7 @@ export function createActivityLog(scene: SceneId): ActivityLogEntry[] {
     ];
   }
 
-  if (scene === "investigation-pending" || scene === "verify-ready" || scene === "verify-active") {
+  if (scene === "investigation-pending" || scene === "verify-active") {
     return [
       {
         id: "log-12",

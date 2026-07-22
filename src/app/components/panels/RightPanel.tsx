@@ -1,844 +1,700 @@
 import { getZoneLabel } from "../../mockData";
+import { useState } from "react";
 import { getOperationalException } from "../../domain/exceptions";
-import { GI, PANEL_TITLES, getDensity, type PriorityRiskItem, type ShellState, T, font } from "../../tokens";
+import { getAgentTasks, getAuthorityPacket, getEvidenceSources, getSignalHistory, getTalonInteractionModel } from "../../domain/talon";
+import type { GroundTeamStatus, PriorityRiskItem, SelectedEntity, ShellState } from "../../tokens";
+import {
+  T,
+  border,
+  font,
+  motion,
+  radius,
+  space,
+  surface,
+  tint,
+  typeScale,
+  typeWeight,
+} from "../../tokens";
 import { ACTION_LABELS } from "../ActionBar";
 import { PanelCard } from "../shared/PanelCard";
-import { PanelDataViz, PanelExceptionCard, PanelMetricRow, PanelStateBlock } from "../shared/RailPanelFrame";
+import { PanelStateBlock } from "../shared/RailPanelFrame";
+import { RailFilterBar } from "../shared/RailFilterBar";
 import { Section } from "../shared/Section";
-import { TinyMetric } from "../shared/TinyMetric";
+import { StatusPill } from "../shared/StatusPill";
+import { ActionOutcomeVerification } from "../shared/ActionOutcomeVerification";
+import { ContainmentPlanComparison } from "../shared/ContainmentPlanComparison";
+import {
+  AgentRelayStrip,
+  CapabilityMatrix,
+  MetricGrid,
+  MiniTrend,
+  PanelHeroMetric,
+  SignalBar,
+  SourceFreshnessMatrix,
+  toneColor,
+  type SignalTone,
+} from "../shared/PanelViz";
 
 interface PriorityPanelProps {
   state: ShellState;
   onAcknowledgePriority: (priorityId: string) => void;
+  onSelectZone?: (zoneId: string) => void;
+  spatialHover?: SelectedEntity;
+  onSpatialHoverChange?: (target: SelectedEntity) => void;
 }
+
 interface GroundTeamsPanelProps {
   state: ShellState;
   onSelectTeam: (teamId: string) => void;
+  spatialHover?: SelectedEntity;
+  onSpatialHoverChange?: (target: SelectedEntity) => void;
 }
 
 export function ExceptionPanel({ state }: { state: ShellState }) {
   const exception = state.operationalException ?? getOperationalException(state.scene);
 
   if (!exception) {
+    const sources = getEvidenceSources(state.scene);
+    const completeAgents = getAgentTasks(state.scene).filter((agent) => agent.status === "complete").length;
     return (
-      <PanelCard title="Exception Queue" badgeLabel="CLEAR" badgeColor={T.teal}>
-        <PanelStateBlock
-          state="complete"
-          title="No active exceptions"
-          body="TALON has not detected a degraded source, blocked agent, or manual-protocol condition."
+      <PanelCard title="Exception Readiness" badgeLabel="Clear" badgeColor={T.teal}>
+        <PanelHeroMetric
+          eyebrow="Capability state"
+          title="No active exception"
+          subtitle="Sources, agents, and command gates are available for the current scene."
+          metric={`${completeAgents}`}
+          metricLabel="agents done"
+          signalTone="safe"
         />
+        <Section label="Source Availability">
+          <SourceFreshnessMatrix sources={sources} limit={4} />
+        </Section>
       </PanelCard>
     );
   }
 
-  const severityTone =
-    exception.severity === "critical" || exception.severity === "blocked"
-      ? T.red
-      : exception.severity === "degraded"
-        ? T.amber
-        : T.cyan;
-  const confidenceValue = exception.confidenceImpact.includes("40%") ? 40 : exception.severity === "critical" ? 0 : exception.severity === "blocked" ? 58 : 72;
+  const severityTone: SignalTone = exception.severity === "critical" || exception.severity === "blocked"
+    ? "danger"
+    : exception.severity === "degraded"
+      ? "caution"
+      : "info";
+  const color = toneColor(severityTone);
+  const agents = getAgentTasks(state.scene).filter((agent) => exception.affectedAgents.includes(agent.agentName) || agent.status === "blocked" || agent.status === "failed");
 
   return (
-    <PanelCard
-      title="Exception Queue"
-      badgeLabel={exception.severity.toUpperCase()}
-      badgeColor={severityTone}
-    >
-      <PanelExceptionCard
+    <PanelCard title="Exception Readiness" badgeLabel={exception.severity} badgeColor={color}>
+      <PanelHeroMetric
+        eyebrow="Operational exception"
         title={exception.title}
-        severity={exception.severity}
-        body={exception.auditText}
+        subtitle={exception.auditText}
+        metric={exception.status.toUpperCase()}
+        metricLabel="state"
+        signalTone={severityTone}
       />
 
       <Section label="Capability Impact">
-        <PanelMetricRow label="Status" value={exception.status.toUpperCase()} tone={severityTone} />
-        <PanelMetricRow label="Confidence" value={exception.confidenceImpact} tone={severityTone} />
-        <PanelDataViz value={confidenceValue} color={severityTone} />
+        <CapabilityMatrix
+          items={[
+            ...exception.affectedSources.map((source) => ({
+              label: source,
+              state: "affected",
+              detail: exception.confidenceImpact,
+              signalTone: severityTone,
+            })),
+            ...exception.fallbackInputs.map((input) => ({
+              label: input,
+              state: "fallback",
+              detail: "Available for supervised continuity",
+              signalTone: "safe" as SignalTone,
+            })),
+          ]}
+        />
+      </Section>
+
+      <Section label="Blocked Commands">
+        <CapabilityMatrix
+          items={
+            exception.blockedCommands.length
+              ? exception.blockedCommands.map((command) => ({
+                  label: ACTION_LABELS[command] ?? command,
+                  state: "blocked",
+                  detail: `Requires ${exception.title.toLowerCase()} to be resolved before dispatch`,
+                  signalTone: "danger" as SignalTone,
+                }))
+              : [
+                  {
+                    label: exception.recommendedRecoveryCommand ? ACTION_LABELS[exception.recommendedRecoveryCommand] : "Command execution",
+                    state: exception.recommendedRecoveryCommand ? "recovery ready" : "manual only",
+                    detail: exception.recommendedRecoveryCommand
+                      ? `Use recovery command to restore capability`
+                      : exception.mapImpact,
+                    signalTone: exception.recommendedRecoveryCommand ? "caution" : "danger",
+                  },
+                ]
+          }
+        />
       </Section>
 
       <Section label="Affected Agents">
-        {exception.affectedAgents.map((agent) => (
-          <PanelMetricRow key={agent} label={agent} value="AFFECTED" tone={severityTone} />
-        ))}
+        <AgentRelayStrip agents={agents.length ? agents : getAgentTasks(state.scene)} />
       </Section>
-
-      <Section label="Fallback Inputs">
-        {exception.fallbackInputs.map((input) => (
-          <PanelMetricRow key={input} label={input} value="ACTIVE" tone={T.teal} />
-        ))}
-      </Section>
-
-      <PanelStateBlock
-        state={exception.status === "manual" ? "blocked" : exception.severity === "degraded" ? "degraded" : "loading"}
-        title={exception.recommendedRecoveryCommand ? `${ACTION_LABELS[exception.recommendedRecoveryCommand]} prepared` : "Manual protocol required"}
-        body={exception.mapImpact}
-      />
     </PanelCard>
   );
 }
 
-// ─── Priority / Right Rail Panel ─────────────────────────────────────────────
-
-export function PriorityPanel({ state, onAcknowledgePriority }: PriorityPanelProps) {
-  const density = getDensity(state.mode);
-  const titles = PANEL_TITLES[state.mode];
-  const isOperations = state.workflowPhase === "operations";
-
-  if (isOperations) {
-    const cleared = state.rescueProgress.cleared;
-    const total = state.rescueProgress.total;
-    const pct = Math.round((cleared / total) * 100);
-
+export function PriorityPanel({
+  state,
+  onSelectZone,
+  spatialHover,
+  onSpatialHoverChange,
+}: PriorityPanelProps) {
+  if (state.workflowPhase === "operations") {
     return (
-      <PanelCard
-        title="Evacuation Tracker"
-        badgeLabel="ACTIVE OPERATIONS"
-        badgeColor={T.fire}
-      >
-        <Section label="Civilian Evacuation (Residential Zone 1)">
-          {/* Evacuation progress and counts */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
-            <span style={{ fontFamily: font.sans, fontSize: 11, color: T.textSecondary }}>Structures Cleared</span>
-            <span style={{ fontFamily: font.mono, fontSize: 16, fontWeight: 700, color: T.fire }}>
-              {cleared} <span style={{ color: T.textMuted, fontSize: 11, fontWeight: 400 }}>/ {total}</span>
-            </span>
-          </div>
-
-          {/* Premium glassmorphic progress bar */}
-          <div style={{
-            height: 14,
-            borderRadius: 7,
-            background: "rgba(255,255,255,0.03)",
-            border: "1px solid rgba(255,255,255,0.06)",
-            position: "relative",
-            overflow: "hidden",
-            boxShadow: "inset 0 1px 3px rgba(0,0,0,0.4)",
-            marginBottom: 8,
-          }}>
-            <div style={{
-              width: `${pct}%`,
-              height: "100%",
-              borderRadius: "6px 0 0 6px",
-              background: "linear-gradient(90deg, #FF6B4A 0%, #FF8F3D 50%, #FFD166 100%)",
-              boxShadow: "0 0 10px rgba(255, 107, 74, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.2)",
-              transition: "width 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
-              position: "relative",
-            }}>
-              {/* Shimmer animation strip */}
-              <div style={{
-                position: "absolute",
-                inset: 0,
-                background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.15) 50%, transparent)",
-                animation: "talonProcessingFlow 2s linear infinite",
-                backgroundSize: "200% 100%",
-              }} />
-            </div>
-          </div>
-
-          <div style={{ display: "flex", justifyContent: "space-between", fontFamily: font.mono, fontSize: 9, color: T.textMuted, marginBottom: 12 }}>
-            <span>PROGRESS: {pct}%</span>
-            <span>{total - cleared} STRUCTURES LEFT</span>
-          </div>
-        </Section>
-
-        <Section label="Evacuation Corridor Status">
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {/* Route A Card */}
-            <div style={{
-              borderRadius: 10,
-              background: "rgba(255,255,255,0.02)",
-              border: "1px solid rgba(255,255,255,0.05)",
-              padding: "8px 10px",
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                <span style={{ fontFamily: font.sans, fontSize: 11, fontWeight: 600, color: T.textPrimary }}>Route A (Egress Core)</span>
-                <span style={{
-                  fontFamily: font.mono, fontSize: 9, color: T.teal, padding: "2px 6px", borderRadius: 4, background: "rgba(45,212,160,0.1)", border: `1px solid rgba(45,212,160,0.2)`
-                }}>{state.rescueProgress.routeA.toUpperCase()}</span>
-              </div>
-              <div style={{ fontFamily: font.sans, fontSize: 10, color: T.textSecondary, lineHeight: 1.4 }}>
-                Civilians routed west to Buffer 2. Flow rate nominal. Audio guidance anchors verified.
-              </div>
-            </div>
-
-            {/* Route B Card */}
-            <div style={{
-              borderRadius: 10,
-              background: "rgba(255,255,255,0.02)",
-              border: "1px solid rgba(255,255,255,0.05)",
-              padding: "8px 10px",
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                <span style={{ fontFamily: font.sans, fontSize: 11, fontWeight: 600, color: T.textPrimary }}>Route B (Standby Lane)</span>
-                <span style={{
-                  fontFamily: font.mono, fontSize: 9, color: T.yellow, padding: "2px 6px", borderRadius: 4, background: "rgba(255,209,102,0.1)", border: `1px solid rgba(255,209,102,0.2)`
-                }}>{state.rescueProgress.routeB.toUpperCase()}</span>
-              </div>
-              <div style={{ fontFamily: font.sans, fontSize: 10, color: T.textSecondary, lineHeight: 1.4 }}>
-                Pre-staged under ambient overwatch. Ready for a TALON reroute proposal if Route A degrades.
-              </div>
-            </div>
-          </div>
-        </Section>
-
-        <Section label="Responder Ingress & Staging">
-          <div style={{
-            borderRadius: 10,
-            background: "rgba(255,209,102,0.05)",
-            border: `1px solid rgba(255,209,102,0.15)`,
-            padding: "8px 10px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 6
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontFamily: font.sans, fontSize: 11, fontWeight: 600, color: T.yellow }}>FD Ingress Staging</span>
-              <span style={{ fontFamily: font.mono, fontSize: 11, fontWeight: 700, color: T.yellow }}>
-                ETA {state.rescueProgress.fireDeptEta}
-              </span>
-            </div>
-            <div style={{ fontFamily: font.sans, fontSize: 10, color: T.textSecondary, lineHeight: 1.4 }}>
-              Engine 9 and Command Unit 4 staged at Buffer East service road. Drone guidance lock acquired for active ingress.
-            </div>
-          </div>
-        </Section>
-      </PanelCard>
+      <OperationsPriorityPanel
+        state={state}
+        onSelectZone={onSelectZone}
+        spatialHover={spatialHover}
+        onSpatialHoverChange={onSpatialHoverChange}
+      />
     );
   }
 
   return (
+    <IntelligencePriorityPanel
+      state={state}
+      onSelectZone={onSelectZone}
+      spatialHover={spatialHover}
+      onSpatialHoverChange={onSpatialHoverChange}
+    />
+  );
+}
+
+function IntelligencePriorityPanel({
+  state,
+  onSelectZone,
+  spatialHover,
+  onSpatialHoverChange,
+}: {
+  state: ShellState;
+  onSelectZone?: (zoneId: string) => void;
+  spatialHover?: SelectedEntity;
+  onSpatialHoverChange?: (target: SelectedEntity) => void;
+}) {
+  const [priorityFilter, setPriorityFilter] = useState("all");
+  const interaction = getTalonInteractionModel(state);
+  const packet = getAuthorityPacket(state);
+  const sources = getEvidenceSources(state.scene);
+  const active = sources.filter((source) => source.status === "active").length;
+  const blockedAgents = interaction.activeAgents.filter((agent) => agent.status === "blocked" || agent.status === "failed").length;
+
+  const filteredPriorities = state.activePriorities.filter((priority) =>
+    priorityFilter === "all" ||
+    (priorityFilter === "attention" && (priority.severity === "danger" || priority.severity === "caution")) ||
+    (priorityFilter === "active" && (priority.status === "in-progress" || priority.status === "recommended")) ||
+    (priorityFilter === "pending" && priority.status === "pending"),
+  );
+
+  return (
+    <PanelCard title="Operational Priorities" badgeLabel={`${state.activePriorities.length} live`} badgeColor={interaction.recommendation.tone}>
+      <PanelHeroMetric
+        eyebrow="TALON synthesis"
+        title={interaction.recommendation.action}
+        subtitle={interaction.recommendation.text}
+        metric={`${packet.confidence}%`}
+        metricLabel="packet conf."
+        signalTone={packet.confidence > 75 ? "safe" : "caution"}
+      >
+        <MetricGrid
+          items={[
+            { label: "Active sources", value: `${active}`, signalTone: active > 3 ? "safe" : "info" },
+            { label: "Blocked agents", value: `${blockedAgents}`, signalTone: blockedAgents ? "caution" : "safe" },
+            { label: "Gate", value: packet.humanGate, signalTone: packet.status === "ready" ? "danger" : "neutral" },
+            { label: "Escalation", value: packet.status, signalTone: packet.status === "ready" ? "caution" : "neutral" },
+          ]}
+        />
+      </PanelHeroMetric>
+
+      <Section label="Priority Matrix">
+        <RailFilterBar
+          ariaLabel="Priority matrix"
+          value={priorityFilter}
+          onValueChange={setPriorityFilter}
+          options={[
+            { id: "all", label: "All" },
+            { id: "attention", label: "Attention" },
+            { id: "active", label: "Active" },
+            { id: "pending", label: "Pending" },
+          ]}
+        />
+        {filteredPriorities.length ? (
+          filteredPriorities.slice(0, 4).map((priority, index) => (
+            <PriorityMatrixRow
+              key={priority.id}
+              item={priority}
+              index={index}
+              selected={Boolean(priority.zoneId && state.selectedEntity?.type === "zone" && state.selectedEntity.id === priority.zoneId)}
+              spatiallyLinked={Boolean(priority.zoneId && spatialHover?.type === "zone" && spatialHover.id === priority.zoneId)}
+              onSelectZone={onSelectZone}
+              onSpatialHoverChange={onSpatialHoverChange}
+            />
+          ))
+        ) : (
+          <PanelStateBlock state="empty" title="No priorities match this view" body="Choose a broader priority filter to restore the current risk list." />
+        )}
+      </Section>
+
+      <Section label="Evidence Basis">
+        <SourceFreshnessMatrix sources={sources} limit={4} />
+      </Section>
+    </PanelCard>
+  );
+}
+
+function OperationsPriorityPanel({
+  state,
+  onSelectZone,
+  spatialHover,
+  onSpatialHoverChange,
+}: {
+  state: ShellState;
+  onSelectZone?: (zoneId: string) => void;
+  spatialHover?: SelectedEntity;
+  onSpatialHoverChange?: (target: SelectedEntity) => void;
+}) {
+  const [priorityFilter, setPriorityFilter] = useState("all");
+  const cleared = state.rescueProgress.cleared;
+  const total = state.rescueProgress.total;
+  const pct = Math.round((cleared / total) * 100);
+  const agents = getAgentTasks(state.scene).filter((agent) => agent.category === "operations" || agent.category === "governance");
+  const remaining = total - cleared;
+
+  const filteredPriorities = state.activePriorities.filter((priority) =>
+    priorityFilter === "all" ||
+    (priorityFilter === "attention" && (priority.severity === "danger" || priority.severity === "caution")) ||
+    (priorityFilter === "active" && (priority.status === "in-progress" || priority.status === "recommended")) ||
+    (priorityFilter === "pending" && priority.status === "pending"),
+  );
+
+  return (
+    <PanelCard title="Operational Priorities" badgeLabel="Active operations" badgeColor={remaining > 30 ? T.fire : T.amber}>
+      <PanelHeroMetric
+        eyebrow="Evacuation progress"
+        title={`${remaining} structures still uncleared`}
+        subtitle="Operations view prioritizes route capacity, field readiness, and exceptions after authority notification."
+        metric={`${pct}%`}
+        metricLabel="cleared"
+        signalTone={remaining > 30 ? "danger" : "caution"}
+      >
+        <SignalBar label="Civilian structure clearance" value={pct} signalTone={remaining > 30 ? "danger" : "caution"} animated />
+      </PanelHeroMetric>
+
+      <Section label="Route Capacity">
+        <CapabilityMatrix
+          items={[
+            {
+              label: "Route A · Egress Core",
+              state: state.rescueProgress.routeA,
+              detail: "Westbound civilian flow nominal. Audio guidance anchors verified.",
+              signalTone: "safe",
+            },
+            {
+              label: "Route B · Standby Lane",
+              state: state.rescueProgress.routeB,
+              detail: "Pre-staged fallback if Route A degrades.",
+              signalTone: "caution",
+            },
+            {
+              label: "FD ingress staging",
+              state: `ETA ${state.rescueProgress.fireDeptEta}`,
+              detail: "Engine 9 and Command Unit 4 staged at Buffer East service road.",
+              signalTone: "caution",
+            },
+          ]}
+        />
+      </Section>
+
+      <Section label="Operations Trend">
+        {/* Ends on `pct` — the same number the progress readout shows. */}
+        <MiniTrend
+          label="Cleared structures"
+          values={[...getSignalHistory(state.scene).structures.slice(0, -1), pct]}
+          signalTone={remaining > 30 ? "danger" : "safe"}
+        />
+      </Section>
+
+      <Section label="Plan Comparison">
+        <ContainmentPlanComparison activeVariant={state.planVariant} />
+      </Section>
+
+      <Section label="Observed Outcome">
+        <ActionOutcomeVerification verification={state.recentActionVerification} />
+      </Section>
+
+      <Section label="Spatial Priorities">
+        <RailFilterBar
+          ariaLabel="Spatial priorities"
+          value={priorityFilter}
+          onValueChange={setPriorityFilter}
+          options={[
+            { id: "all", label: "All" },
+            { id: "attention", label: "Attention" },
+            { id: "active", label: "Active" },
+            { id: "pending", label: "Pending" },
+          ]}
+        />
+        {filteredPriorities.length ? (
+          filteredPriorities.slice(0, 3).map((priority, index) => (
+            <PriorityMatrixRow
+              key={priority.id}
+              item={priority}
+              index={index}
+              selected={Boolean(priority.zoneId && state.selectedEntity?.type === "zone" && state.selectedEntity.id === priority.zoneId)}
+              spatiallyLinked={Boolean(priority.zoneId && spatialHover?.type === "zone" && spatialHover.id === priority.zoneId)}
+              onSelectZone={onSelectZone}
+              onSpatialHoverChange={onSpatialHoverChange}
+            />
+          ))
+        ) : (
+          <PanelStateBlock state="empty" title="No priorities match this view" body="Choose a broader priority filter to restore the current operations list." />
+        )}
+      </Section>
+
+      <Section label="Agent Relay">
+        <AgentRelayStrip agents={agents} />
+      </Section>
+    </PanelCard>
+  );
+}
+
+export function GroundTeamsPanel({
+  state,
+  onSelectTeam,
+  spatialHover,
+  onSpatialHoverChange,
+}: GroundTeamsPanelProps) {
+  // Three-level triage: vitals-distressed → deployed-active → normal
+  const vitalsAbnormal = state.groundTeams.filter((team) => {
+    const vitals = parseVitals(team.vitals);
+    return vitals.hr > 150 || vitals.visibility < 40;
+  });
+  const deployedActive = state.groundTeams.filter((team) =>
+    !vitalsAbnormal.includes(team) && team.availability === "deployed",
+  );
+  const normalTeams = state.groundTeams.filter(
+    (team) => !vitalsAbnormal.includes(team) && !deployedActive.includes(team),
+  );
+  const hasDistressed = vitalsAbnormal.length > 0;
+  const agents = getAgentTasks(state.scene).filter((agent) => agent.id === "resource-readiness" || agent.id === "governance");
+  const activeTeamCount = state.groundTeams.filter((team) => team.availability === "deployed" || team.availability === "staged").length;
+
+  const sectionLabel = hasDistressed
+    ? "Distress · Active · Standby"
+    : deployedActive.length > 0
+      ? "Active · Standby"
+      : "Unit Availability";
+
+  return (
     <PanelCard
-      title={titles.priority}
-      badgeLabel={`${state.activePriorities.length} LIVE`}
-      badgeColor={state.mode === "rescue" ? T.fire : T.red}
+      title="Field Readiness"
+      badgeLabel={`${state.groundTeams.length} units`}
+      badgeColor={hasDistressed ? T.red : deployedActive.length > 0 ? T.amber : T.teal}
     >
-      <Section label="Current Priorities">
-        {state.activePriorities.slice(0, 3).map((item) => (
-          <PriorityCard
-            key={item.id}
-            item={item}
-            density={density}
-            canAcknowledge={state.mode === "rescue"}
-            onAcknowledge={onAcknowledgePriority}
+      <PanelHeroMetric
+        eyebrow="Ground coordination"
+        title={hasDistressed ? `${vitalsAbnormal.length} unit distress signal` : deployedActive.length > 0 ? `${deployedActive.length} deployed active` : "Field teams nominal"}
+        subtitle="Vitals-distressed units surface first. Deployed teams second. Normal units compressed at bottom."
+        metric={`${activeTeamCount}`}
+        metricLabel="active"
+        signalTone={hasDistressed ? "danger" : deployedActive.length > 0 ? "caution" : "safe"}
+      >
+        <MetricGrid
+          items={[
+            { label: "Available", value: `${state.groundTeams.filter((team) => team.availability === "available").length}`, signalTone: "safe" },
+            { label: "Staged", value: `${state.groundTeams.filter((team) => team.availability === "staged").length}`, signalTone: "caution" },
+            { label: "Deployed", value: `${state.groundTeams.filter((team) => team.availability === "deployed").length}`, signalTone: deployedActive.length > 0 ? "danger" : "neutral" },
+            { label: "Low visibility", value: `${state.groundTeams.filter((team) => parseVitals(team.vitals).visibility < 80).length}`, signalTone: "caution" },
+          ]}
+        />
+      </PanelHeroMetric>
+
+      <Section label={sectionLabel}>
+        {[...vitalsAbnormal, ...deployedActive, ...normalTeams].map((team) => (
+          <FieldUnitRow
+            key={team.id}
+            team={team}
+            selected={state.selectedEntity?.type === "team" && state.selectedEntity.id === team.id}
+            spatiallyLinked={
+              (spatialHover?.type === "team" && spatialHover.id === team.id) ||
+              (spatialHover?.type === "zone" && spatialHover.id === team.linkedZoneId)
+            }
+            onSelectTeam={onSelectTeam}
+            onSpatialHoverChange={onSpatialHoverChange}
+            triageLevel={vitalsAbnormal.includes(team) ? "distress" : deployedActive.includes(team) ? "active" : "normal"}
           />
         ))}
       </Section>
-    </PanelCard>
-  );
-}
 
-export function GroundTeamsPanel({ state, onSelectTeam }: GroundTeamsPanelProps) {
-  const density = getDensity(state.mode);
-  const isCritical = density === "critical";
-  const isCondensed = density === "condensed";
-  const titles = PANEL_TITLES[state.mode];
-  const isOperations = state.workflowPhase === "operations";
-
-  if (isOperations) {
-    return (
-      <PanelCard
-        title="Ground Team Vitals"
-        badgeLabel={`${state.groundTeams.length} FIELD UNITS`}
-        badgeColor={T.yellow}
-      >
-        <Section label="Live Unit Telemetry">
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {state.groundTeams.map((team) => {
-              const isActive = state.selectedEntity?.type === "team" && state.selectedEntity.id === team.id;
-
-              // Parse HR and VIS from vitals string
-              const hrMatch = team.vitals.match(/HR\s*(\d+)/i);
-              const visMatch = team.vitals.match(/VIS\s*(\d+)m/i);
-              const hr = hrMatch ? parseInt(hrMatch[1]) : 100;
-              const vis = visMatch ? parseInt(visMatch[1]) : 150;
-
-              const isHrSpike = hr > 150;
-              const isVisDegraded = vis < 10;
-
-              // Connectivity and signals
-              const signal = team.id === "bravo" ? 54 : team.id === "alpha" ? 98 : 94;
-
-              const borderTone = isHrSpike ? T.red : isVisDegraded ? T.amber : T.teal;
-              const accentColor =
-                team.availability === "deployed" ? T.red : team.availability === "staged" ? T.amber : T.teal;
-
-              return (
-                <button
-                  key={team.id}
-                  onClick={() => onSelectTeam(team.id)}
-                  style={{
-                    width: "100%",
-                    textAlign: "left",
-                    borderRadius: 14,
-                    border: `1px solid ${isActive ? `${borderTone}` : isHrSpike ? `${T.red}44` : "rgba(255,255,255,0.06)"}`,
-                    background: isActive
-                      ? `${borderTone}0A`
-                      : isHrSpike
-                        ? "rgba(229, 83, 60, 0.05)"
-                        : "rgba(255,255,255,0.02)",
-                    padding: "10px 12px",
-                    cursor: "pointer",
-                    transition: "background 150ms ease, border-color 150ms ease, transform 150ms ease",
-                    position: "relative",
-                    overflow: "hidden",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 6
-                  }}
-                >
-                  {/* Glowing warning line indicator */}
-                  {(isHrSpike || isVisDegraded) && (
-                    <div style={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      bottom: 0,
-                      width: 3,
-                      background: isHrSpike ? T.red : T.amber,
-                      animation: isHrSpike ? "pulse 1.2s infinite" : "none",
-                    }} />
-                  )}
-
-                  {/* Header Row */}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, width: "100%" }}>
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ fontFamily: font.sans, fontSize: 12, fontWeight: 700, color: T.textPrimary }}>
-                          {team.name}
-                        </span>
-                        <span style={{
-                          fontFamily: font.mono,
-                          fontSize: 9,
-                          color: accentColor,
-                          padding: "1px 4px",
-                          borderRadius: 3,
-                          background: `${accentColor}15`,
-                          border: `1px solid ${accentColor}25`,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.05em"
-                        }}>
-                          {team.availability}
-                        </span>
-                      </div>
-                      <div style={{ fontFamily: font.sans, fontSize: 10, color: T.textMuted, marginTop: 1 }}>
-                        {team.unitType}
-                      </div>
-                    </div>
-
-                    {/* Signal Strength Connectivity */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: signal < 60 ? T.amber : T.textMuted }}>
-                        <path d="M12 20h.01" />
-                        <path d="M8.5 16.5a5 5 0 0 1 7 0" />
-                        <path d="M5 13a10 10 0 0 1 14 0" />
-                        {signal >= 80 && <path d="M1.5 9.5a15 15 0 0 1 21 0" />}
-                      </svg>
-                      <span style={{
-                        fontFamily: font.mono,
-                        fontSize: 9,
-                        color: signal < 60 ? T.amber : T.textMuted,
-                        fontWeight: 600
-                      }}>
-                        {signal}%
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Assignment and ETA Strip */}
-                  <div style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    borderTop: "1px solid rgba(255,255,255,0.04)",
-                    borderBottom: "1px solid rgba(255,255,255,0.04)",
-                    padding: "4px 0",
-                    marginTop: 2
-                  }}>
-                    <span style={{ fontFamily: font.sans, fontSize: 9, color: T.textSecondary }}>
-                      Assignment: <strong style={{ color: T.textPrimary }}>{team.assignment}</strong>
-                    </span>
-                    <span style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted }}>
-                      ETA: {team.eta}
-                    </span>
-                  </div>
-
-                  {/* Biometric readout grid */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 2, width: "100%" }}>
-                    {/* Heart Rate Block */}
-                    <div style={{
-                      borderRadius: 6,
-                      background: isHrSpike ? "rgba(229, 83, 60, 0.08)" : "rgba(255,255,255,0.015)",
-                      border: `1px solid ${isHrSpike ? `${T.red}33` : "rgba(255,255,255,0.04)"}`,
-                      padding: "4px 6px",
-                      display: "flex",
-                      flexDirection: "column",
-                    }}>
-                      <span style={{ fontFamily: font.sans, fontSize: 9, color: T.textMuted, textTransform: "uppercase" }}>Heart Rate</span>
-                      <span style={{
-                        fontFamily: font.mono,
-                        fontSize: 12,
-                        fontWeight: 700,
-                        color: isHrSpike ? T.red : T.textPrimary,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4
-                      }}>
-                        {isHrSpike && (
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={T.red} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, animation: "pulse 0.8s infinite" }}>
-                            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-                          </svg>
-                        )}
-                        {hr} <span style={{ fontSize: 9, fontWeight: 400, color: T.textMuted }}>BPM</span>
-                      </span>
-                    </div>
-
-                    {/* Visibility Block */}
-                    <div style={{
-                      borderRadius: 6,
-                      background: isVisDegraded ? "rgba(245, 166, 35, 0.08)" : "rgba(255,255,255,0.015)",
-                      border: `1px solid ${isVisDegraded ? `${T.amber}33` : "rgba(255,255,255,0.04)"}`,
-                      padding: "4px 6px",
-                      display: "flex",
-                      flexDirection: "column",
-                    }}>
-                      <span style={{ fontFamily: font.sans, fontSize: 9, color: T.textMuted, textTransform: "uppercase" }}>Visibility</span>
-                      <span style={{
-                        fontFamily: font.mono,
-                        fontSize: 12,
-                        fontWeight: 700,
-                        color: isVisDegraded ? T.amber : T.textPrimary,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4
-                      }}>
-                        {isVisDegraded && (
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={T.amber} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                            <line x1="4" y1="8" x2="20" y2="8" />
-                            <line x1="8" y1="12" x2="24" y2="12" />
-                            <line x1="2" y1="16" x2="18" y2="16" />
-                          </svg>
-                        )}
-                        {vis}m
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Warnings */}
-                  {isHrSpike && (
-                    <div style={{
-                      fontFamily: font.mono,
-                      fontSize: 9,
-                      fontWeight: 700,
-                      color: T.red,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                      marginTop: 2,
-                    }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={T.red} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
-                          <line x1="12" y1="9" x2="12" y2="13" />
-                          <line x1="12" y1="17" x2="12.01" y2="17" />
-                        </svg>
-                        BIOMETRIC SPIKE — STRESS INDICATOR
-                      </span>
-                    </div>
-                  )}
-                  {isVisDegraded && (
-                    <div style={{
-                      fontFamily: font.mono,
-                      fontSize: 9,
-                      fontWeight: 700,
-                      color: T.amber,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                      marginTop: 2,
-                    }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={T.amber} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
-                          <line x1="12" y1="9" x2="12" y2="13" />
-                          <line x1="12" y1="17" x2="12.01" y2="17" />
-                        </svg>
-                        DEGRADED SIGHT RANGE — SMOKE OBSTRUCTION
-                      </span>
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </Section>
-      </PanelCard>
-    );
-  }
-
-  return (
-    <PanelCard
-      title={isCritical ? "Evacuation Teams" : titles.priority === "Evacuation Status" ? "Field Teams" : "Ground Teams"}
-      badgeLabel={`${state.groundTeams.length} TEAMS`}
-      badgeColor={T.yellow}
-    >
-      <Section label="Field Availability">
-        {state.groundTeams.map((team) => {
-          const isActive = state.selectedEntity?.type === "team" && state.selectedEntity.id === team.id;
-          const color =
-            team.availability === "deployed" ? T.red : team.availability === "staged" ? T.amber : T.teal;
-
-          // ── Critical: compact single-line strip ──
-          if (isCritical) {
-            return (
-              <button
-                key={team.id}
-                onClick={() => onSelectTeam(team.id)}
-                aria-label={`${team.name} — ${team.availability}`}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  borderRadius: 10,
-                  border: `1px solid ${isActive ? `${color}55` : "rgba(255,255,255,0.06)"}`,
-                  background: isActive ? `${color}10` : "transparent",
-                  padding: "7px 10px",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 6,
-                }}
-              >
-                <span style={{ fontFamily: font.sans, fontSize: 11, fontWeight: 600, color: T.textPrimary }}>{team.name}</span>
-                <span style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted }}>{team.readiness} · {team.eta}</span>
-                <StatusDot label={team.availability} color={color} />
-              </button>
-            );
-          }
-
-          // ── Condensed: name + unit + dot, no metrics row ──
-          if (isCondensed) {
-            return (
-              <button
-                key={team.id}
-                onClick={() => onSelectTeam(team.id)}
-                aria-label={`${team.name} — ${team.availability}, ${team.unitType}`}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  borderRadius: 11,
-                  border: `1px solid ${isActive ? `${color}55` : GI.borderDim}`,
-                  background: isActive ? `${color}10` : GI.surface,
-                  padding: "9px 11px",
-                  cursor: "pointer",
-                  transition: "border-color 100ms",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                  <div>
-                    <div style={{ fontFamily: font.sans, fontSize: 12, fontWeight: 600, color: T.textPrimary }}>{team.name}</div>
-                    <div style={{ fontFamily: font.sans, fontSize: 10, color: T.textMuted, marginTop: 2 }}>
-                      {team.unitType} · {team.eta}
-                    </div>
-                  </div>
-                  <StatusDot label={team.availability} color={color} />
-                </div>
-              </button>
-            );
-          }
-
-          // ── Full: original detailed card ──
-          return (
-            <button
-              key={team.id}
-              onClick={() => onSelectTeam(team.id)}
-              aria-label={`${team.name} — ${team.availability}, ${team.unitType}`}
-              style={{
-                width: "100%",
-                textAlign: "left",
-                borderRadius: 12,
-                border: `1px solid ${isActive ? `${color}55` : GI.borderDim}`,
-                background: isActive ? `${color}10` : GI.surface,
-                padding: "10px 12px",
-                cursor: "pointer",
-                transition: "border-color 100ms",
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                <div>
-                  <div style={{ fontFamily: font.sans, fontSize: 12, fontWeight: 600, color: T.textPrimary }}>{team.name}</div>
-                  <div style={{ fontFamily: font.sans, fontSize: 10, color: T.textMuted, marginTop: 2 }}>
-                    {team.unitType} · {team.assignment}
-                  </div>
-                </div>
-                <StatusDot label={team.availability} color={color} />
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, marginTop: 8 }}>
-                <TinyMetric label="Readiness" value={team.readiness} />
-                <TinyMetric label="ETA" value={team.eta} />
-                <TinyMetric label="Zone" value={getZoneLabel(team.linkedZoneId)} />
-              </div>
-            </button>
-          );
-        })}
+      <Section label="Agent Relay">
+        <AgentRelayStrip agents={agents} limit={2} />
       </Section>
     </PanelCard>
   );
 }
 
-// ─── Priority Card (density-adaptive) ────────────────────────────────────────
-
-function PriorityCard({
+function PriorityMatrixRow({
   item,
-  density,
-  canAcknowledge,
-  onAcknowledge,
+  index,
+  selected,
+  spatiallyLinked,
+  onSelectZone,
+  onSpatialHoverChange,
 }: {
   item: PriorityRiskItem;
-  density: "full" | "condensed" | "critical";
-  canAcknowledge: boolean;
-  onAcknowledge: (priorityId: string) => void;
+  index: number;
+  selected: boolean;
+  spatiallyLinked: boolean;
+  onSelectZone?: (zoneId: string) => void;
+  onSpatialHoverChange?: (target: SelectedEntity) => void;
 }) {
-  const tone =
-    item.severity === "danger"
-      ? T.red
-      : item.severity === "caution"
-        ? T.amber
-        : item.severity === "safe"
-          ? T.teal
-          : T.cyan;
+  const signalTone = severityToTone(item.severity);
+  const color = toneColor(signalTone);
+  const score = priorityScore(item, index);
+  const interactive = Boolean(item.zoneId && onSelectZone);
 
-  // ── Critical: metric-style card (numbers and status only) ──
-  if (density === "critical") {
-    return (
-      <div
-        style={{
-          borderRadius: 12,
-          border: `1px solid ${tone}22`,
-          background: `${tone}0A`,
-          padding: "9px 11px",
-        }}
-        role="article"
-        aria-label={`${item.severity} priority: ${item.title}`}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-          <div style={{ fontFamily: font.mono, fontSize: 9, color: tone, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-            {item.areaLabel}
-          </div>
-          <StatusDot label={item.status} color={tone} />
-        </div>
-        <div
-          style={{
-            fontFamily: font.sans,
-            fontSize: 12,
-            fontWeight: 600,
-            color: T.textPrimary,
-            lineHeight: 1.3,
-            marginTop: 5,
-          }}
-        >
-          {item.title}
-        </div>
-        {item.linkedActionId && (
-          <div style={{ fontFamily: font.mono, fontSize: 10, color: tone, marginTop: 6, opacity: 0.85 }}>
-            ▸ {ACTION_LABELS[item.linkedActionId] ?? item.linkedActionId}
-          </div>
-        )}
-        {canAcknowledge && item.severity !== "safe" && (
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-            <button
-              onClick={() => onAcknowledge(item.id)}
-              disabled={item.acknowledged}
-              aria-label={item.acknowledged ? `${item.title} — acknowledged` : `Acknowledge: ${item.title}`}
-              style={{
-                borderRadius: 7,
-                border: `1px solid ${item.acknowledged ? GI.borderDim : `${tone}44`}`,
-                background: item.acknowledged ? "transparent" : `${tone}14`,
-                color: item.acknowledged ? T.textMuted : tone,
-                padding: "4px 9px",
-                fontFamily: font.sans,
-                fontSize: 10,
-                fontWeight: 700,
-                cursor: item.acknowledged ? "default" : "pointer",
-              }}
-            >
-              {item.acknowledged ? "Acked" : "Ack"}
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  }
+  const activate = () => {
+    if (item.zoneId) onSelectZone?.(item.zoneId);
+  };
 
-  // ── Condensed: title + status + linked action. Rationale hidden. ──
-  if (density === "condensed") {
-    return (
-      <div
-        style={{
-          borderRadius: 13,
-          border: `1px solid ${tone}24`,
-          background: `${tone}0B`,
-          padding: "10px 11px",
-        }}
-        role="article"
-        aria-label={`${item.severity} priority: ${item.title}`}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-          <div style={{ fontFamily: font.mono, fontSize: 10, color: tone, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-            {item.areaLabel}
-          </div>
-          <StatusDot label={item.status} color={tone} />
-        </div>
-        <div
-          style={{
-            fontFamily: font.sans,
-            fontSize: 12,
-            fontWeight: 600,
-            color: T.textPrimary,
-            lineHeight: 1.35,
-            marginTop: 5,
-          }}
-        >
-          {item.title}
-        </div>
-        {/* Next step is one short sentence — keep it in condensed */}
-        <div
-          style={{
-            fontFamily: font.sans,
-            fontSize: 11,
-            color: T.textSecondary,
-            lineHeight: 1.4,
-            marginTop: 4,
-          }}
-        >
-          {item.nextStep}
-        </div>
-        {item.linkedActionId && (
-          <div style={{ fontFamily: font.mono, fontSize: 10, color: tone, marginTop: 6, opacity: 0.8 }}>
-            ▸ {ACTION_LABELS[item.linkedActionId] ?? item.linkedActionId}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ── Full: original 5-block card ──
   return (
     <div
+      role={interactive ? "button" : "article"}
+      tabIndex={interactive ? 0 : undefined}
+      aria-pressed={interactive ? selected : undefined}
+      aria-label={`${item.title}: ${item.severity} priority${item.zoneId ? ` in ${getZoneLabel(item.zoneId)}. Select zone.` : ""}`}
+      data-testid={`priority-row-${item.id}`}
+      onClick={interactive ? activate : undefined}
+      onKeyDown={interactive ? (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        activate();
+      } : undefined}
+      onMouseEnter={item.zoneId ? () => onSpatialHoverChange?.({ type: "zone", id: item.zoneId! }) : undefined}
+      onMouseLeave={item.zoneId ? (event) => {
+        if (document.activeElement !== event.currentTarget) onSpatialHoverChange?.(null);
+      } : undefined}
+      onFocus={item.zoneId ? () => onSpatialHoverChange?.({ type: "zone", id: item.zoneId! }) : undefined}
+      onBlur={item.zoneId ? () => onSpatialHoverChange?.(null) : undefined}
       style={{
-        borderRadius: 14,
-        border: `1px solid ${tone}28`,
-        background: `${tone}0D`,
-        padding: "11px 12px",
+        borderTop: `1px solid ${tint(color, 0.18)}`,
+        borderRadius: radius.sm,
+        outlineOffset: 2,
+        background: selected ? tint(color, 0.08) : spatiallyLinked ? tint(T.cyan, 0.07) : "transparent",
+        padding: `${space.lg}px 0`,
+        display: "flex",
+        flexDirection: "column",
+        gap: space.md,
+        cursor: interactive ? "pointer" : "default",
+        transition: `background ${motion.fast}`,
       }}
-      role="article"
-      aria-label={`${item.severity} priority: ${item.title}`}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-        <div
-          style={{
-            fontFamily: font.mono,
-            fontSize: 10,
-            color: tone,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-          }}
-        >
-          {item.areaLabel}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: space.md }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontFamily: font.sans, fontSize: typeScale.label, color, fontWeight: typeWeight.semibold }}>
+            {item.areaLabel}
+          </div>
+          <div style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textPrimary, fontWeight: typeWeight.bold, lineHeight: 1.3, marginTop: space.xs }}>
+            {item.title}
+          </div>
         </div>
-        <StatusDot label={item.status} color={tone} />
+        <StatusPill label={item.status} color={color} />
       </div>
-      <div
-        style={{
-          fontFamily: font.sans,
-          fontSize: 13,
-          fontWeight: 600,
-          color: T.textPrimary,
-          lineHeight: 1.35,
-          marginTop: 6,
-        }}
-      >
-        {item.title}
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: space.xs }}>
+        <ScoreTile label="Life" value={score.life} tone={signalTone} />
+        <ScoreTile label="Spread" value={score.spread} tone={signalTone} />
+        <ScoreTile label="Data" value={score.data} tone={score.data < 60 ? "caution" : "safe"} />
+        <ScoreTile label="Time" value={score.time} tone={signalTone} />
       </div>
-      <div
-        style={{
-          fontFamily: font.sans,
-          fontSize: 11,
-          color: T.textSecondary,
-          lineHeight: 1.5,
-          marginTop: 6,
-          paddingTop: 6,
-          borderTop: `1px solid ${GI.dividerBg}`,
-        }}
-      >
-        {item.rationale}
-      </div>
-      <div
-        style={{
-          fontFamily: font.sans,
-          fontSize: 11,
-          color: T.textPrimary,
-          lineHeight: 1.45,
-          marginTop: 5,
-        }}
-      >
-        {item.nextStep}
-      </div>
-      {item.linkedActionId ? (
-        <div
-          style={{
-            fontFamily: font.mono,
-            fontSize: 10,
-            color: tone,
-            marginTop: 8,
-            opacity: 0.8,
-          }}
-        >
-          ▸ {ACTION_LABELS[item.linkedActionId] ?? item.linkedActionId}
+
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: space.md, alignItems: "center", borderTop: `1px solid ${border.soft}`, paddingTop: space.md }}>
+        <div style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textSecondary, lineHeight: 1.4 }}>
+          {item.nextStep}
         </div>
-      ) : null}
-      {canAcknowledge && item.severity !== "safe" ? (
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-          <button
-            onClick={() => onAcknowledge(item.id)}
-            disabled={item.acknowledged}
-            aria-label={item.acknowledged ? `${item.title} — acknowledged` : `Acknowledge: ${item.title}`}
-            style={{
-              borderRadius: 8,
-              border: `1px solid ${item.acknowledged ? GI.borderDim : `${tone}44`}`,
-              background: item.acknowledged ? "transparent" : `${tone}14`,
-              color: item.acknowledged ? T.textMuted : tone,
-              padding: "5px 10px",
-              fontFamily: font.sans,
-              fontSize: 10,
-              fontWeight: 700,
-              cursor: item.acknowledged ? "default" : "pointer",
-            }}
-          >
-            {item.acknowledged ? "Acknowledged" : "Acknowledge"}
-          </button>
-        </div>
-      ) : null}
+        {item.linkedActionId ? (
+          <span style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.semibold, color, whiteSpace: "nowrap" }}>
+            {ACTION_LABELS[item.linkedActionId] ?? item.linkedActionId}
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }
 
-// ─── StatusDot ───────────────────────────────────────────────────────────────
+function FieldUnitRow({
+  team,
+  selected,
+  spatiallyLinked,
+  onSelectTeam,
+  onSpatialHoverChange,
+  triageLevel = "normal",
+}: {
+  team: GroundTeamStatus;
+  selected: boolean;
+  spatiallyLinked: boolean;
+  onSelectTeam: (teamId: string) => void;
+  onSpatialHoverChange?: (target: SelectedEntity) => void;
+  triageLevel?: "distress" | "active" | "normal";
+}) {
+  const vitals = parseVitals(team.vitals);
+  const isDistress = triageLevel === "distress";
+  const isActive = triageLevel === "active";
+  const signalTone: SignalTone = isDistress ? (vitals.hr > 150 ? "danger" : "caution") : isActive ? "caution" : "safe";
+  const color = toneColor(signalTone);
 
-function StatusDot({ label, color }: { label: string; color: string }) {
+  const hrPct = Math.min(100, Math.round((vitals.hr / 200) * 100));
+  const visPct = Math.min(100, Math.round((vitals.visibility / 250) * 100));
+  const hrTone: SignalTone = vitals.hr > 170 ? "danger" : vitals.hr > 140 ? "caution" : "safe";
+  const visTone: SignalTone = vitals.visibility < 30 ? "danger" : vitals.visibility < 80 ? "caution" : "safe";
+
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
-      <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, flexShrink: 0 }} aria-hidden="true" />
-      <span
-        style={{
-          fontFamily: font.mono,
-          fontSize: 9,
-          color,
-          letterSpacing: "0.06em",
-          textTransform: "uppercase",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {label}
-      </span>
+    <button
+      type="button"
+      data-testid={`team-row-${team.id}`}
+      aria-label={`${team.name}, ${team.assignment}, ${team.availability}, ${getZoneLabel(team.linkedZoneId)}. Select ground team.`}
+      aria-pressed={selected}
+      onClick={() => onSelectTeam(team.id)}
+      onMouseEnter={() => onSpatialHoverChange?.({ type: "team", id: team.id })}
+      onMouseLeave={(event) => {
+        if (document.activeElement !== event.currentTarget) onSpatialHoverChange?.(null);
+      }}
+      onFocus={() => onSpatialHoverChange?.({ type: "team", id: team.id })}
+      onBlur={() => onSpatialHoverChange?.(null)}
+      style={{
+        width: "100%",
+        textAlign: "left",
+        borderRadius: radius.md,
+        border: `1px solid ${selected || isDistress || isActive ? tint(color, 0.26) : spatiallyLinked ? tint(T.cyan, 0.34) : "transparent"}`,
+        borderBottomColor: selected || isDistress || isActive ? tint(color, 0.26) : spatiallyLinked ? tint(T.cyan, 0.34) : border.soft,
+        background: selected || isDistress ? tint(color, 0.06) : spatiallyLinked ? tint(T.cyan, 0.07) : "transparent",
+        padding: `${space.md}px ${space.lg}px`,
+        cursor: "pointer",
+        display: "flex",
+        flexDirection: "column",
+        gap: space.md,
+        transition: `background ${motion.fast}, border-color ${motion.fast}`,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: space.md }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: space.sm, minWidth: 0 }}>
+            <span style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.bold, color: T.textPrimary }}>
+              {team.name}
+            </span>
+            <StatusPill label={team.availability} color={color} />
+          </div>
+          <div style={{ fontFamily: font.sans, fontSize: typeScale.caption, color: T.textMuted, marginTop: space.xs, lineHeight: 1.35 }}>
+            {team.assignment} · {getZoneLabel(team.linkedZoneId)}
+          </div>
+        </div>
+        <div style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color, fontWeight: typeWeight.bold, whiteSpace: "nowrap" }}>
+          {team.eta}
+        </div>
+      </div>
+
+      {isDistress ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: space.sm }}>
+          <VitalsBar label="HR" value={hrPct} displayValue={`${vitals.hr} bpm`} signalTone={hrTone} />
+          <VitalsBar label="VIS" value={visPct} displayValue={`${vitals.visibility}m`} signalTone={visTone} />
+        </div>
+      ) : isActive ? (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: space.md }}>
+          <span style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textSecondary }}>{team.unitType}</span>
+          <div style={{ display: "flex", gap: space.md }}>
+            <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted }}>
+              HR {vitals.hr}
+            </span>
+            <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted }}>
+              VIS {vitals.visibility}m
+            </span>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: space.md }}>
+          <span style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textMuted }}>
+            {team.unitType}
+          </span>
+          <span style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.teal, fontWeight: typeWeight.semibold }}>
+            Nominal
+          </span>
+        </div>
+      )}
+    </button>
+  );
+}
+
+function VitalsBar({ label, value, displayValue, signalTone }: { label: string; value: number; displayValue: string; signalTone: SignalTone }) {
+  const color = toneColor(signalTone);
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 44px", alignItems: "center", gap: space.sm }}>
+      <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: "0.06em", textTransform: "uppercase" }}>{label}</span>
+      <div style={{ height: space.xs, borderRadius: radius.pill, background: border.subtle, overflow: "hidden" }}>
+        <div style={{
+          width: `${value}%`, height: "100%", background: color, borderRadius: radius.pill,
+          transition: "width 300ms ease",
+        }} />
+      </div>
+      <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color, textAlign: "right" }}>{displayValue}</span>
     </div>
   );
+}
+
+function ScoreTile({ label, value, tone }: { label: string; value: number; tone: SignalTone }) {
+  const color = toneColor(tone);
+  return (
+    <div style={{ minWidth: 0 }}>
+      <div style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: space.xs }}>
+        {label}
+      </div>
+      <div style={{ height: space.sm, borderRadius: radius.pill, background: surface.inset, overflow: "hidden", border: `1px solid ${border.soft}` }}>
+        <div style={{ width: `${value}%`, height: "100%", background: color, borderRadius: radius.pill }} />
+      </div>
+    </div>
+  );
+}
+
+function priorityScore(item: PriorityRiskItem, index: number) {
+  const base = item.severity === "danger" ? 88 : item.severity === "caution" ? 68 : item.severity === "safe" ? 38 : 54;
+  return {
+    life: clamp(base + (item.areaLabel.toLowerCase().includes("residential") ? 6 : -index * 4)),
+    spread: clamp(base - index * 5 + (item.title.toLowerCase().includes("spread") ? 8 : 0)),
+    data: clamp(item.status === "pending" ? 52 : item.status === "recommended" ? 74 : item.status === "complete" ? 92 : 64),
+    time: clamp(base + (index === 0 ? 6 : -index * 6)),
+  };
+}
+
+function parseVitals(vitals: string): { hr: number; visibility: number } {
+  const hrMatch = vitals.match(/HR\s*(\d+)/i);
+  const visibilityMatch = vitals.match(/VIS\s*(\d+)m/i);
+  return {
+    hr: hrMatch ? Number(hrMatch[1]) : 100,
+    visibility: visibilityMatch ? Number(visibilityMatch[1]) : 150,
+  };
+}
+
+function severityToTone(severity: PriorityRiskItem["severity"]): SignalTone {
+  switch (severity) {
+    case "danger":
+      return "danger";
+    case "caution":
+      return "caution";
+    case "safe":
+      return "safe";
+    case "info":
+    default:
+      return "info";
+  }
+}
+
+function clamp(value: number) {
+  return Math.max(8, Math.min(100, value));
 }

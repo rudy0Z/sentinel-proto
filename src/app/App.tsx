@@ -1,6 +1,7 @@
 import { RouterProvider } from "react-router";
 import { router } from "./routes";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { T } from "./tokens";
 
 export default function App() {
   return (
@@ -10,7 +11,7 @@ export default function App() {
           width: "100vw",
           height: "100vh",
           overflow: "auto",
-          background: "#060A12",
+          background: T.bgMap,
         }}
       >
         <RouterProvider router={router} />

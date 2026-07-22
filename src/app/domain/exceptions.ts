@@ -16,6 +16,12 @@ export function getOperationalException(scene: SceneId): OperationalException | 
         recommendedRecoveryCommand: "deploy-survey",
         auditText: "Satellite IR unavailable. TALON shifted evidence weighting to drone telemetry and LiDAR.",
         mapImpact: "Map retains last-known IR footprint and labels the fire edge as drone-weighted.",
+        spatialUncertainty: {
+          marginMeters: 200,
+          affectedZoneIds: ["forest-north", "buffer-east", "residential-south"],
+          basis: "Satellite edge detection is unavailable; the envelope is widened around the drone-weighted perimeter.",
+          observedAt: "03:48:21 UTC",
+        },
       };
     case "network-degraded":
       return {
@@ -31,6 +37,12 @@ export function getOperationalException(scene: SceneId): OperationalException | 
         recommendedRecoveryCommand: "relay-field-intel",
         auditText: "Network latency above threshold. Live HD streams suspended in favor of low-bandwidth telemetry.",
         mapImpact: "Map displays lightweight vector overlays instead of full live feed.",
+        spatialUncertainty: {
+          marginMeters: 120,
+          affectedZoneIds: ["forest-north", "buffer-east", "residential-south"],
+          basis: "Delayed telemetry increases positional age along the fire edge and active route corridor.",
+          observedAt: "03:49:11 UTC",
+        },
       };
     case "rescue-battery-critical":
       return {
@@ -46,6 +58,12 @@ export function getOperationalException(scene: SceneId): OperationalException | 
         recommendedRecoveryCommand: "deploy-backup",
         auditText: "Lidar-02 at 14%. TALON prepared supervised recall and handoff to Scout-03.",
         mapImpact: "Map shows temporary coverage gap until backup asset reaches perimeter.",
+        spatialUncertainty: {
+          marginMeters: 160,
+          affectedZoneIds: ["forest-north", "buffer-east"],
+          basis: "The outgoing LiDAR perimeter pass cannot refresh the eastern edge until backup handoff.",
+          observedAt: "03:50:02 UTC",
+        },
       };
     case "rescue-signal-degraded":
       return {
@@ -61,6 +79,12 @@ export function getOperationalException(scene: SceneId): OperationalException | 
         recommendedRecoveryCommand: "deploy-backup",
         auditText: "Primary relay degraded. TALON prepared route through stronger relay corridor.",
         mapImpact: "Map highlights degraded relay segment and suggested fallback corridor.",
+        spatialUncertainty: {
+          marginMeters: 90,
+          affectedZoneIds: ["buffer-east", "residential-south"],
+          basis: "Route telemetry is intermittent between the eastern relay and residential guidance lane.",
+          observedAt: "03:49:36 UTC",
+        },
       };
     case "infrastructure-total-loss":
       return {
@@ -91,6 +115,12 @@ export function getOperationalException(scene: SceneId): OperationalException | 
         recommendedRecoveryCommand: "open-degraded",
         auditText: "Terrain reconstruction incomplete. TALON increased spread buffer and kept raw feed visible.",
         mapImpact: "Map marks terrain uncertainty zones around the ridge fold.",
+        spatialUncertainty: {
+          marginMeters: 240,
+          affectedZoneIds: ["forest-north", "buffer-east"],
+          basis: "Incomplete LiDAR terrain reconstruction reduces confidence in the ridge-fold spread edge.",
+          observedAt: "03:48:28 UTC",
+        },
       };
     default:
       return null;
@@ -99,4 +129,15 @@ export function getOperationalException(scene: SceneId): OperationalException | 
 
 export function hasOperationalException(scene: SceneId): boolean {
   return getOperationalException(scene) !== null;
+}
+
+export function getSpatialUncertainty(scene: SceneId) {
+  return getOperationalException(scene)?.spatialUncertainty ?? null;
+}
+
+export function exceptionAffectsZone(
+  exception: OperationalException | null,
+  zoneId: string,
+): boolean {
+  return exception?.spatialUncertainty?.affectedZoneIds.includes(zoneId) ?? false;
 }

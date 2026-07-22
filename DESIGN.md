@@ -1,0 +1,310 @@
+# Sentinel Design System
+
+## 1. Direction
+
+Sentinel is a desktop spatial-intelligence instrument. It should feel dense, calm, technical, and visibly governed by human authorization.
+
+The existing architecture is preserved:
+
+- One stabilized operational map.
+- One observation rail.
+- One TALON synthesis rail.
+- One persistent command surface.
+- Intelligence and Operations density modes.
+
+The finish pass reduces decorative AI signals and increases clarity, consistency, and interaction reliability.
+
+## 2. Signatures
+
+### TALON Convergence Gate
+
+The TALON mark uses three sensor vectors resolving into a guarded centre. It communicates evidence convergence plus a human gate. It is not a bird, claw, eye, sparkle, or generic glowing orb.
+
+The mark is single-colour. State changes appear on its perimeter:
+
+- Cyan: watching or ready.
+- Red: listening.
+- Amber: checking evidence.
+- Teal: recommendation ready or completed.
+
+### Command Picture
+
+The command picture is the smallest complete operational view:
+
+`map + evidence/inspection + TALON/decision + one dominant action`
+
+Portfolio embeds default to this view. Free exploration keeps the full telemetry system.
+
+## 3. Theme
+
+Sentinel uses one dark command theme.
+
+- Canvas: deep blue-black, never pure black.
+- Map: slightly darker than the shell, with controlled contrast.
+- Panels: opaque or lightly translucent midnight surfaces.
+- Raised content: small lightness shift plus a quiet inner edge.
+- Overlays: elevated midnight surface and scrim.
+- Broad glass blur, outer glow, and multiple stacked shadows are not routine materials.
+
+## 4. Colour
+
+Components bind to semantic roles from `tokens.ts`.
+
+### Foundation
+
+- `background.base`: shell canvas.
+- `background.map`: map field.
+- `surface.panel`: observation and decision panels.
+- `surface.raised`: grouped content and focused controls.
+- `surface.inset`: inputs and recessed telemetry.
+- `border.soft`: internal separators.
+- `border.default`: standard boundaries.
+- `border.strong`: selected or emphasized boundaries.
+- `text.primary`: primary decisions and headings.
+- `text.secondary`: explanatory content.
+- `text.muted`: metadata and nonessential telemetry.
+- `text.disabled`: unavailable commands.
+
+### Operational colour
+
+- Cyan: telemetry, focus, TALON readiness, selected spatial object.
+- Amber: uncertainty, source conflict, pending human judgment.
+- Red: danger, destructive action, blocked life-safety condition.
+- Teal: verified, safe, complete, receipt written.
+- Yellow: secondary warning where amber is already carrying a decision state.
+
+Only one operational colour leads a component. State always includes text or an icon.
+
+## 5. Typography
+
+### Families
+
+- Product UI: IBM Plex Sans.
+- Telemetry, coordinates, timers, source IDs, and audit receipts: JetBrains Mono.
+
+### Scale
+
+- Display: 26px / 32px, 650.
+- Workspace heading: 18px / 24px, 650.
+- Panel title: 15px / 21px, 650.
+- Body: 12px / 18px, 400.
+- Body strong: 12px / 18px, 600.
+- Control: 12px / 16px, 600.
+- Label: 11px / 15px, 600.
+- Metadata: 10px / 14px, 500 mono.
+- Map label: 10.5px minimum at 1280px.
+
+Essential information is never 9px. Uppercase and tracked text are reserved for short telemetry codes, alert classes, and audit identifiers.
+
+## 6. Spacing and geometry
+
+The base unit is 4px.
+
+- Micro: 4px.
+- Control gap: 8px.
+- Component gap: 12px.
+- Group gap: 16px.
+- Panel gap: 20px.
+- Major transition: 24px.
+
+### Radius
+
+- Dense telemetry: 4px.
+- Controls: 8px.
+- Tiles and cards: 10px.
+- Panels: 12px.
+- Overlays: 16px.
+- Full pill: compact state or segmented selection only.
+
+### Laptop layouts
+
+- 1280x800: 260px rails, compact navbar, focused command surface.
+- 1366x768: 280px rails, secondary navbar metrics hidden.
+- 1440x900: 300px rails.
+- 1920x1080: rails may grow modestly; map remains dominant.
+
+## 7. Density modes
+
+### Intelligence
+
+Question: Is this real and urgent?
+
+- Evidence sources and freshness remain inspectable.
+- Conflicts, missing inputs, and reasoning are open.
+- TALON explains what changed and what remains uncertain.
+
+### Operations
+
+Question: What needs operator attention now?
+
+- Current priority, field assets, route state, and exception lead.
+- Source detail remains available but is not persistent.
+- TALON remains visible as supervisor.
+
+### Critical
+
+Question: What is blocked, degraded, or life-safety relevant?
+
+- One exception, one recommended recovery, one authorization path.
+- Historical detail moves behind disclosure.
+
+## 8. Core embed mode
+
+Core mode is activated by `embed=1` or `core=1`.
+
+- Keep the map full-frame.
+- Keep one left evidence or inspection view.
+- Keep one right TALON or priority view.
+- Show one dominant command.
+- Hide Review Dock, unused rail tabs, duplicate status strips, ornamental map FX, and secondary navbar telemetry.
+- Preserve source, uncertainty, human gate, and audit context.
+
+Free mode retains all tabs, telemetry, scene review, timeline, and advanced controls.
+
+## 9. TALON session
+
+TALON has one state owner and one interaction surface.
+
+States:
+
+1. Watching.
+2. Voice or typed input.
+3. Transcript review.
+4. Evidence and agent checks.
+5. Recommendation ready.
+6. Human authorization required.
+7. Supervised execution.
+8. Audit receipt.
+9. Blocked or degraded.
+
+Rules:
+
+- Command input is editable before submission.
+- Scripted fallback is labelled.
+- Voice state and modal override state never diverge.
+- Escape cancels listening, review, or processing without losing the transcript.
+- The command bar remains physically stable.
+- Explanatory prompts live inside the TALON session, not beside the primary action.
+- Recommendations name evidence, blocker, and next action.
+
+## 10. Map objects
+
+### Zones
+
+- Large interior hit region.
+- Hover: boundary emphasis plus label.
+- Selected: shared inspection state and panel update.
+- Keyboard: focusable with Enter/Space selection.
+
+### Drones
+
+- Minimum invisible 32px hit region.
+- Body identifies class; plate identifies name and battery.
+- Selection, hover, degraded, en-route, assigned, and holding states are distinct without relying on glow.
+- Drag uses pointer capture and a lightweight preview.
+- Drop animates to the nearest valid anchor, then writes an audit receipt.
+
+### Ground teams
+
+- Same selection and drag contract as drones.
+- Unit type, availability, assignment, and linked zone remain inspectable.
+
+### Routes
+
+- Recommended, alternate, active, blocked, and evacuation paths use distinct dash/weight vocabulary.
+- Direction arrows are legible but restrained.
+- Route changes animate once when state changes, not perpetually.
+
+### Motion
+
+- Fire, LiDAR, drone rotors, and pulse rings render only when they communicate live state.
+- Reduced motion replaces movement with static state styling.
+
+## 11. Panels and overlays
+
+- One panel frame and header anatomy.
+- One tab pattern with keyboard arrow navigation.
+- One status treatment.
+- One modal shell with focus trap, Escape, focus restoration, title, description, and consequence summary.
+- Popovers use click-outside and Escape.
+- Non-modal interrupts use status or alert semantics and do not claim `aria-modal`.
+
+## 12. Motion
+
+- Press feedback: 100-120ms.
+- Hover and colour: 120-160ms.
+- Popover: 150-180ms.
+- Panel or modal: 200-240ms.
+- Snap-to-anchor: 220-280ms.
+- Ease out: `cubic-bezier(0.23, 1, 0.32, 1)`.
+- Drawer: `cubic-bezier(0.32, 0.72, 0, 1)`.
+
+No `transition: all`. No UI motion over 300ms unless it represents real progress or a deliberate hold action.
+
+## 13. Anti-slop release gates
+
+- No generic glowing AI orb.
+- No card wall with equal emphasis.
+- No essential 9px labels.
+- No repeated tracked-uppercase scaffolding.
+- No decorative status dots.
+- No glow as the only selected or active state.
+- No always-running decorative scan, ember, rotor, shimmer, or pulse.
+- No duplicated TALON mic or session state.
+- No raw emoji in operational UI.
+- No map object that responds visually without updating shared state.
+- No developer controls in portfolio embeds.
+- No more than one dominant command in core mode.
+
+## 14. Data experience model
+
+### Data domains
+
+- `tokens.ts` owns shared contracts for operational state, plan comparison, incident scope, spatial uncertainty, and action-outcome verification.
+- `mockData.ts` owns deterministic prototype fixtures: the selected incident, focused queue, zones, resources, and containment options.
+- `domain/` owns pure derivation and scene-specific policy. Domain helpers may read fixtures but do not contain component or rendering logic.
+- Existing display fields remain available while structured fields provide a migration path for richer data views.
+
+### Plan comparison
+
+Recommended and alternate containment plans share one comparison contract. Each option must expose:
+
+- Modeled spread and residual spread, direction, and uncertainty margin.
+- Baseline exposure and residual structures at risk.
+- Structures covered and protection window.
+- Drone and ground-team commitment plus reserve tradeoff.
+- Confidence score, evidence basis, and constraints.
+- Staging ETA, protection-ready ETA, and operator-readable reasoning.
+
+The two plans represent real tactical tradeoffs. They must not differ only by title or prose.
+
+### Focused incident queue
+
+- One selected incident owns the full operational context used by scenes, maps, models, routes, resources, and commands.
+- Additional incidents are read-only summaries for orientation and selection affordance.
+- Summary incidents explicitly set `independentSimulation: false`; they do not imply separate live simulations, scene state, or executable command state.
+- `activeIncidentId` is optional during shell migration and should resolve to the one full incident fixture by default.
+
+### Spatial uncertainty
+
+- Operational exceptions may add a structured spatial margin, affected zone IDs, basis, and observation timestamp.
+- A margin is a safety envelope caused by degraded evidence, not a claim that the underlying fire perimeter physically expanded.
+- Total infrastructure loss may remain unquantified rather than inventing a defensible spatial value.
+
+### Closed-loop action verification
+
+- The most recent operator-authorized action may carry expected outcome, observed outcome, deviation state, timestamp, action ID, and audit ID.
+- `within-tolerance`, `deviated`, `pending`, and `unverifiable` are distinct states; completion alone does not prove the expected outcome occurred.
+- Scene verification fixtures return fresh objects so the shell can initialize safely without mutating shared data.
+- Verification describes observed consequences and audit linkage. It does not grant TALON independent authorization.
+
+## 15. Verification
+
+- Scene deep links: every `SceneId`.
+- Guided flow: verify-ready, verify-active, authority packet, network degraded.
+- Operations: recommended, alternate, degraded.
+- Rescue: nominal, signal degraded, battery handoff.
+- Map: zone/drone/team/anomaly select, keyboard, drag near rails, snap, tab persistence.
+- Viewports: 1280x800, 1366x768, 1440x900, 1920x1080.
+- Standard and reduced motion.
+- Free mode, `embed=1`, and `core=1`.

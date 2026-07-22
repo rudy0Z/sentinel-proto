@@ -1,4 +1,4 @@
-import { T, font, space, typeScale } from "../../tokens";
+import { T, font, space, typeScale, typeWeight } from "../../tokens";
 
 interface TinyMetricProps {
   label: string;
@@ -9,8 +9,8 @@ interface TinyMetricProps {
 export function TinyMetric({ label, value }: TinyMetricProps) {
   return (
     <div>
-      <div style={{ fontFamily: font.sans, fontSize: typeScale.caption, color: T.textMuted }}>{label}</div>
-      <div style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.textPrimary, marginTop: space.xxs }}>{value}</div>
+      <div style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textMuted }}>{label}</div>
+      <div style={{ fontFamily: font.mono, fontSize: typeScale.body, fontWeight: typeWeight.semibold, color: T.textPrimary, marginTop: space.xxs }}>{value}</div>
     </div>
   );
 }

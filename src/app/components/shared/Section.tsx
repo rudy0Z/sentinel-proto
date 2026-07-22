@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { T, font, space, typeScale } from "../../tokens";
+import { T, border, font, space, typeScale, typeWeight } from "../../tokens";
 
 interface SectionProps {
   label: string;
@@ -9,20 +9,19 @@ interface SectionProps {
 /** Consistent section header + content wrapper used across all panels */
 export function Section({ label, children }: SectionProps) {
   return (
-    <div role="region" aria-label={label}>
+    <section aria-label={label} style={{ borderTop: `1px solid ${border.soft}`, paddingTop: space.xl }}>
       <div
         style={{
-          fontFamily: font.mono,
-          fontSize: typeScale.caption,
-          color: T.textMuted,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          marginBottom: space.lg,
+          fontFamily: font.sans,
+          fontSize: typeScale.label,
+          fontWeight: typeWeight.semibold,
+          color: T.textSecondary,
+          marginBottom: space.xl,
         }}
       >
         {label}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: space.lg }}>{children}</div>
-    </div>
+    </section>
   );
 }

@@ -1,0 +1,330 @@
+.talon-session {
+  --talon-state: #00c8ff;
+  --talon-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  position: relative;
+  color: #e8edf4;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+}
+
+.talon-session button,
+.talon-session textarea {
+  font: inherit;
+}
+
+.talon-session button:focus-visible,
+.talon-session textarea:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--talon-state) 72%, white);
+  outline-offset: 2px;
+}
+
+.talon-session__control {
+  width: 278px;
+  height: 76px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(8, 16, 28, 0.92);
+  color: inherit;
+}
+
+.talon-session__mark-button {
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--talon-state) 58%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--talon-state) 9%, #0d1724);
+  color: var(--talon-state);
+  cursor: pointer;
+  transition:
+    transform 110ms var(--talon-ease),
+    border-color 160ms var(--talon-ease),
+    background-color 160ms var(--talon-ease);
+}
+
+.talon-session__mark-button:active {
+  transform: scale(0.97);
+}
+
+.talon-session__summary {
+  min-width: 0;
+  flex: 1;
+  text-align: left;
+}
+
+.talon-session__name,
+.talon-session__meta {
+  color: var(--talon-state);
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 15px;
+}
+
+.talon-session__status {
+  margin-top: 2px;
+  color: #e8edf4;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.talon-session__detail {
+  color: #9aacbe;
+  font-size: 11px;
+  line-height: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.talon-session__toggle {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #9aacbe;
+  cursor: pointer;
+  transition:
+    color 120ms var(--talon-ease),
+    background-color 120ms var(--talon-ease),
+    transform 180ms var(--talon-ease);
+}
+
+.talon-session__toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.talon-session__toggle svg {
+  transition: transform 180ms var(--talon-ease);
+}
+
+.talon-session__surface {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  z-index: 35;
+  width: 420px;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: #0b1624;
+  box-shadow: 0 8px 14px rgba(0, 0, 0, 0.32);
+  transform: translateX(-50%);
+  animation: talon-surface-in 220ms var(--talon-ease);
+}
+
+.talon-session--modal .talon-session__surface {
+  position: relative;
+  left: auto;
+  bottom: auto;
+  width: auto;
+  max-width: none;
+  transform: none;
+  box-shadow: none;
+  animation: talon-modal-session-in 180ms var(--talon-ease);
+}
+
+.talon-session--compact .talon-session__control {
+  width: 64px;
+  height: 64px;
+  padding: 6px;
+  border: 0;
+  background: transparent;
+}
+
+.talon-session--compact .talon-session__mark-button {
+  width: 52px;
+  height: 52px;
+}
+
+.talon-session--compact .talon-session__summary,
+.talon-session--compact .talon-session__toggle {
+  display: none;
+}
+
+.talon-session__surface-header,
+.talon-session__status-row,
+.talon-session__actions,
+.talon-session__chips {
+  display: flex;
+  align-items: center;
+}
+
+.talon-session__surface-header {
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.talon-session__status-row {
+  gap: 10px;
+}
+
+.talon-session__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.talon-session__copy {
+  margin: 0;
+  color: #9aacbe;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.talon-session__copy strong {
+  color: #e8edf4;
+}
+
+.talon-session__textarea {
+  width: 100%;
+  min-height: 82px;
+  box-sizing: border-box;
+  resize: vertical;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  color: #e8edf4;
+  font-size: 12px;
+  line-height: 18px;
+  transition:
+    border-color 160ms var(--talon-ease),
+    background-color 160ms var(--talon-ease);
+}
+
+.talon-session__textarea::placeholder {
+  color: #9aacbe;
+}
+
+.talon-session__actions,
+.talon-session__chips {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.talon-session__button {
+  min-height: 34px;
+  padding: 7px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #e8edf4;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 110ms var(--talon-ease),
+    border-color 140ms var(--talon-ease),
+    background-color 140ms var(--talon-ease),
+    color 140ms var(--talon-ease);
+}
+
+.talon-session__button:hover {
+  border-color: color-mix(in srgb, var(--talon-state) 52%, transparent);
+  background: color-mix(in srgb, var(--talon-state) 10%, #122033);
+  color: var(--talon-state);
+}
+
+.talon-session__button:active {
+  transform: scale(0.98);
+}
+
+.talon-session__button--primary {
+  border-color: color-mix(in srgb, var(--talon-state) 58%, transparent);
+  background: color-mix(in srgb, var(--talon-state) 15%, #122033);
+  color: var(--talon-state);
+}
+
+.talon-session__button:disabled {
+  cursor: default;
+  opacity: 0.46;
+}
+
+.talon-session__notice {
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #9aacbe;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.talon-session__evidence {
+  margin: 0;
+  padding-left: 18px;
+  color: #9aacbe;
+  font-size: 11px;
+  line-height: 17px;
+}
+
+.talon-session__activity {
+  width: 18px;
+  height: 18px;
+  color: var(--talon-state);
+  animation: talon-checking 900ms linear infinite;
+}
+
+@keyframes talon-surface-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes talon-checking {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes talon-modal-session-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes talonRipple {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .talon-session *,
+  .talon-session *::before,
+  .talon-session *::after {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
+}

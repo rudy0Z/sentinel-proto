@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useContext, useState, type KeyboardEvent } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -9,7 +9,9 @@ import {
   ShieldCheck,
   Workflow,
 } from "lucide-react";
+import { RailChromeContext } from "../shared/railChrome";
 import type {
+  SceneId,
   ShellState,
   TalonAgentTask,
   EvidenceSource,
@@ -18,8 +20,10 @@ import { T, border, font, radius, shadow, space, surface, tint, tone, typeScale,
 import {
   getAuthorityPacket,
   getEvidenceSources,
+  getSignalHistory,
   getTalonInteractionModel,
 } from "../../domain/talon";
+import { getPacketDissentNote } from "../../domain/disagreement";
 
 interface TalonCopilotPanelProps {
   state: ShellState;
@@ -117,90 +121,166 @@ type ChartState = {
   moistureColor: string;
 };
 
-function getChartState(scene: string): ChartState {
-  const isSatelliteLoss = scene === "satellite-feed-loss";
-  const isNetworkDegraded = scene === "network-degraded";
-  const isFailure = isSatelliteLoss || isNetworkDegraded || scene === "infrastructure-total-loss";
-  const isBaseline = scene === "baseline" || scene === "alert-command";
-  const isOperations = scene.startsWith("contain") || scene.startsWith("rescue");
+/*
+ * The telemetry chart's curves used to be hand-drawn bezier strings — a shape
+ * with no relationship to any value TALON reports. These build the same visual
+ * character from the real series instead, so the line rises when confidence
+ * rises and flattens when a source is lost.
+ */
+const CHART_W = 240;
+const CHART_H = 68;
 
-  if (isSatelliteLoss) {
-    return {
-      label: "Convergence (satellite offline)",
-      statusLabel: "DEGRADED",
-      statusColor: "#F5A623",
-      thermalPath: "M0,40 Q30,38 60,44 T120,36 T180,40 T240,38",
-      thermalArea: "M0,40 Q30,38 60,44 T120,36 T180,40 T240,38 L240,68 L0,68 Z",
-      moisturePath: "M0,38 Q40,42 80,46 T160,50 T240,52",
-      moistureArea: "M0,38 Q40,42 80,46 T160,50 T240,52 L240,68 L0,68 Z",
-      thermalMetric: "+1.1°C/m",
-      moistureMetric: "–stale–",
-      thermalColor: "#F5A623",
-      moistureColor: "#7A8BA0",
-    };
+function toPoints(values: number[], min: number, max: number): Array<[number, number]> {
+  const span = Math.max(1, max - min);
+  return values.map((value, index) => {
+    const x = (index / Math.max(1, values.length - 1)) * CHART_W;
+    /* SVG y grows downward, so a higher reading sits closer to the top. */
+    const y = CHART_H - ((value - min) / span) * (CHART_H - 8) - 4;
+    return [Number(x.toFixed(1)), Number(y.toFixed(1))];
+  });
+}
+
+/** Catmull-Rom to cubic bezier — keeps the soft telemetry feel without faking data. */
+function toSmoothPath(points: Array<[number, number]>): string {
+  if (points.length < 2) return "";
+  const [first, ...rest] = points;
+  let path = `M${first[0]},${first[1]}`;
+  for (let i = 0; i < rest.length; i += 1) {
+    const p0 = points[Math.max(0, i - 1)];
+    const p1 = points[i];
+    const p2 = rest[i];
+    const p3 = points[Math.min(points.length - 1, i + 2)];
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6;
+    const c1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6;
+    const c2y = p2[1] - (p3[1] - p1[1]) / 6;
+    path += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2[0]},${p2[1]}`;
   }
-  if (isNetworkDegraded) {
-    return {
-      label: "Convergence (low-bandwidth)",
-      statusLabel: "JITTER",
-      statusColor: "#FFD166",
-      thermalPath: "M0,34 Q15,28 30,38 T60,30 T90,40 T120,32 T150,38 T180,34 T210,40 T240,36",
-      thermalArea: "M0,34 Q15,28 30,38 T60,30 T90,40 T120,32 T150,38 T180,34 T210,40 T240,36 L240,68 L0,68 Z",
-      moisturePath: "M0,44 Q40,48 80,44 T160,50 T240,46",
-      moistureArea: "M0,44 Q40,48 80,44 T160,50 T240,46 L240,68 L0,68 Z",
-      thermalMetric: "±high",
-      moistureMetric: "-8%",
-      thermalColor: "#FFD166",
-      moistureColor: "#F5A623",
-    };
+  return path;
+}
+
+function toAreaPath(linePath: string): string {
+  return `${linePath} L${CHART_W},${CHART_H} L0,${CHART_H} Z`;
+}
+
+function seriesPaths(values: number[], min: number, max: number) {
+  const line = toSmoothPath(toPoints(values, min, max));
+  return { line, area: toAreaPath(line) };
+}
+
+/** Moisture is the inverse signal — it falls as thermal load rises. */
+function inverseOf(values: number[], ceiling: number): number[] {
+  return values.map((value) => Math.max(0, ceiling - value));
+}
+
+/*
+ * Labels, status words, and colours stay authored — those are editorial
+ * judgements about how to describe a state. The curves and the rate metric are
+ * computed from the series, so the chart cannot say "rising" while the number
+ * beside it falls.
+ */
+type ChartCopy = Pick<ChartState, "label" | "statusLabel" | "statusColor" | "thermalColor" | "moistureColor"> & {
+  moistureMetric: string;
+};
+
+function getChartCopy(scene: SceneId): ChartCopy {
+  switch (scene) {
+    case "satellite-feed-loss":
+      return {
+        label: "Convergence (satellite offline)",
+        statusLabel: "DEGRADED",
+        statusColor: "#F5A623",
+        thermalColor: "#F5A623",
+        moistureColor: "#7A8BA0",
+        moistureMetric: "–stale–",
+      };
+    case "network-degraded":
+      return {
+        label: "Convergence (low-bandwidth)",
+        statusLabel: "JITTER",
+        statusColor: "#FFD166",
+        thermalColor: "#FFD166",
+        moistureColor: "#F5A623",
+        moistureMetric: "-8%",
+      };
+    case "monitoring-contested":
+      return {
+        label: "Contested watch — reduced weighting",
+        statusLabel: "OPERATOR CLOSED",
+        statusColor: "#00C8FF",
+        thermalColor: "#00C8FF",
+        moistureColor: "#7A8BA0",
+        moistureMetric: "-11%",
+      };
+    case "talon-reraise":
+      return {
+        label: "Post-override evidence only",
+        statusLabel: "THRESHOLD CROSSED",
+        statusColor: "#F5A623",
+        thermalColor: "#F5A623",
+        moistureColor: "#F5A623",
+        moistureMetric: "-17%",
+      };
+    case "baseline":
+    case "alert-command":
+      return {
+        label: "Thermal baseline & moisture",
+        statusLabel: "QUIET WATCH",
+        statusColor: "#2DD4A0",
+        thermalColor: "#2DD4A0",
+        moistureColor: "#00C8FF",
+        moistureMetric: "-2%",
+      };
+    case "contain-recommended":
+    case "contain-alternate":
+    case "contain-degraded":
+    case "rescue-nominal":
+    case "rescue-signal-degraded":
+    case "rescue-battery-critical":
+      return {
+        label: "Evidence correlation (post-escalation)",
+        statusLabel: "CONFIRMED",
+        statusColor: "#2DD4A0",
+        thermalColor: "#E5533C",
+        moistureColor: "#F5A623",
+        moistureMetric: "-19%",
+      };
+    default:
+      return {
+        label: "Convergence & moisture slope",
+        statusLabel: "STABLE CORRELATION",
+        statusColor: "#2DD4A0",
+        thermalColor: T.cyan,
+        moistureColor: T.amber,
+        moistureMetric: "-14%",
+      };
   }
-  if (isBaseline) {
-    return {
-      label: "Thermal baseline & moisture",
-      statusLabel: "QUIET WATCH",
-      statusColor: "#2DD4A0",
-      thermalPath: "M0,46 Q60,44 120,46 T240,44",
-      thermalArea: "M0,46 Q60,44 120,46 T240,44 L240,68 L0,68 Z",
-      moisturePath: "M0,32 Q60,34 120,32 T240,34",
-      moistureArea: "M0,32 Q60,34 120,32 T240,34 L240,68 L0,68 Z",
-      thermalMetric: "+0.3°C/m",
-      moistureMetric: "-2%",
-      thermalColor: "#2DD4A0",
-      moistureColor: "#00C8FF",
-    };
-  }
-  if (isOperations) {
-    return {
-      label: "Evidence correlation (post-escalation)",
-      statusLabel: "CONFIRMED",
-      statusColor: "#2DD4A0",
-      thermalPath: "M0,58 Q20,52 40,38 T80,18 T120,12 T160,10 T200,10 T240,10",
-      thermalArea: "M0,58 Q20,52 40,38 T80,18 T120,12 T160,10 T200,10 T240,10 L240,68 L0,68 Z",
-      moisturePath: "M0,20 Q40,28 80,40 T160,54 T240,60",
-      moistureArea: "M0,20 Q40,28 80,40 T160,54 T240,60 L240,68 L0,68 Z",
-      thermalMetric: "+3.1°C/m",
-      moistureMetric: "-19%",
-      thermalColor: "#E5533C",
-      moistureColor: "#F5A623",
-    };
-  }
-  // default: intelligence / verification phases
+}
+
+function getChartState(scene: SceneId): ChartState {
+  const copy = getChartCopy(scene);
+  const history = getSignalHistory(scene);
+
+  const thermal = seriesPaths(history.thermal, 0, 60);
+  const moisture = seriesPaths(inverseOf(history.thermal, 60), 0, 60);
+
+  /* Rate of change across the window, expressed the way an operator reads it. */
+  const first = history.thermal[0];
+  const last = history.thermal[history.thermal.length - 1];
+  const slope = (last - first) / Math.max(1, history.thermal.length - 1);
+  const thermalMetric = `${slope >= 0 ? "+" : ""}${slope.toFixed(1)}°C/m`;
+
   return {
-    label: "Convergence & moisture slope",
-    statusLabel: "STABLE CORRELATION",
-    statusColor: "#2DD4A0",
-    thermalPath: "M0,58 Q30,55 60,40 T120,28 T180,18 T240,12",
-    thermalArea: "M0,58 Q30,55 60,40 T120,28 T180,18 T240,12 L240,68 L0,68 Z",
-    moisturePath: "M0,22 Q40,30 80,38 T160,52 T240,60",
-    moistureArea: "M0,22 Q40,30 80,38 T160,52 T240,60 L240,68 L0,68 Z",
-    thermalMetric: "+2.4°C/m",
-    moistureMetric: "-14%",
-    thermalColor: T.cyan,
-    moistureColor: T.amber,
+    ...copy,
+    thermalPath: thermal.line,
+    thermalArea: thermal.area,
+    moisturePath: moisture.line,
+    moistureArea: moisture.area,
+    thermalMetric,
   };
 }
 
-function HighFidelityTelemetryChart({ scene }: { scene: string }) {
+function HighFidelityTelemetryChart({ scene }: { scene: SceneId }) {
   const chart = getChartState(scene);
 
   return (
@@ -328,33 +408,26 @@ function EvidenceChip({ source }: { source: EvidenceSource }) {
         )}
       </div>
 
-      {/* Confidence badge */}
-      {source.status === "active" || source.status === "stale" ? (
-        <span
-          style={{
-            fontFamily: font.mono,
-            fontSize: typeScale.metadata,
-            color,
-            letterSpacing: "0.04em",
-            flexShrink: 0,
-          }}
-        >
-          {source.confidence}%
-        </span>
-      ) : (
-        <span
-          style={{
-            fontFamily: font.mono,
-            fontSize: typeScale.eyebrow,
-            color,
-            letterSpacing: "0.06em",
-            textTransform: "uppercase",
-            flexShrink: 0,
-          }}
-        >
-          {source.status}
-        </span>
-      )}
+      {/* Confidence badge + expand chevron */}
+      <div style={{ display: "flex", alignItems: "center", gap: space.sm, flexShrink: 0 }}>
+        {source.status === "active" || source.status === "stale" ? (
+          <span style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color, letterSpacing: "0.04em" }}>
+            {source.confidence}%
+          </span>
+        ) : (
+          <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+            {source.status}
+          </span>
+        )}
+        {source.note && (
+          <svg
+            width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"
+            style={{ color: T.textMuted, transition: "transform 150ms ease", transform: expanded ? "rotate(180deg)" : "rotate(0deg)", flexShrink: 0 }}
+          >
+            <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </div>
     </button>
   );
 }
@@ -842,14 +915,26 @@ function AgentWorkforceCard({ task }: { task: TalonAgentTask }) {
   );
 }
 
-function WorkforceDataModules({ evidenceSources, agentTasks }: { evidenceSources: EvidenceSource[]; agentTasks: TalonAgentTask[] }) {
+/*
+ * Sampled from the same convergence curve as evidence confidence, so the last
+ * point of each series is the value shown beside it. Previously these were
+ * hand-written arrays, which made the chart decorative — it moved on scene
+ * change but had no relationship to anything TALON claimed to know.
+ */
+function getDeltaChartValues(scene: SceneId): { thermal: number[]; structures: number[] } {
+  const history = getSignalHistory(scene);
+  return { thermal: history.thermal, structures: history.structures };
+}
+
+function WorkforceDataModules({ evidenceSources, agentTasks, scene }: { evidenceSources: EvidenceSource[]; agentTasks: TalonAgentTask[]; scene: SceneId }) {
+  const deltaValues = getDeltaChartValues(scene);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: space.md }}>
       <SourceFreshnessTracker sources={evidenceSources} />
       <ConfidenceContributionBars sources={evidenceSources} />
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: space.sm }}>
-        <MiniDeltaChart toneColor={T.cyan} label="Thermal Delta" values={[6, 11, 18, 24, 31, 36]} />
-        <MiniDeltaChart toneColor={T.amber} label="Structures Risk" values={[4, 8, 13, 23, 34, 40]} />
+        <MiniDeltaChart toneColor={T.cyan} label="Thermal Delta" values={deltaValues.thermal} />
+        <MiniDeltaChart toneColor={T.amber} label="Structures Risk" values={deltaValues.structures} />
       </div>
       <HumanGateChecklist tasks={agentTasks} />
     </div>
@@ -859,9 +944,11 @@ function WorkforceDataModules({ evidenceSources, agentTasks }: { evidenceSources
 function TalonWorkforceView({
   evidenceSources,
   agentTasks,
+  scene,
 }: {
   evidenceSources: EvidenceSource[];
   agentTasks: TalonAgentTask[];
+  scene: SceneId;
 }) {
   const orchestrator = agentTasks.find((task) => task.category === "orchestrator");
   const workforceTasks = agentTasks.filter((task) => task.category !== "orchestrator");
@@ -869,6 +956,21 @@ function TalonWorkforceView({
 
   return (
     <>
+      <div
+        role="note"
+        style={{
+          padding: `${space.md}px ${space.lg}px`,
+          borderRadius: radius.md,
+          border: `1px solid ${tint(T.cyan, 0.24)}`,
+          background: tint(T.cyan, 0.06),
+          color: T.textSecondary,
+          fontFamily: font.sans,
+          fontSize: typeScale.caption,
+          lineHeight: 1.45,
+        }}
+      >
+        <strong style={{ color: T.cyan }}>Prototype disclosure.</strong> Workforce states illustrate a scripted supervised model. They describe evidence, blockers, and audit context, not live autonomous agents.
+      </div>
       <AgentThroughputStrip tasks={agentTasks} />
       {orchestrator && <OrchestratorCard task={orchestrator} />}
       <AgenticFlowVisualization tasks={workforceTasks} />
@@ -896,7 +998,7 @@ function TalonWorkforceView({
           );
         })}
       </div>
-      <WorkforceDataModules evidenceSources={evidenceSources} agentTasks={agentTasks} />
+      <WorkforceDataModules evidenceSources={evidenceSources} agentTasks={agentTasks} scene={scene} />
     </>
   );
 }
@@ -1044,6 +1146,7 @@ function CopilotDataSnapshot({
 function AuthorityPacketPreview({ state }: { state: ShellState }) {
   const packet = getAuthorityPacket(state);
   const tone = packet.status === "sent" ? T.teal : packet.status === "ready" ? T.red : T.amber;
+  const dissentNote = getPacketDissentNote(state.dissent, state.escalationBasis);
 
   return (
     <div
@@ -1071,12 +1174,24 @@ function AuthorityPacketPreview({ state }: { state: ShellState }) {
             {packet.evidenceSummary}
           </div>
         </div>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontFamily: font.mono, fontSize: typeScale.heading, color: tone, fontWeight: 800 }}>
-            {packet.confidence}%
-          </div>
-          <div style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, textTransform: "uppercase" }}>
-            confidence
+        {/* Confidence arc gauge */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: space.xs, flexShrink: 0 }}>
+          <svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true">
+            <circle cx="24" cy="24" r="18" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="4" />
+            <circle
+              cx="24" cy="24" r="18" fill="none"
+              stroke={tone} strokeWidth="4" strokeLinecap="round"
+              strokeDasharray={`${2 * Math.PI * 18}`}
+              strokeDashoffset={`${2 * Math.PI * 18 * (1 - packet.confidence / 100)}`}
+              transform="rotate(-90 24 24)"
+              style={{ transition: "stroke-dashoffset 600ms ease, stroke 400ms ease" }}
+            />
+            <text x="24" y="28" textAnchor="middle" fill={tone} fontSize="11" fontFamily="monospace" fontWeight="700">
+              {packet.confidence}%
+            </text>
+          </svg>
+          <div style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            conf.
           </div>
         </div>
       </div>
@@ -1087,6 +1202,34 @@ function AuthorityPacketPreview({ state }: { state: ShellState }) {
           </div>
         ))}
       </div>
+
+      {/*
+        Direction B: the operator escalated past TALON's hold. The objection
+        travels with the packet so the receiving authority sees the basis they
+        are acting on — and so the operator is not later measured against a
+        confidence the system never offered.
+      */}
+      {dissentNote && (
+        <div
+          style={{
+            marginTop: space.md,
+            padding: `${space.sm}px ${space.md}px`,
+            background: tint(T.amber, 0.07),
+            border: `1px solid ${tint(T.amber, 0.22)}`,
+            borderRadius: radius.md,
+            display: "grid",
+            gap: 3,
+          }}
+        >
+          <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, letterSpacing: "0.08em", textTransform: "uppercase", color: T.amber }}>
+            TALON dissent attached
+          </span>
+          <span style={{ fontFamily: font.sans, fontSize: typeScale.caption, color: T.textSecondary, lineHeight: 1.5 }}>
+            {dissentNote}
+          </span>
+        </div>
+      )}
+
       <div style={{ marginTop: space.md, fontFamily: font.mono, fontSize: typeScale.eyebrow, color: tone, letterSpacing: "0.08em", textTransform: "uppercase" }}>
         {packet.humanGate}
       </div>
@@ -1184,10 +1327,7 @@ function IntelligenceBrief({
   return (
     <div
       style={{
-        borderRadius: radius.lg,
-        border: `1px solid ${border.default}`,
-        background: surface.inset,
-        overflow: "hidden",
+        overflow: "visible",
       }}
       role="region"
       aria-label="TALON intelligence brief"
@@ -1195,30 +1335,16 @@ function IntelligenceBrief({
       {/* ── Section 1: Assessment ── */}
       <div
         style={{
-          padding: `${space.lg}px ${space.xl}px`,
-          borderLeft: `2px solid ${rec.tone}`,
+          padding: `${space.md}px 0 ${space.lg}px`,
           position: "relative",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: space.xs, marginBottom: space.sm }}>
           <span
             style={{
-              width: space.xs,
-              height: space.xs,
-              borderRadius: radius.pill,
-              background: rec.tone,
-              flexShrink: 0,
-              animation: "pulse 1.8s infinite",
-            }}
-            aria-hidden="true"
-          />
-          <span
-            style={{
-              fontFamily: font.mono,
-              fontSize: typeScale.eyebrow,
+              fontFamily: font.sans,
+              fontSize: typeScale.label,
               color: rec.tone,
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
               fontWeight: typeWeight.bold,
             }}
           >
@@ -1241,128 +1367,85 @@ function IntelligenceBrief({
 
         <div
           style={{
-            display: "inline-flex",
+            display: "flex",
             alignItems: "center",
             gap: space.xs,
-            fontFamily: font.mono,
-            fontSize: typeScale.eyebrow,
+            fontFamily: font.sans,
+            fontSize: typeScale.label,
+            fontWeight: typeWeight.semibold,
             color: rec.tone,
-            letterSpacing: "0.06em",
-            textTransform: "uppercase",
           }}
         >
-          → {rec.action}
+          Recommended next action: {rec.action}
         </div>
       </div>
 
       {/* ── Divider ── */}
-      <div style={{ height: 1, background: border.soft, marginLeft: space.xl + 2 }} />
+      <div style={{ height: 1, background: border.soft }} />
 
       {/* ── Section 2: Evidence State ── */}
       <div
         style={{
-          padding: `${space.lg}px ${space.xl}px`,
-          borderLeft: `2px solid ${border.strong}`,
+          padding: `${space.lg}px 0`,
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: space.md }}>
-          <span
-            style={{
-              fontFamily: font.mono,
-              fontSize: typeScale.eyebrow,
-              color: T.textMuted,
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-            }}
-          >
-            Evidence
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: space.md }}>
+          <span style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.semibold, color: T.textSecondary }}>
+            Source freshness
           </span>
-          <span
-            style={{
-              fontFamily: font.mono,
-              fontSize: typeScale.eyebrow,
-              color: blocked > 0 ? T.amber : T.teal,
-            }}
-          >
-            {complete}✓ {running > 0 ? `${running}↻ ` : ""}{blocked > 0 ? `${blocked}⊘` : ""}
+          <span style={{ fontFamily: font.sans, fontSize: typeScale.label, color: missingSources.length || staleSources.length ? T.amber : T.teal, textAlign: "right" }}>
+            {Math.max(0, activeSources.length - staleSources.length)} current · {staleSources.length + missingSources.length} uncertain
           </span>
         </div>
-
-        {/* Compact source confidence bars */}
-        <div style={{ display: "flex", flexDirection: "column", gap: space.sm }}>
-          {activeSources.slice(0, 4).map((source) => {
-            const color = source.status === "stale" ? T.yellow : source.status === "active" ? T.teal : T.textMuted;
-            return (
-              <div key={source.id} style={{ display: "grid", gridTemplateColumns: "74px 1fr 28px", alignItems: "center", gap: space.sm }}>
-                <span style={{ fontFamily: font.sans, fontSize: typeScale.caption, color: T.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {source.label}
-                </span>
-                <div style={{ height: space.xs, background: border.soft, borderRadius: radius.pill, overflow: "hidden" }}>
-                  <div style={{ width: `${source.confidence}%`, height: "100%", background: color, borderRadius: radius.pill, opacity: source.status === "stale" ? 0.55 : 0.88, transition: "width 400ms ease" }} />
-                </div>
-                <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color, textAlign: "right" }}>
-                  {source.confidence}%
-                </span>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Missing / failed inline */}
-        {(missingSources.length > 0 || staleSources.length > 0) && hasMissingData && (
-          <div style={{ marginTop: space.md, display: "flex", flexWrap: "wrap", gap: space.xs }}>
-            {["Ground moisture · 48h stale", "Fuel load · Not current", "Aerial visual · Smoke-obscured"].map((gap) => (
-              <span
-                key={gap}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: space.xxs,
-                  fontFamily: font.sans,
-                  fontSize: typeScale.eyebrow,
-                  color: T.textMuted,
-                  background: tone.caution.fill,
-                  border: `1px solid ${tone.caution.border}`,
-                  borderRadius: radius.xs,
-                  padding: `${space.xxs}px ${space.xs}px`,
-                }}
-              >
-                <svg width="6" height="6" viewBox="0 0 24 24" fill="none" stroke={T.yellow} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
-                </svg>
-                {gap}
-              </span>
-            ))}
+        {hasMissingData ? (
+          <div style={{ marginTop: space.sm, fontFamily: font.sans, fontSize: typeScale.label, color: T.textMuted, lineHeight: 1.45 }}>
+            Uncertainty: ground moisture is stale, fuel load is not current, and aerial visual is smoke-obscured.
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* ── Divider ── */}
-      {showDecisionGate && <div style={{ height: 1, background: border.soft, marginLeft: space.xl + 2 }} />}
+      <div style={{ height: 1, background: border.soft }} />
 
-      {/* ── Section 3: Decision Gate ── */}
+      {/* ── Section 3: Agent Relay ── */}
+      <div
+        style={{
+          padding: `${space.lg}px 0`,
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: space.md }}>
+          <span style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.semibold, color: T.textSecondary }}>
+            Agent relay
+          </span>
+          <span style={{ fontFamily: font.sans, fontSize: typeScale.label, color: blocked > 0 ? T.amber : T.cyan, textAlign: "right" }}>
+            {complete} complete · {running} running · {blocked} gated
+          </span>
+        </div>
+      </div>
+
+      {/* ── Divider ── */}
+      {showDecisionGate && <div style={{ height: 1, background: border.soft }} />}
+
+      {/* ── Section 4: Decision Gate ── */}
       {showDecisionGate && (
         <div
           style={{
-            padding: `${space.lg}px ${space.xl}px`,
-            borderLeft: `2px solid ${tint(packetTone, 0.5)}`,
+            padding: `${space.lg}px 0 0`,
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: space.xs }}>
             <span
               style={{
-                fontFamily: font.mono,
-                fontSize: typeScale.eyebrow,
+                fontFamily: font.sans,
+                fontSize: typeScale.label,
                 color: packetTone,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
                 fontWeight: typeWeight.bold,
               }}
             >
               {packet.status === "sent" ? "Authority Notified" : packet.status === "ready" ? "Authority Packet" : "Packet Building"}
             </span>
-            <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted }}>
-              {packet.id}
+            <span style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: T.textMuted }}>
+              {packet.status === "sent" ? `Receipt ${packet.id}` : packet.id}
             </span>
           </div>
 
@@ -1370,23 +1453,37 @@ function IntelligenceBrief({
             <span style={{ fontFamily: font.mono, fontSize: typeScale.subhead, fontWeight: typeWeight.heavy, color: packetTone, lineHeight: 1 }}>
               {packet.confidence}%
             </span>
-            <span style={{ fontFamily: font.sans, fontSize: typeScale.caption, color: T.textSecondary, lineHeight: 1.4 }}>
+            <span style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textSecondary, lineHeight: 1.4 }}>
               {packet.escalationLevel}
             </span>
           </div>
 
           <div
             style={{
-              fontFamily: font.mono,
-              fontSize: typeScale.eyebrow,
+              fontFamily: font.sans,
+              fontSize: typeScale.label,
               color: packet.status === "sent" ? T.teal : packetTone,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
               marginTop: space.xs,
             }}
           >
             {packet.humanGate}
           </div>
+
+          {/* CTA nudge: when packet is ready, point the operator to the action */}
+          {packet.status === "ready" && (
+            <div style={{
+              marginTop: space.md,
+              display: "flex",
+              alignItems: "center",
+              gap: space.xs,
+              fontFamily: font.sans,
+              fontSize: typeScale.label,
+              fontWeight: typeWeight.semibold,
+              color: packetTone,
+            }}>
+              <span>Send Authority Packet to proceed</span>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -1397,6 +1494,7 @@ function IntelligenceBrief({
 
 export function TalonCopilotPanel({ state }: TalonCopilotPanelProps) {
   const [activeTab, setActiveTab] = useState<"copilot" | "evidence" | "workforce">("copilot");
+  const { chromeless } = useContext(RailChromeContext);
   const interaction = getTalonInteractionModel(state);
   const evidenceSources = getEvidenceSources(state.scene);
   const agentTasks = interaction.activeAgents;
@@ -1405,14 +1503,28 @@ export function TalonCopilotPanel({ state }: TalonCopilotPanelProps) {
   const runningAgents = agentTasks.filter((t) => t.status === "running").length;
   const blockedAgents = agentTasks.filter((t) => t.status === "blocked").length;
   const humanGatedTasks = agentTasks.filter((t) => t.requiresHumanGate || t.status === "blocked").length;
+  const tabs = ["copilot", "evidence", "workforce"] as const;
+
+  const handleTabKeyDown = (
+    event: KeyboardEvent<HTMLButtonElement>,
+    tab: (typeof tabs)[number],
+  ) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const currentIndex = tabs.indexOf(tab);
+    const delta = event.key === "ArrowRight" ? 1 : -1;
+    const nextTab = tabs[(currentIndex + delta + tabs.length) % tabs.length];
+    setActiveTab(nextTab);
+    const tabButtons = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+    tabButtons?.[tabs.indexOf(nextTab)]?.focus();
+  };
 
   return (
     <div
       style={{
-        height: "100%",
         display: "flex",
         flexDirection: "column",
-        overflow: "hidden",
+        overflow: "visible",
       }}
       role="region"
       aria-label="TALON copilot panel"
@@ -1429,57 +1541,46 @@ export function TalonCopilotPanel({ state }: TalonCopilotPanelProps) {
       {/* Header */}
       <div
         style={{
-          padding: `${space.xl}px ${space["2xl"]}px 0`,
+          padding: chromeless ? `${space.md}px ${space["2xl"]}px 0` : `${space.xl}px ${space["2xl"]}px 0`,
           flexShrink: 0,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: space.lg }}>
-          <div style={{ display: "flex", alignItems: "center", gap: space.sm, minWidth: 0 }}>
-            <span
-              style={{
-                width: space.sm,
-                height: space.sm,
-                borderRadius: radius.pill,
-                background: T.teal,
-                display: "inline-block",
-                animation: "pulse 1.8s infinite",
-              }}
-              aria-hidden="true"
-            />
-            <span
-              style={{
-                fontFamily: font.mono,
-                fontSize: typeScale.metadata,
-                fontWeight: typeWeight.bold,
-                color: T.teal,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                whiteSpace: "nowrap",
-              }}
-            >
-              TALON Workforce
-            </span>
-          </div>
+        {!chromeless && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: space.lg }}>
+            <div style={{ display: "flex", alignItems: "center", gap: space.sm, minWidth: 0 }}>
+              <span
+                style={{
+                  fontFamily: font.sans,
+                  fontSize: typeScale.body,
+                  fontWeight: typeWeight.bold,
+                  color: T.teal,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                TALON decision support
+              </span>
+            </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: space.sm }}>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontFamily: font.mono, fontSize: typeScale.title, fontWeight: typeWeight.heavy, color: T.cyan, lineHeight: 1 }}>
-                {runningAgents}
+            <div style={{ display: "flex", alignItems: "center", gap: space.sm }}>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontFamily: font.mono, fontSize: typeScale.title, fontWeight: typeWeight.heavy, color: T.cyan, lineHeight: 1 }}>
+                  {runningAgents}
+                </div>
+                <div style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                  Active
+                </div>
               </div>
-              <div style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                Active
-              </div>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontFamily: font.mono, fontSize: typeScale.title, fontWeight: typeWeight.heavy, color: humanGatedTasks > 0 ? T.amber : T.teal, lineHeight: 1 }}>
-                {humanGatedTasks}
-              </div>
-              <div style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                Gated
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontFamily: font.mono, fontSize: typeScale.title, fontWeight: typeWeight.heavy, color: humanGatedTasks > 0 ? T.amber : T.teal, lineHeight: 1 }}>
+                  {humanGatedTasks}
+                </div>
+                <div style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                  Gated
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Tab bar */}
         <div
@@ -1493,17 +1594,25 @@ export function TalonCopilotPanel({ state }: TalonCopilotPanelProps) {
           role="tablist"
           aria-label="TALON copilot tabs"
         >
-          {(["copilot", "evidence", "workforce"] as const).map((tab) => {
+          {tabs.map((tab) => {
             const isActive = activeTab === tab;
-            const labels: Record<string, string> = { copilot: "Brief", evidence: "Evidence", workforce: `Workforce${runningAgents > 0 ? ` (${runningAgents})` : ""}` };
+            const labels: Record<string, string> = {
+              copilot: "Brief",
+              evidence: "Evidence",
+              workforce: `Workforce${runningAgents > 0 || blockedAgents > 0 ? ` (${runningAgents} active${blockedAgents ? `, ${blockedAgents} gated` : ""})` : ""}`,
+            };
             return (
               <button
                 key={tab}
                 type="button"
                 role="tab"
+                id={`talon-tab-${tab}`}
+                aria-controls={`talon-panel-${tab}`}
                 aria-selected={isActive}
                 aria-label={labels[tab]}
                 onClick={() => setActiveTab(tab)}
+                onKeyDown={(event) => handleTabKeyDown(event, tab)}
+                tabIndex={isActive ? 0 : -1}
                 style={{
                   flex: 1,
                   padding: `${space.sm}px ${space.xs}px`,
@@ -1520,37 +1629,24 @@ export function TalonCopilotPanel({ state }: TalonCopilotPanelProps) {
                 }}
               >
                 {labels[tab]}
-                {tab === "workforce" && blockedAgents > 0 && (
-                  <span
-                    style={{
-                      position: "absolute",
-                      top: space.xs,
-                      right: space.xs,
-                      width: space.xs,
-                      height: space.xs,
-                      borderRadius: radius.pill,
-                      background: T.amber,
-                    }}
-                    aria-label={`${blockedAgents} blocked`}
-                  />
-                )}
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Scrollable content */}
+      {/* Content — flows with the rail's single scroll (no per-panel scroll) */}
       <div
         style={{
-          flex: 1,
-          overflowY: "auto",
+          overflowY: "visible",
           padding: `${space.lg}px ${space["2xl"]}px ${space["2xl"]}px`,
           display: "flex",
           flexDirection: "column",
           gap: space.lg,
         }}
         role="tabpanel"
+        id={`talon-panel-${activeTab}`}
+        aria-labelledby={`talon-tab-${activeTab}`}
         aria-label={`TALON ${activeTab} content`}
       >
         {/* ── Copilot Tab ── */}
@@ -1569,15 +1665,15 @@ export function TalonCopilotPanel({ state }: TalonCopilotPanelProps) {
         {/* ── Evidence Tab ── */}
         {activeTab === "evidence" && (
           <>
-            <div
-              style={{
-                fontFamily: font.sans,
-                fontSize: typeScale.caption,
-                color: T.textMuted,
-                lineHeight: 1.5,
-              }}
-            >
-              Active sources contributing to current confidence score. Click any source for details.
+            <div style={{
+              display: "flex", alignItems: "center", gap: space.sm,
+              fontFamily: font.sans, fontSize: typeScale.caption,
+              color: T.textSecondary, lineHeight: 1.5,
+            }}>
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+                <path d="M2 3.5L5 6.5L8 3.5" stroke={T.cyan} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Sources contributing to confidence. Expand any row for details.
             </div>
             
             <HighFidelityTelemetryChart scene={state.scene} />
@@ -1609,7 +1705,7 @@ export function TalonCopilotPanel({ state }: TalonCopilotPanelProps) {
 
         {/* ── Workforce Tab ── */}
         {activeTab === "workforce" && (
-          <TalonWorkforceView evidenceSources={evidenceSources} agentTasks={agentTasks} />
+          <TalonWorkforceView evidenceSources={evidenceSources} agentTasks={agentTasks} scene={state.scene} />
         )}
       </div>
     </div>

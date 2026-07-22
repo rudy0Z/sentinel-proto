@@ -1,5 +1,5 @@
 import type { OperationalException, OperationalExceptionSeverity, QuickActionId } from "../tokens";
-import { T, font, radius, space, border, tint } from "../tokens";
+import { T, font, radius, space, border, motion, shadow, surface, tint, typeScale, typeWeight } from "../tokens";
 import { COMMAND_LABELS } from "../domain/microcopy";
 import { OperationalIcon } from "./OperationalIcon";
 
@@ -41,26 +41,24 @@ function impactMetric(ex: OperationalException): { label: string; value: string 
 // ─── Chip rows: what broke, what survived ─────────────────────────────────────
 
 function SourceChip({ label, online }: { label: string; online: boolean }) {
-  const color = online ? T.teal : T.textMuted;
   return (
     <span
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 5,
+        gap: 0,
         fontFamily: font.sans,
-        fontSize: 10,
+        fontSize: typeScale.label,
         color: online ? T.textSecondary : T.textMuted,
-        background: online ? tint(T.teal, 0.07) : "rgba(255,255,255,0.03)",
+        background: "transparent",
         border: `1px solid ${online ? tint(T.teal, 0.22) : border.subtle}`,
-        borderRadius: radius.sm,
+        borderRadius: radius.md,
         padding: "3px 8px",
         whiteSpace: "nowrap",
         textDecoration: online ? "none" : "line-through",
         opacity: online ? 1 : 0.7,
       }}
     >
-      <span style={{ width: 5, height: 5, borderRadius: "50%", background: color, flexShrink: 0 }} />
       {label}
     </span>
   );
@@ -88,15 +86,12 @@ export function ExceptionBanner({
     <div
       style={{
         ...bannerShell(color),
-        animation: "slideInDown 280ms cubic-bezier(0.34,1.3,0.64,1)",
+        animation: `slideInDown ${motion.normal}`,
       }}
       role="status"
       aria-live="polite"
       aria-label={`${exception.title}. ${exception.confidenceImpact}`}
     >
-      {/* Severity edge */}
-      <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: color, borderRadius: "16px 0 0 16px" }} aria-hidden="true" />
-
       {/* Header row */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
         <div style={{
@@ -112,8 +107,8 @@ export function ExceptionBanner({
               {exception.title}
             </span>
             <span style={{
-              fontFamily: font.mono, fontSize: 9, fontWeight: 700, color, letterSpacing: "0.1em", textTransform: "uppercase",
-              background: tint(color, 0.12), border: `1px solid ${tint(color, 0.3)}`, borderRadius: 4, padding: "1px 6px",
+              fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.semibold, color,
+              background: tint(color, 0.08), border: `1px solid ${tint(color, 0.24)}`, borderRadius: radius.md, padding: "2px 6px",
             }}>
               {severityLabel(exception.severity)}
             </span>
@@ -124,38 +119,47 @@ export function ExceptionBanner({
         </div>
         {restoreEta && (
           <div style={{ textAlign: "right", flexShrink: 0 }}>
-            <div style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted, letterSpacing: "0.06em", textTransform: "uppercase" }}>Est. Restore</div>
-            <div style={{ fontFamily: font.mono, fontSize: 12, color: T.textSecondary, marginTop: 2 }}>{restoreEta}</div>
+            <div style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textMuted }}>Estimated restore</div>
+            <div style={{ fontFamily: font.mono, fontSize: typeScale.body, color: T.textSecondary, marginTop: 2 }}>{restoreEta}</div>
           </div>
         )}
       </div>
 
       {/* Source state row — what broke / what survived */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", paddingTop: 8, borderTop: `1px solid ${border.subtle}` }}>
-        <span style={{ fontFamily: font.mono, fontSize: 9, color: T.red, letterSpacing: "0.08em", textTransform: "uppercase", marginRight: 2 }}>Offline</span>
+        <span style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.semibold, color: T.red, marginRight: 2 }}>Offline</span>
         {exception.affectedSources.slice(0, 3).map((s) => <SourceChip key={s} label={s} online={false} />)}
         <span style={{ width: 1, height: 14, background: border.strong, margin: "0 4px" }} aria-hidden="true" />
-        <span style={{ fontFamily: font.mono, fontSize: 9, color: T.teal, letterSpacing: "0.08em", textTransform: "uppercase", marginRight: 2 }}>Online</span>
+        <span style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.semibold, color: T.teal, marginRight: 2 }}>Online</span>
         {exception.fallbackInputs.slice(0, 3).map((s) => <SourceChip key={s} label={s} online />)}
       </div>
 
       {/* Impact + recovery row */}
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 10 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-          <span style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted, letterSpacing: "0.06em", textTransform: "uppercase" }}>{metric.label}</span>
+          <span style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textMuted }}>{metric.label}</span>
           <span style={{ fontFamily: font.mono, fontSize: 13, fontWeight: 700, color }}>{metric.value}</span>
         </div>
         <div style={{ flex: 1 }} />
+        {/* Exceptions panel pointer — full detail is always in the right rail */}
+        <span style={{
+          fontFamily: font.sans, fontSize: typeScale.label, color: T.textMuted,
+          display: "flex", alignItems: "center", gap: 4,
+        }}>
+          <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden="true">
+            <path d="M2 4h4M4 2l2 2-2 2" stroke={T.textMuted} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Exceptions panel
+        </span>
         {exception.recommendedRecoveryCommand && onRecover && (
           <button
             type="button"
             onClick={() => onRecover(exception.recommendedRecoveryCommand!)}
             style={{
               display: "inline-flex", alignItems: "center", gap: 7,
-              fontFamily: font.sans, fontSize: 11, fontWeight: 700,
+              fontFamily: font.sans, fontSize: typeScale.body, fontWeight: typeWeight.bold,
               color, background: tint(color, 0.12), border: `1px solid ${color}`,
               borderRadius: 9, padding: "7px 14px", cursor: "pointer",
-              letterSpacing: "0.04em", textTransform: "uppercase",
               transition: "background 120ms ease",
             }}
             onMouseOver={(e) => (e.currentTarget.style.background = tint(color, 0.2))}
@@ -173,13 +177,11 @@ export function ExceptionBanner({
 function bannerShell(color: string) {
   return {
     position: "relative" as const,
-    background: "rgba(8, 12, 22, 0.92)",
-    backdropFilter: "blur(28px) saturate(1.4)",
-    WebkitBackdropFilter: "blur(28px) saturate(1.4)",
-    borderRadius: 16,
+    background: surface.overlay,
+    borderRadius: radius.overlay,
     border: `1px solid ${tint(color, 0.3)}`,
-    boxShadow: `0 0 0 1px ${tint(color, 0.06)}, 0 20px 48px rgba(0,0,0,0.42)`,
-    padding: "14px 18px 14px 22px",
+    boxShadow: shadow.quiet,
+    padding: `${space["2xl"]}px ${space["3xl"]}px`,
     overflow: "hidden" as const,
   };
 }
@@ -207,23 +209,21 @@ export function ExceptionInterrupt({
       style={{
         ...bannerShell(color),
         width: 480,
-        animation: "slideInDown 280ms cubic-bezier(0.34,1.3,0.64,1)",
+        animation: `slideInDown ${motion.normal}`,
       }}
-      role="alertdialog"
-      aria-modal="true"
+      role="region"
+      aria-live="assertive"
       aria-label={`${exception.title}. Operator acknowledgement required.`}
     >
-      <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: color, borderRadius: "16px 0 0 16px" }} aria-hidden="true" />
-
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-        <span style={{ width: 7, height: 7, borderRadius: "50%", background: color, animation: "pulse 1s infinite", flexShrink: 0 }} aria-hidden="true" />
-        <span style={{ fontFamily: font.mono, fontSize: 9, fontWeight: 700, color, letterSpacing: "0.12em", textTransform: "uppercase" }}>
-          TALON · Supervised Handoff · Human Gate
+        <OperationalIcon name="warning" color={color} size={15} />
+        <span style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.bold, color }}>
+          TALON supervised handoff · Human gate
         </span>
       </div>
 
       <div style={{ fontFamily: font.sans, fontSize: 15, fontWeight: 700, color: T.textPrimary, marginBottom: 5 }}>
-        {exception.title} — acknowledgement required
+        {exception.title}: acknowledgement required
       </div>
       <div style={{ fontFamily: font.sans, fontSize: 12, color: T.textSecondary, lineHeight: 1.5, marginBottom: 12 }}>
         {exception.auditText} {exception.confidenceImpact}
@@ -233,16 +233,16 @@ export function ExceptionInterrupt({
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
           {recallAsset && (
             <div style={{ padding: "8px 12px", borderRadius: 8, background: tint(T.red, 0.08), border: `1px solid ${tint(T.red, 0.2)}` }}>
-              <div style={{ fontFamily: font.mono, fontSize: 9, color: T.red, letterSpacing: "0.08em", marginBottom: 4 }}>RECALLING</div>
+              <div style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.semibold, color: T.red, marginBottom: 4 }}>Recalling</div>
               <div style={{ fontFamily: font.sans, fontSize: 12, fontWeight: 600, color: T.textPrimary }}>{recallAsset.name}</div>
-              <div style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted, marginTop: 2 }}>{recallAsset.detail}</div>
+              <div style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: T.textMuted, marginTop: 2 }}>{recallAsset.detail}</div>
             </div>
           )}
           {coverageAsset && (
             <div style={{ padding: "8px 12px", borderRadius: 8, background: tint(T.teal, 0.08), border: `1px solid ${tint(T.teal, 0.2)}` }}>
-              <div style={{ fontFamily: font.mono, fontSize: 9, color: T.teal, letterSpacing: "0.08em", marginBottom: 4 }}>COVERAGE READY</div>
+              <div style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.semibold, color: T.teal, marginBottom: 4 }}>Coverage ready</div>
               <div style={{ fontFamily: font.sans, fontSize: 12, fontWeight: 600, color: T.textPrimary }}>{coverageAsset.name}</div>
-              <div style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted, marginTop: 2 }}>{coverageAsset.detail}</div>
+              <div style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: T.textMuted, marginTop: 2 }}>{coverageAsset.detail}</div>
             </div>
           )}
         </div>
@@ -255,10 +255,10 @@ export function ExceptionInterrupt({
           width: "100%", padding: "11px 0", borderRadius: 9,
           background: tint(color, 0.12), border: `1px solid ${color}`, color,
           fontFamily: font.sans, fontSize: 12, fontWeight: 700,
-          letterSpacing: "0.05em", textTransform: "uppercase", cursor: "pointer",
+          cursor: "pointer",
         }}
       >
-        Acknowledge & authorize handoff
+        Authorize supervised handoff
       </button>
     </div>
   );

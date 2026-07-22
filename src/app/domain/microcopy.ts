@@ -89,9 +89,14 @@ export const TALON_VOICE_RESPONSES: Partial<Record<SceneId, { title: string; bod
     body: "Lidar-02 is en route. I'm prefilling the convergence model with thermal, satellite, and wind data while the drone closes in. When it reaches the site, I'll have a preliminary confidence score ready for your review. ETA under 15 seconds.",
     tone: T.cyan,
   },
-  "verify-ready": {
-    title: "Three sources agree — but visual is weak",
-    body: "Thermal, satellite, and burn history converge on Grid 4C at 78%. Drone visual is smoke-obscured — I can locate the perimeter but I can't give you a sharp fire-front boundary. Ground moisture is 48h stale. If you confirm, I'll flag those gaps in the authority packet.",
+  "monitoring-contested": {
+    title: "You closed this. I have not.",
+    body: "Understood — logged as your call, with your reason attached. I am not escalating and I will not ask again at this evidence level. I am keeping thermal, satellite, wind, and burn history on Grid 4C at reduced weight. If something crosses the raised threshold I will take it to the duty supervisor rather than back to you.",
+    tone: T.cyan,
+  },
+  "talon-reraise": {
+    title: "Something changed since your override",
+    body: "Satellite IR came back and confirms a sustained NE delta that was unavailable when you closed this. Thermal has held above baseline for eleven more minutes instead of decaying. This is new evidence, not the same case again. I have routed it to the duty supervisor — your assessment stands on the record as it was made.",
     tone: T.amber,
   },
   "verify-active": {

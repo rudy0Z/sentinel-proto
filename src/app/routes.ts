@@ -1,11 +1,17 @@
-import { createBrowserRouter, redirect } from "react-router";
-import ScanPage from "./pages/ScanPage";
-import ComponentsPage from "./pages/ComponentsPage";
-import DesignSystemPage from "./pages/DesignSystemPage";
+import { createHashRouter, redirect } from "react-router";
 
-export const router = createBrowserRouter([
-  { path: "/", Component: ScanPage },
-  { path: "/components", Component: ComponentsPage },
-  { path: "/design-system", Component: DesignSystemPage },
+export const router = createHashRouter([
+  {
+    path: "/",
+    lazy: async () => ({ Component: (await import("./pages/ScanPage")).default }),
+  },
+  {
+    path: "/components",
+    lazy: async () => ({ Component: (await import("./pages/ComponentsPage")).default }),
+  },
+  {
+    path: "/design-system",
+    lazy: async () => ({ Component: (await import("./pages/DesignSystemPage")).default }),
+  },
   { path: "*", loader: () => redirect("/") },
 ]);

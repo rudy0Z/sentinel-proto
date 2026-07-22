@@ -1,9 +1,16 @@
 import { useState, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { EVACUATION_ROUTES, ZONES, INCIDENT } from "../mockData";
-import type { QuickActionId, DroneRosterEntry, ShellState } from "../tokens";
-import { T, font } from "../tokens";
+import type {
+  QuickActionId,
+  DroneRosterEntry,
+  ShellState,
+  TalonConversationChangeHandler,
+} from "../tokens";
+import { T, border, font, layer, motion, radius, surface } from "../tokens";
+import { getTalonSessionView } from "../domain/talon";
 import { OperationalIcon } from "./OperationalIcon";
+import { TalonSession } from "./talon/TalonSession";
 
 // ─── Mission Brief Data ───────────────────────────────────────────────────────
 // Maps each dispatch action to the context TALON presents in the Mission Brief
@@ -19,7 +26,7 @@ interface MissionBriefConfig {
   defaultZoneId: string;
 }
 
-const MISSION_BRIEF_DATA: Partial<Record<QuickActionId, MissionBriefConfig>> = {
+export const MISSION_BRIEF_DATA: Partial<Record<QuickActionId, MissionBriefConfig>> = {
   "deploy-survey": {
     title: "Deploy Survey Drone",
     missionType: "ZONE SURVEY",
@@ -104,42 +111,41 @@ export interface ModalPayload {
   passcode?: string;
 }
 
-interface ActionModalProps {
+export interface ActionModalProps {
   modalId: QuickActionId;
   state: ShellState;
   onClose: () => void;
   onConfirm: (actionId: QuickActionId, payload?: ModalPayload) => void;
   /** Called when operator approves after voice-overriding the TALON plan */
   onVoiceOverride?: (actionId: QuickActionId) => void;
+  /** Owns TALON transcript, review, recommendation, gate, and receipt state. */
+  onTalonConversationChange?: TalonConversationChangeHandler;
 }
 
 const BACKDROP: React.CSSProperties = {
   position: "fixed",
   inset: 0,
-  background: "rgba(0,0,0,0.60)",
-  backdropFilter: "blur(5px)",
-  WebkitBackdropFilter: "blur(5px)",
-  zIndex: 200,
+  background: surface.scrim,
+  zIndex: layer.modal,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
 };
 
 const GLASS_MODAL: React.CSSProperties = {
-  background: "rgba(8, 16, 28, 0.96)",
-  backdropFilter: "blur(32px) saturate(1.4)",
-  WebkitBackdropFilter: "blur(32px) saturate(1.4)",
-  borderRadius: 20,
-  border: "1px solid rgba(255,255,255,0.12)",
-  boxShadow: "0 32px 80px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.06)",
+  background: surface.overlay,
+  borderRadius: radius.overlay,
+  border: `1px solid ${border.strong}`,
+  boxShadow: "0 12px 20px rgba(0,0,0,0.42)",
   width: 520,
   maxWidth: "90vw",
+  maxHeight: "calc(100vh - 40px)",
   overflow: "hidden",
 };
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>
+    <div style={{ fontFamily: font.mono, fontSize: 11, color: T.textMuted, marginBottom: 6 }}>
       {children}
     </div>
   );
@@ -194,7 +200,7 @@ function ModalSelect({ value, onChange, options }: { value: string; onChange: (v
           </option>
         ))}
       </select>
-      <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: T.textMuted, pointerEvents: "none", fontSize: 10 }}>▾</span>
+      <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: T.textMuted, pointerEvents: "none", fontSize: 11 }}>▾</span>
     </div>
   );
 }
@@ -215,7 +221,7 @@ function Chip({ label, selected, onClick, color }: { label: string; selected: bo
         fontSize: 12,
         fontWeight: selected ? 600 : 400,
         cursor: "pointer",
-        transition: "all 120ms ease",
+        transition: `background-color ${motion.fast}, border-color ${motion.fast}, color ${motion.fast}`,
       }}
     >
       {label}
@@ -225,7 +231,13 @@ function Chip({ label, selected, onClick, color }: { label: string; selected: bo
 
 function ModalHeader({ title, subtitle, accentColor, icon }: { title: string; subtitle: string; accentColor: string; icon?: ReactNode }) {
   return (
-    <div style={{ padding: "22px 24px 0" }}>
+    <div style={{ padding: "20px 24px 0" }}>
+      {/* Mono eyebrow — the shared overlay-family signature */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+        <span style={{ fontFamily: font.mono, fontSize: 11, fontWeight: 700, color: accentColor }}>
+          Operator command · confirmation required
+        </span>
+      </div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
         {icon}
         <div style={{ fontFamily: font.sans, fontSize: 16, fontWeight: 700, color: T.textPrimary, letterSpacing: "-0.01em" }}>
@@ -280,8 +292,6 @@ function ModalFooter({ onClose, onConfirm, confirmLabel, confirmColor, disabled 
           fontSize: 12,
           fontWeight: 700,
           cursor: disabled ? "default" : "pointer",
-          letterSpacing: "0.04em",
-          textTransform: "uppercase",
           opacity: disabled ? 0.5 : 1,
           transition: "opacity 120ms ease",
         }}
@@ -324,7 +334,7 @@ function EvacuationModal({ state, onClose, onConfirm }: { state: ShellState; onC
   const isValid = selectedRouteId && assignmentsComplete;
 
   return (
-    <div style={GLASS_MODAL}>
+    <div>
       <ModalHeader title="Emergency Evacuation Protocol" subtitle="" accentColor={T.fire} />
 
       {/* Warning bar */}
@@ -391,7 +401,7 @@ function EvacuationModal({ state, onClose, onConfirm }: { state: ShellState; onC
         {/* Summary */}
         {isValid && (
           <div style={{ background: "rgba(229,83,60,0.10)", border: `1px solid ${T.red}30`, borderRadius: 12, padding: "12px 14px" }}>
-            <div style={{ fontFamily: font.mono, fontSize: 9, color: T.fire, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>Evacuation Summary</div>
+            <div style={{ fontFamily: font.mono, fontSize: 11, color: T.fire, marginBottom: 8 }}>Evacuation summary</div>
             <div style={{ fontFamily: font.sans, fontSize: 12, color: T.textSecondary, lineHeight: 1.7 }}>• Route: {selectedRouteLabel}</div>
             {selectedTeamIds.map((tid) => {
               const tName = state.groundTeams.find((t) => t.id === tid)?.name;
@@ -426,7 +436,7 @@ function EvacuationModal({ state, onClose, onConfirm }: { state: ShellState; onC
 /** Modal 2: Abort Drone Mission */
 function AbortModal({ onClose, onConfirm }: { onClose: () => void; onConfirm: () => void }) {
   return (
-    <div style={{ ...GLASS_MODAL, width: 460 }}>
+    <div>
       {/* Header with amber warning icon */}
       <div style={{ padding: "22px 24px 18px", display: "flex", alignItems: "flex-start", gap: 14 }}>
         <div style={{
@@ -441,10 +451,11 @@ function AbortModal({ onClose, onConfirm }: { onClose: () => void; onConfirm: ()
 
       {/* Situation Summary */}
       <div style={{ margin: "0 24px 16px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "14px" }}>
-        <div style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>Situation Summary</div>
+        <div style={{ fontFamily: font.mono, fontSize: 11, color: T.textMuted, marginBottom: 10 }}>Situation summary</div>
         <div style={{ fontFamily: font.sans, fontSize: 14, fontWeight: 600, color: T.textPrimary, marginBottom: 8 }}>Active incident is under operational watch</div>
         <div style={{ fontFamily: font.sans, fontSize: 12, color: T.textSecondary, display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ color: T.amber }}>⚡</span> Aborting will recall all active drones and clear the current mission state
+          <OperationalIcon name="warning" color={T.amber} size={14} />
+          <span>Aborting will recall all active drones and clear the current mission state</span>
         </div>
       </div>
 
@@ -469,7 +480,7 @@ function BackupModal({ onClose, onConfirm }: { onClose: () => void; onConfirm: (
   const urgencyLevels = ["Low", "Medium", "High", "Critical"];
 
   return (
-    <div style={GLASS_MODAL}>
+    <div>
       <ModalHeader title="Request Backup Resources" subtitle="" accentColor={T.amber} />
 
       <div style={{ padding: "18px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
@@ -542,7 +553,7 @@ function NotifyAuthoritiesModal({ onClose, onConfirm }: { onClose: () => void; o
   ];
 
   return (
-    <div style={{ ...GLASS_MODAL, width: 520 }}>
+    <div>
       <ModalHeader
         title="Send Authority Packet"
         subtitle="Marks the 90-second milestone. Operations planning begins after dispatch receives this packet."
@@ -568,7 +579,7 @@ function NotifyAuthoritiesModal({ onClose, onConfirm }: { onClose: () => void; o
                 padding: "9px 10px",
               }}
             >
-              <div style={{ fontFamily: font.mono, fontSize: 8, color: T.textMuted, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>
+              <div style={{ fontFamily: font.mono, fontSize: 11, color: T.textMuted, marginBottom: 4 }}>
                 {item.label}
               </div>
               <div style={{ fontFamily: font.sans, fontSize: 12, fontWeight: 700, color: item.tone, lineHeight: 1.25 }}>
@@ -579,7 +590,7 @@ function NotifyAuthoritiesModal({ onClose, onConfirm }: { onClose: () => void; o
         </div>
 
         <div style={{ background: "rgba(0,200,255,0.07)", border: `1px solid ${T.cyan}22`, borderRadius: 12, padding: "12px 14px" }}>
-          <div style={{ fontFamily: font.mono, fontSize: 9, color: T.cyan, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>
+          <div style={{ fontFamily: font.mono, fontSize: 11, color: T.cyan, marginBottom: 8 }}>
             TALON evidence summary
           </div>
           {evidence.map((line) => (
@@ -591,7 +602,7 @@ function NotifyAuthoritiesModal({ onClose, onConfirm }: { onClose: () => void; o
         </div>
 
         <div style={{ background: "rgba(245,166,35,0.07)", border: `1px solid ${T.amber}26`, borderRadius: 12, padding: "12px 14px" }}>
-          <div style={{ fontFamily: font.mono, fontSize: 9, color: T.amber, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>
+          <div style={{ fontFamily: font.mono, fontSize: 11, color: T.amber, marginBottom: 8 }}>
             Included uncertainty
           </div>
           {gaps.map((line) => (
@@ -612,7 +623,7 @@ function NotifyAuthoritiesModal({ onClose, onConfirm }: { onClose: () => void; o
 /** Modal 5: Notify Teams */
 function NotifyTeamsModal({ onClose, onConfirm }: { onClose: () => void; onConfirm: () => void }) {
   return (
-    <div style={{ ...GLASS_MODAL, width: 460 }}>
+    <div>
       <ModalHeader title="Alert Ground Teams" subtitle="Notify teams with current assignments and staging instructions." accentColor={T.yellow} icon={<OperationalIcon actionId="notify-teams" color={T.yellow} size={18} />} />
 
       <div style={{ padding: "16px 24px" }}>
@@ -664,7 +675,7 @@ function ShiftHandoverModal({
     .join(", ") || "No active operational missions";
 
   return (
-    <div style={{ ...GLASS_MODAL, width: 500 }}>
+    <div>
       <ModalHeader
         title="Shift Handover Transfer"
         subtitle="Cryptographic transfer of active tactical incident command."
@@ -681,9 +692,9 @@ function ShiftHandoverModal({
             borderRadius: 10,
             padding: "10px 14px",
           }}>
-            <div style={{ fontFamily: font.sans, fontSize: 10, color: T.textMuted, textTransform: "uppercase" }}>Outgoing Operator</div>
+            <div style={{ fontFamily: font.sans, fontSize: 11, color: T.textMuted }}>Outgoing operator</div>
             <div style={{ fontFamily: font.sans, fontSize: 13, fontWeight: 700, color: T.textPrimary, marginTop: 4 }}>Asha Rao</div>
-            <div style={{ fontFamily: font.mono, fontSize: 10, color: T.amber, marginTop: 2 }}>[Altadena Sector Lead]</div>
+            <div style={{ fontFamily: font.mono, fontSize: 11, color: T.amber, marginTop: 2 }}>[Altadena Sector Lead]</div>
           </div>
           <div style={{
             background: "rgba(245,166,35,0.06)",
@@ -691,9 +702,9 @@ function ShiftHandoverModal({
             borderRadius: 10,
             padding: "10px 14px",
           }}>
-            <div style={{ fontFamily: font.sans, fontSize: 10, color: T.amber, textTransform: "uppercase" }}>Incoming Operator</div>
+            <div style={{ fontFamily: font.sans, fontSize: 11, color: T.amber }}>Incoming operator</div>
             <div style={{ fontFamily: font.sans, fontSize: 13, fontWeight: 700, color: T.textPrimary, marginTop: 4 }}>R. Sharma</div>
-            <div style={{ fontFamily: font.mono, fontSize: 10, color: T.teal, marginTop: 2 }}>[Shift Command Lead]</div>
+            <div style={{ fontFamily: font.mono, fontSize: 11, color: T.teal, marginTop: 2 }}>[Shift Command Lead]</div>
           </div>
         </div>
 
@@ -712,31 +723,31 @@ function ShiftHandoverModal({
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
-              <span style={{ fontFamily: font.sans, fontSize: 10, color: T.textMuted }}>Active Fleet Missions</span>
+              <span style={{ fontFamily: font.sans, fontSize: 11, color: T.textMuted }}>Active fleet missions</span>
               <div style={{ fontFamily: font.sans, fontSize: 11, fontWeight: 600, color: T.textSecondary, marginTop: 2 }}>
                 {activeDronesCount} Drones Assigned
               </div>
             </div>
             <div>
-              <span style={{ fontFamily: font.sans, fontSize: 10, color: T.textMuted }}>Weather & Wind</span>
+              <span style={{ fontFamily: font.sans, fontSize: 11, color: T.textMuted }}>Weather and wind</span>
               <div style={{ fontFamily: font.sans, fontSize: 11, fontWeight: 600, color: T.textSecondary, marginTop: 2 }}>
                 Wind NE @ 18 mph
               </div>
             </div>
             <div>
-              <span style={{ fontFamily: font.sans, fontSize: 10, color: T.textMuted }}>Civilian Evac Routes</span>
+              <span style={{ fontFamily: font.sans, fontSize: 11, color: T.textMuted }}>Civilian evacuation routes</span>
               <div style={{ fontFamily: font.sans, fontSize: 11, fontWeight: 600, color: T.textSecondary, marginTop: 2 }}>
                 {state.emergencyEvacuationActive ? "Routes Stage Active" : "Routes Pending"}
               </div>
             </div>
             <div>
-              <span style={{ fontFamily: font.sans, fontSize: 10, color: T.textMuted }}>Threat delta</span>
+              <span style={{ fontFamily: font.sans, fontSize: 11, color: T.textMuted }}>Threat delta</span>
               <div style={{ fontFamily: font.mono, fontSize: 11, fontWeight: 600, color: T.red, marginTop: 2 }}>
                 -4.2% spread vector
               </div>
             </div>
           </div>
-          <div style={{ fontSize: 10, fontFamily: font.mono, color: T.textMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          <div style={{ fontSize: 11, fontFamily: font.mono, color: T.textMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             Missions: {activeMissions}
           </div>
         </div>
@@ -788,7 +799,7 @@ function ShiftHandoverModal({
             </button>
           </div>
           {error && (
-            <span style={{ fontFamily: font.mono, fontSize: 10, color: T.red, fontWeight: 700, letterSpacing: "0.02em" }}>
+            <span style={{ fontFamily: font.mono, fontSize: 11, color: T.red, fontWeight: 700 }}>
               {error}
             </span>
           )}
@@ -821,7 +832,7 @@ function ShiftHandoverModal({
 /** Modal 6: Stand Down */
 function StandDownModal({ onClose, onConfirm }: { onClose: () => void; onConfirm: () => void }) {
   return (
-    <div style={{ ...GLASS_MODAL, width: 460 }}>
+    <div>
       <ModalHeader title="Confirm Mission Stand Down" subtitle="All operations will be formally closed and assets recalled." accentColor={T.teal} icon={<OperationalIcon actionId="stand-down" color={T.teal} size={18} />} />
 
       <div style={{ padding: "16px 24px" }}>
@@ -845,39 +856,6 @@ function StandDownModal({ onClose, onConfirm }: { onClose: () => void; onConfirm
   );
 }
 
-/** Voice state for the override flow inside MissionBriefModal */
-type VoiceOverrideState = "idle" | "listening" | "processing" | "responded";
-
-/** Waveform bar animation for listening state */
-function VoiceWaveform({ active }: { active: boolean }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 3, height: 20 }}>
-      {[0.6, 1.0, 0.75, 1.0, 0.5, 0.85, 0.65].map((h, i) => (
-        <div
-          key={i}
-          style={{
-            width: 3,
-            height: `${h * 100}%`,
-            borderRadius: 2,
-            background: T.red,
-            opacity: active ? 1 : 0.3,
-            animation: active ? `voiceBar${i} 0.6s ease-in-out ${i * 0.08}s infinite alternate` : "none",
-            transition: "opacity 200ms ease",
-          }}
-        />
-      ))}
-      <style>{`
-        ${[0, 1, 2, 3, 4, 5, 6].map(i => `
-          @keyframes voiceBar${i} {
-            from { transform: scaleY(0.3); }
-            to   { transform: scaleY(1); }
-          }
-        `).join("")}
-      `}</style>
-    </div>
-  );
-}
-
 /** Mission Brief — TALON Tactical Order Review */
 function MissionBriefModal({
   actionId,
@@ -885,40 +863,19 @@ function MissionBriefModal({
   onClose,
   onConfirm,
   onVoiceOverride,
+  onTalonConversationChange,
 }: {
   actionId: QuickActionId;
   state: ShellState;
   onClose: () => void;
   onConfirm: () => void;
   onVoiceOverride?: () => void;
+  onTalonConversationChange?: TalonConversationChangeHandler;
 }) {
   const cfg = MISSION_BRIEF_DATA[actionId];
   if (!cfg) return null;
 
   const [coveragePriority, setCoveragePriority] = useState<"coverage" | "speed">("coverage");
-  const [voiceState, setVoiceState] = useState<VoiceOverrideState>("idle");
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Clean up timers on unmount
-  useEffect(() => {
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, []);
-
-  const handleVoiceClick = () => {
-    if (voiceState !== "idle") return;
-    setVoiceState("listening");
-    timerRef.current = setTimeout(() => {
-      setVoiceState("processing");
-      timerRef.current = setTimeout(() => {
-        setVoiceState("responded");
-      }, 1800);
-    }, 3000);
-  };
-
-  const handleVoiceReset = () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    setVoiceState("idle");
-  };
 
   // Find best candidate drone from the current state
   const candidateDrone: DroneRosterEntry | undefined = state.drones.find(
@@ -932,40 +889,47 @@ function MissionBriefModal({
   const signalColor = (!candidateDrone || candidateDrone.signal > 70) ? T.teal : T.amber;
   const batteryColor = (!candidateDrone || candidateDrone.battery > 30) ? T.teal : T.amber;
 
-  const isVoiceActive = voiceState !== "idle";
+  const session = getTalonSessionView(state.talonConversation);
+  const missionSessionActive = session.contextActionId === actionId;
+  const revisedPlanReady =
+    missionSessionActive &&
+    (session.phase === "recommendation" || session.phase === "human-gate") &&
+    Boolean(session.transcript);
+  const sessionBusy =
+    missionSessionActive &&
+    (session.phase === "input" || session.phase === "review" || session.phase === "checking" || session.phase === "executing");
+  const targetLabel = zoneData?.label ?? cfg.defaultZoneId.replace(/-/g, " ");
+  const priorityLabel = coveragePriority === "coverage" ? "maximum coverage" : "fastest response";
+  const overrideTranscript = `TALON, revise ${cfg.missionType.toLowerCase()} for ${targetLabel}. Prioritize ${priorityLabel}, keep ${candidateDrone?.name ?? "the assigned asset"} within its operating limits, and hold deployment for my approval.`;
+  const overrideReply = `${cfg.title} revised for ${targetLabel} with ${priorityLabel}. ${candidateDrone?.name ?? "The available fallback asset"} remains staged. The updated recommendation is held at the human deployment gate.`;
 
   return (
-    <div style={{ ...GLASS_MODAL, width: 560 }}>
+    <div>
       {/* Header */}
       <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-        {/* TALON badge row */}
+        {/* Mission status */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
           <div style={{
-            padding: "3px 10px", borderRadius: 6, fontFamily: font.mono, fontSize: 9,
-            fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
-            background: voiceState === "responded" ? `${T.amber}18` : `${tone}18`,
-            border: `1px solid ${voiceState === "responded" ? `${T.amber}44` : `${tone}44`}`,
-            color: voiceState === "responded" ? T.amber : tone,
-            transition: "all 300ms ease",
+            padding: "3px 8px", borderRadius: 6, fontFamily: font.mono, fontSize: 11,
+            fontWeight: 700,
+            background: revisedPlanReady ? `${T.amber}18` : `${tone}18`,
+            border: `1px solid ${revisedPlanReady ? `${T.amber}44` : `${tone}44`}`,
+            color: revisedPlanReady ? T.amber : tone,
+            transition: `background-color ${motion.normal}, border-color ${motion.normal}, color ${motion.normal}`,
           }}>
-            {voiceState === "responded" ? "TALON REVISED PLAN · OPERATOR OVERRIDE" : `TALON MISSION PLAN · ${cfg.missionType}`}
+            {revisedPlanReady ? "TALON revised plan · operator correction" : `TALON mission plan · ${cfg.missionType}`}
           </div>
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{
-              width: 6, height: 6, borderRadius: "50%",
-              background: voiceState === "responded" ? T.amber : T.teal,
-              animation: "pulse 1.2s infinite",
-            }} />
-            <span style={{ fontFamily: font.mono, fontSize: 9, color: voiceState === "responded" ? T.amber : T.teal }}>
-              {voiceState === "responded" ? "PLAN UPDATED" : `CONFIDENCE: ${INCIDENT.aiConfidence}%`}
+            <span style={{ fontFamily: font.mono, fontSize: 11, color: revisedPlanReady ? T.amber : T.teal }}>
+              {revisedPlanReady ? "Plan updated" : `Confidence: ${INCIDENT.aiConfidence}%`}
             </span>
           </div>
         </div>
 
         <div style={{ fontFamily: font.sans, fontSize: 17, fontWeight: 700, color: T.textPrimary }}>{cfg.title}</div>
         <div style={{ fontFamily: font.sans, fontSize: 12, color: T.textSecondary, marginTop: 4, lineHeight: 1.5 }}>
-          {voiceState === "responded"
-            ? "Voice input received. TALON has recomputed the mission plan with your correction applied. Review the updated parameters and approve to deploy."
+          {revisedPlanReady
+            ? "Operator correction reviewed. The revised recommendation remains held until you approve deployment."
             : cfg.talonRationale}
         </div>
       </div>
@@ -973,7 +937,7 @@ function MissionBriefModal({
       <div style={{ padding: "16px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
         {/* Asset Assignment */}
         <div>
-          <div style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>Asset Assignment</div>
+          <div style={{ fontFamily: font.mono, fontSize: 11, color: T.textMuted, marginBottom: 8 }}>Asset assignment</div>
           {candidateDrone ? (
             <div style={{
               background: `${tone}0A`,
@@ -992,16 +956,16 @@ function MissionBriefModal({
               }}><OperationalIcon actionId={actionId} color={cfg.tone} size={18} /></div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: font.sans, fontSize: 14, fontWeight: 700, color: T.textPrimary }}>{candidateDrone.name}</div>
-                <div style={{ fontFamily: font.mono, fontSize: 10, color: T.textSecondary, marginTop: 2 }}>{candidateDrone.capabilityLabel}</div>
+                <div style={{ fontFamily: font.mono, fontSize: 11, color: T.textSecondary, marginTop: 2 }}>{candidateDrone.capabilityLabel}</div>
               </div>
               <div style={{ display: "flex", gap: 12, flexShrink: 0 }}>
                 <div style={{ textAlign: "center" }}>
                   <div style={{ fontFamily: font.mono, fontSize: 13, fontWeight: 700, color: batteryColor }}>{candidateDrone.battery}%</div>
-                  <div style={{ fontFamily: font.mono, fontSize: 8, color: T.textMuted, letterSpacing: "0.06em" }}>BATT</div>
+                  <div style={{ fontFamily: font.mono, fontSize: 11, color: T.textMuted }}>Battery</div>
                 </div>
                 <div style={{ textAlign: "center" }}>
                   <div style={{ fontFamily: font.mono, fontSize: 13, fontWeight: 700, color: signalColor }}>{candidateDrone.signal}%</div>
-                  <div style={{ fontFamily: font.mono, fontSize: 8, color: T.textMuted, letterSpacing: "0.06em" }}>SIG</div>
+                  <div style={{ fontFamily: font.mono, fontSize: 11, color: T.textMuted }}>Signal</div>
                 </div>
               </div>
             </div>
@@ -1015,7 +979,7 @@ function MissionBriefModal({
         {/* Zone Target */}
         {zoneData && (
           <div>
-            <div style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>Target Zone</div>
+            <div style={{ fontFamily: font.mono, fontSize: 11, color: T.textMuted, marginBottom: 8 }}>Target zone</div>
             <div style={{
               background: "rgba(255,255,255,0.03)",
               border: "1px solid rgba(255,255,255,0.08)",
@@ -1028,7 +992,7 @@ function MissionBriefModal({
                   <div style={{ fontFamily: font.sans, fontSize: 11, color: T.textSecondary, marginTop: 3, lineHeight: 1.4 }}>{zoneData.spreadWindow}</div>
                 </div>
                 <div style={{
-                  padding: "3px 8px", borderRadius: 6, fontFamily: font.mono, fontSize: 9, fontWeight: 700,
+                  padding: "3px 8px", borderRadius: 6, fontFamily: font.mono, fontSize: 11, fontWeight: 700,
                   background: "rgba(229,83,60,0.12)", color: T.fire, border: "1px solid rgba(229,83,60,0.25)",
                   whiteSpace: "nowrap", flexShrink: 0,
                 }}>
@@ -1039,10 +1003,10 @@ function MissionBriefModal({
           </div>
         )}
 
-        {/* Coverage toggle — hide when voice override is responded */}
-        {voiceState !== "responded" && (
+        {/* Coverage parameters stay editable until a revised recommendation is ready. */}
+        {!revisedPlanReady && (
           <div>
-            <div style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>Coverage Priority</div>
+            <div style={{ fontFamily: font.mono, fontSize: 11, color: T.textMuted, marginBottom: 8 }}>Coverage priority</div>
             <div style={{ display: "flex", gap: 8 }}>
               {(["coverage", "speed"] as const).map((p) => (
                 <button
@@ -1054,7 +1018,7 @@ function MissionBriefModal({
                     border: `1px solid ${coveragePriority === p ? `${tone}66` : "rgba(255,255,255,0.1)"}`,
                     background: coveragePriority === p ? `${tone}18` : "rgba(255,255,255,0.04)",
                     color: coveragePriority === p ? tone : T.textSecondary,
-                    transition: "all 120ms ease",
+                    transition: `background-color ${motion.fast}, border-color ${motion.fast}, color ${motion.fast}`,
                   }}
                 >
                   {p === "coverage" ? "Maximum Coverage" : "Fastest Response"}
@@ -1067,121 +1031,30 @@ function MissionBriefModal({
           </div>
         )}
 
-        {/* ── Voice Override Panel ──────────────────────────────────────────── */}
-        {/* A soft separator before the panel */}
-        {isVoiceActive && (
-          <div style={{
-            borderRadius: 14,
-            border: `1px solid ${
-              voiceState === "listening" ? `${T.red}50`
-              : voiceState === "processing" ? `${T.cyan}40`
-              : `${T.teal}55`
-            }`,
-            background: `${
-              voiceState === "listening" ? "rgba(229,83,60,0.07)"
-              : voiceState === "processing" ? "rgba(0,200,255,0.05)"
-              : "rgba(45,212,160,0.07)"
-            }`,
-            padding: "14px 16px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 10,
-            transition: "all 300ms ease",
-            animation: "voicePanelIn 220ms cubic-bezier(0.34,1.56,0.64,1)",
-          }}>
-            {/* Top row: status label + waveform / spinner */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{
-                width: 28, height: 28, borderRadius: "50%",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                background: voiceState === "listening" ? "rgba(229,83,60,0.18)"
-                  : voiceState === "processing" ? "rgba(0,200,255,0.12)"
-                  : "rgba(45,212,160,0.12)",
-                border: `1px solid ${
-                  voiceState === "listening" ? `${T.red}55`
-                  : voiceState === "processing" ? `${T.cyan}44`
-                  : `${T.teal}55`
-                }`,
-                flexShrink: 0,
-                fontSize: 14,
-              }}>
-                <OperationalIcon
-                  name={voiceState === "responded" ? "check" : "mic"}
-                  color={voiceState === "responded" ? T.teal : T.amber}
-                  size={14}
-                />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{
-                  fontFamily: font.mono, fontSize: 9, letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  color: voiceState === "listening" ? T.red
-                    : voiceState === "processing" ? T.cyan
-                    : T.teal,
-                  marginBottom: 2,
-                }}>
-                  {voiceState === "listening" ? "Listening to operator..."
-                    : voiceState === "processing" ? "TALON recomputing plan..."
-                    : "Plan updated — ready to deploy"}
-                </div>
-                {voiceState === "listening" && <VoiceWaveform active={true} />}
-                {voiceState === "processing" && (
-                  <div style={{ fontFamily: font.mono, fontSize: 10, color: T.textMuted }}>
-                    Processing voice input · applying corrections
-                  </div>
-                )}
-                {voiceState === "responded" && (
-                  <div style={{ fontFamily: font.mono, fontSize: 10, color: T.teal }}>
-                    Operator override applied · TALON acknowledged
-                  </div>
-                )}
-              </div>
-              {/* Cancel voice if still listening */}
-              {voiceState === "listening" && (
-                <button
-                  type="button"
-                  onClick={handleVoiceReset}
-                  style={{
-                    padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.12)",
-                    background: "rgba(255,255,255,0.05)", color: T.textMuted,
-                    fontFamily: font.sans, fontSize: 11, cursor: "pointer",
-                    flexShrink: 0,
-                  }}
-                >
-                  Cancel
-                </button>
-              )}
-            </div>
-
-            {/* Transcript/response text */}
-            <div style={{
-              fontFamily: font.sans, fontSize: 12, lineHeight: 1.6,
-              color: voiceState === "responded" ? T.textPrimary : T.textSecondary,
-              padding: "8px 10px",
-              background: "rgba(255,255,255,0.03)",
-              borderRadius: 8,
-              border: "1px solid rgba(255,255,255,0.06)",
-              minHeight: 40,
-              transition: "color 300ms ease",
-            }}>
-              {voiceState === "listening" && (
-                <span style={{ color: T.textMuted, fontStyle: "italic" }}>
-                  "TALON, wind shifted northeast — move perimeter hold to buffer east instead, and reduce altitude to 30m AGL..."
-                </span>
-              )}
-              {voiceState === "processing" && (
-                <span style={{ color: T.cyan, fontFamily: font.mono, fontSize: 11 }}>
-                  Recomputing plan with NE wind vector correction...
-                </span>
-              )}
-              {voiceState === "responded" && (
-                <span>
-                  <strong style={{ color: T.teal }}>TALON:</strong> Confirmed operator correction. Wind vector NE 22km/h applied. Perimeter hold relocated to Buffer East at 30m AGL. Asset re-routed. Plan is updated and ready for your approval.
-                </span>
-              )}
-            </div>
-          </div>
-        )}
+        <TalonSession
+          variant="modal"
+          conversation={state.talonConversation}
+          onConversationChange={onTalonConversationChange}
+          legacyMode={!onTalonConversationChange}
+          context={{
+            recommendation: {
+              title: `Review ${cfg.title.toLowerCase()}`,
+              body: cfg.talonRationale,
+              actionLabel: revisedPlanReady ? "Deploy revised plan" : `Approve ${cfg.title.toLowerCase()}`,
+              actionId,
+              tone,
+              evidence: [
+                `${candidateDrone?.name ?? "Fallback asset"} available for ${cfg.missionType.toLowerCase()}`,
+                `${targetLabel} is the active target`,
+                coveragePriority === "coverage" ? cfg.coverageNote : "Shortest route selected for faster on-station time",
+              ],
+              blocker: candidateDrone ? null : "No preferred-class asset is currently available",
+              requiresHumanGate: true,
+            },
+            defaultTranscript: overrideTranscript,
+            scriptedReply: overrideReply,
+          }}
+        />
       </div>
 
       <Divider />
@@ -1208,90 +1081,167 @@ function MissionBriefModal({
           Cancel
         </button>
 
-        {/* Voice override button — shows only when idle or responded */}
-        {voiceState !== "listening" && voiceState !== "processing" && (
-          <button
-            id="mission-brief-voice-override-btn"
-            type="button"
-            onClick={voiceState === "idle" ? handleVoiceClick : handleVoiceReset}
-            title={voiceState === "idle" ? "Change plan by voice" : "Reset voice override"}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 7,
-              padding: "10px 16px",
-              borderRadius: 10,
-              border: `1px solid ${
-                voiceState === "responded" ? `${T.amber}55` : "rgba(255,255,255,0.14)"
-              }`,
-              background: voiceState === "responded"
-                ? "rgba(245,166,35,0.12)"
-                : "rgba(255,255,255,0.05)",
-              color: voiceState === "responded" ? T.amber : T.textSecondary,
-              fontFamily: font.sans,
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-              letterSpacing: "0.02em",
-              transition: "all 200ms ease",
-            }}
-          >
-            <span style={{ fontSize: 15, lineHeight: 1 }}>
-              <OperationalIcon name={voiceState === "responded" ? "reset" : "mic"} color="currentColor" size={15} />
-            </span>
-            <span>{voiceState === "responded" ? "Reset" : "Change Plan"}</span>
-          </button>
-        )}
-
-        {/* Spacer */}
         <div style={{ flex: 1 }} />
 
-        {/* Approve & Deploy (right-aligned, amber when override applied) */}
         <button
           id="mission-brief-approve-btn"
           type="button"
           onClick={() => {
-            if (voiceState === "responded" && onVoiceOverride) {
+            if (revisedPlanReady && onVoiceOverride) {
               onVoiceOverride();
-            } else if (voiceState === "idle") {
+            } else if (!sessionBusy) {
               onConfirm();
             }
           }}
-          disabled={voiceState === "listening" || voiceState === "processing"}
+          disabled={sessionBusy}
           style={{
             padding: "10px 22px",
             borderRadius: 10,
             border: "none",
-            background: voiceState === "responded" ? T.amber : tone,
+            background: revisedPlanReady ? T.amber : tone,
             color: "#fff",
             fontFamily: font.sans,
             fontSize: 12,
             fontWeight: 700,
-            cursor: voiceState === "listening" || voiceState === "processing" ? "default" : "pointer",
-            letterSpacing: "0.04em",
-            textTransform: "uppercase",
-            opacity: voiceState === "listening" || voiceState === "processing" ? 0.4 : 1,
-            transition: "all 250ms ease",
+            cursor: sessionBusy ? "default" : "pointer",
+            opacity: sessionBusy ? 0.4 : 1,
+            transition: `background-color ${motion.deliberate}, color ${motion.deliberate}, opacity ${motion.deliberate}`,
           }}
         >
-          {voiceState === "responded" ? "Deploy Revised Plan" : "Approve & Deploy"}
+          {revisedPlanReady ? "Deploy revised plan" : "Approve and deploy"}
         </button>
       </div>
-
-      <style>{`
-        @keyframes voicePanelIn {
-          from { opacity: 0; transform: translateY(6px) scale(0.98); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-      `}</style>
     </div>
   );
 }
 
-/** Root modal dispatcher */
-export function ActionModal({ modalId, state: _state, onClose, onConfirm, onVoiceOverride }: ActionModalProps) {
+const MODAL_ACCESSIBILITY: Partial<Record<QuickActionId, { title: string; description: string; width: number }>> = {
+  "emergency-evacuate": {
+    title: "Emergency evacuation protocol",
+    description: "Review the route and team assignments before initiating immediate evacuation procedures.",
+    width: 520,
+  },
+  "abort-mission": {
+    title: "Abort drone mission",
+    description: "Confirm recalling active drones and clearing the current mission state.",
+    width: 460,
+  },
+  "deploy-backup": {
+    title: "Request backup resources",
+    description: "Select a target zone, resource type, and urgency before sending the request.",
+    width: 520,
+  },
+  "notify-authorities": {
+    title: "Send authority packet",
+    description: "Review the evidence, uncertainty, and human send gate before notifying authorities.",
+    width: 520,
+  },
+  "notify-teams": {
+    title: "Alert ground teams",
+    description: "Confirm the current team assignments and staging instructions.",
+    width: 460,
+  },
+  "shift-handover": {
+    title: "Shift handover transfer",
+    description: "Verify the incoming operator before transferring active incident command.",
+    width: 500,
+  },
+  "stand-down": {
+    title: "Confirm mission stand down",
+    description: "Confirm closure of operations, asset recall, team notification, and return to monitoring.",
+    width: 460,
+  },
+};
+
+function modalAccessibility(modalId: QuickActionId) {
+  const mission = MISSION_BRIEF_DATA[modalId];
+  if (mission) {
+    return {
+      title: mission.title,
+      description: `Review the ${mission.missionType.toLowerCase()} recommendation and approve any operator correction before deployment.`,
+      width: 560,
+    };
+  }
+  return MODAL_ACCESSIBILITY[modalId] ?? {
+    title: "Confirm operator command",
+    description: "Review the command and its consequences before confirmation.",
+    width: 520,
+  };
+}
+
+/** One accessible shell owns focus, Escape, labels, and restoration for every command. */
+export function ActionModal({
+  modalId,
+  state: _state,
+  onClose,
+  onConfirm,
+  onVoiceOverride,
+  onTalonConversationChange,
+}: ActionModalProps) {
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  const conversationRef = useRef(_state.talonConversation);
+  const conversationHandlerRef = useRef(onTalonConversationChange);
+  const meta = modalAccessibility(modalId);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+    conversationRef.current = _state.talonConversation;
+    conversationHandlerRef.current = onTalonConversationChange;
+  }, [onClose, onTalonConversationChange, _state.talonConversation]);
+
+  useEffect(() => {
+    restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const frame = requestAnimationFrame(() => {
+      const firstFocusable = dialogRef.current?.querySelector<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+      );
+      (firstFocusable ?? dialogRef.current)?.focus();
+    });
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      const phase = getTalonSessionView(conversationRef.current).phase;
+      const talonBusy = phase === "input" || phase === "review" || phase === "checking" || phase === "executing";
+      if (talonBusy && conversationHandlerRef.current) return;
+      event.preventDefault();
+      onCloseRef.current();
+    };
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("keydown", handleEscape);
+      restoreFocusRef.current?.focus();
+    };
+  }, [modalId]);
+
   const handleBackdrop = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) onClose();
+  };
+
+  const trapFocus = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Tab") return;
+    const focusable = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+      ),
+    ).filter((element) => element.getClientRects().length > 0);
+    if (focusable.length === 0) {
+      event.preventDefault();
+      event.currentTarget.focus();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last?.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first?.focus();
+    }
   };
 
     const renderModal = () => {
@@ -1324,6 +1274,7 @@ export function ActionModal({ modalId, state: _state, onClose, onConfirm, onVoic
             state={_state}
             onClose={onClose}
             onConfirm={() => onConfirm(modalId)}
+            onTalonConversationChange={onTalonConversationChange}
             onVoiceOverride={() => {
               onClose();
               if (onVoiceOverride) onVoiceOverride(modalId);
@@ -1340,17 +1291,41 @@ export function ActionModal({ modalId, state: _state, onClose, onConfirm, onVoic
   if (!modal) return null;
 
   return (
-    <div style={BACKDROP} onClick={handleBackdrop} role="dialog" aria-modal="true">
+    <div style={BACKDROP} onClick={handleBackdrop} role="presentation">
       <div
-        style={{ animation: "modalIn 160ms cubic-bezier(0.34,1.56,0.64,1)" }}
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="action-modal-title"
+        aria-describedby="action-modal-description"
+        tabIndex={-1}
+        onKeyDown={trapFocus}
+        style={{
+          ...GLASS_MODAL,
+          width: meta.width,
+          overflowY: "auto",
+          animation: "modalIn 220ms cubic-bezier(0.23,1,0.32,1)",
+        }}
         onClick={(e) => e.stopPropagation()}
       >
+        <h2 id="action-modal-title" style={{ position: "absolute", width: 1, height: 1, padding: 0, margin: -1, overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap", border: 0 }}>
+          {meta.title}
+        </h2>
+        <p id="action-modal-description" style={{ position: "absolute", width: 1, height: 1, padding: 0, margin: -1, overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap", border: 0 }}>
+          {meta.description}
+        </p>
         {modal}
       </div>
       <style>{`
         @keyframes modalIn {
-          from { opacity: 0; transform: scale(0.94) translateY(12px); }
+          from { opacity: 0; transform: scale(0.98) translateY(8px); }
           to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          @keyframes modalIn {
+            from { opacity: 1; transform: none; }
+            to { opacity: 1; transform: none; }
+          }
         }
         input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
         select option { background: #0D1724; color: #E8EDF4; }

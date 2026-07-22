@@ -1,8 +1,14 @@
 import { useCallback, useRef, useState } from "react";
-import type { CSSProperties } from "react";
 import { OperationalIcon } from "./OperationalIcon";
-import { getSceneChips } from "../domain/talon";
+import {
+  getTalonChipResponse,
+  getTalonInteractionModel,
+  getTalonSessionRecommendation,
+  updateTalonConversation,
+} from "../domain/talon";
 import { COMMAND_LABELS } from "../domain/microcopy";
+import { TalonSession } from "./talon/TalonSession";
+import { TalonMark } from "./talon/TalonMark";
 import {
   DISABLED_OPACITY,
   TILE_GAP,
@@ -13,7 +19,10 @@ import {
   type ShellState,
   type DroneMissionType,
   type TalonChipId,
+  type TalonConversationChangeHandler,
+  type TalonConversationState,
   type TalonVoiceState,
+  GLASS,
   T,
   border,
   font,
@@ -29,9 +38,11 @@ import {
 interface ActionBarProps {
   state: ShellState;
   onAction: (actionId: QuickActionId) => void;
+  coreMode?: boolean;
   expanded: boolean;
   onToggleExpand: () => void;
   onTalonVoiceChange?: (vs: TalonVoiceState) => void;
+  onTalonConversationChange?: TalonConversationChangeHandler;
   onTalonChip?: (chipId: TalonChipId) => void;
   burnPermitVerified?: boolean;
   onBurnPermitVerifyChange?: (verified: boolean) => void;
@@ -39,17 +50,28 @@ interface ActionBarProps {
 
 export const ACTION_LABELS: Record<QuickActionId, string> = COMMAND_LABELS;
 
-const ROW_GAP = space.xl;
-
 function withAlpha(hex: string, alpha: number) {
   return tint(hex, alpha);
 }
 
 function baseTileColors(action: QuickActionState) {
-  const tone = action.status === "complete" ? T.teal : action.id === "abort-mission" ? T.red : action.tone;
   const isDisabled = action.status === "disabled";
   const isComplete = action.status === "complete";
   const isRecommended = action.status === "recommended";
+  const isInProgress = action.status === "in-progress";
+
+  /*
+   * Color is a status signal, not decoration. Only the recommended action,
+   * live progress, completion, and destructive intent carry color — every
+   * other tile stays neutral so the operator's eye lands on what matters.
+   */
+  const tone = isComplete
+    ? T.teal
+    : action.id === "abort-mission"
+      ? T.red
+      : isRecommended || isInProgress
+        ? action.tone
+        : T.textSecondary;
 
   return {
     tone,
@@ -59,17 +81,23 @@ function baseTileColors(action: QuickActionState) {
         ? withAlpha(T.teal, 0.44)
         : isRecommended
           ? withAlpha(tone, 0.56)
-          : withAlpha(tone, 0.28),
+          : isInProgress
+            ? withAlpha(tone, 0.34)
+            : border.strong,
     background: isDisabled
       ? surface.inset
       : isComplete
         ? withAlpha(T.teal, 0.1)
         : isRecommended
           ? withAlpha(tone, 0.12)
-          : action.tone === T.textSecondary
-            ? withAlpha(T.textSecondary, 0.1)
-            : surface.control,
-    text: isDisabled ? withAlpha(T.textMuted, 0.92) : isComplete ? T.teal : tone,
+          : surface.control,
+    text: isDisabled
+      ? withAlpha(T.textMuted, 0.92)
+      : isComplete
+        ? T.teal
+        : isRecommended
+          ? tone
+          : T.textPrimary,
   };
 }
 
@@ -78,680 +106,455 @@ function baseTileColors(action: QuickActionState) {
 export function TalonMicButton({
   voiceState,
   onVoiceChange,
+  conversation,
+  onConversationChange,
 }: {
   voiceState: TalonVoiceState;
   onVoiceChange: (vs: TalonVoiceState) => void;
+  conversation?: TalonConversationState;
+  onConversationChange?: TalonConversationChangeHandler;
 }) {
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleClick = () => {
-    if (voiceState !== "idle") return;
-    onVoiceChange("listening");
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => {
-      onVoiceChange("processing");
-      timeoutRef.current = setTimeout(() => {
-        onVoiceChange("responded");
-        timeoutRef.current = setTimeout(() => {
-          onVoiceChange("idle");
-        }, 1800);
-      }, 1800);
-    }, 2800);
+  const currentConversation = conversation ?? {
+    activeChip: null,
+    response: null,
+    voiceState,
   };
-
-  const micColor =
-    voiceState === "idle"
-      ? T.talonIdle
-      : voiceState === "listening"
-        ? T.talonListening
-        : voiceState === "processing"
-          ? T.talonProcessing
-          : T.talonResponded;
-
-  const micAnimation =
-    voiceState === "idle"
-      ? "talonIdlePulse 2.4s ease-in-out infinite"
-      : voiceState === "listening"
-        ? "talonListeningPulse 0.8s ease-in-out infinite"
-        : undefined;
-
-  const micBg =
-    voiceState === "idle"
-      ? tone.info.fill
-      : voiceState === "listening"
-        ? tone.danger.fillStrong
-        : voiceState === "processing"
-          ? tone.caution.fillStrong
-          : tone.safe.fillStrong;
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: space.xs,
-        flexShrink: 0,
-      }}
-      aria-label="TALON voice interface"
-    >
-      <button
-        type="button"
-        onClick={handleClick}
-        disabled={voiceState !== "idle"}
-        aria-label={
-          voiceState === "idle"
-            ? "Speak to TALON"
-            : voiceState === "listening"
-              ? "TALON listening…"
-              : voiceState === "processing"
-                ? "TALON processing…"
-                : "TALON responded"
-        }
-        style={{
-          width: space["6xl"] + space.xl,
-          height: space["6xl"] + space.xl,
-          borderRadius: radius.pill,
-          border: `1.5px solid ${withAlpha(micColor, 0.5)}`,
-          background: micBg,
-          cursor: voiceState === "idle" ? "pointer" : "default",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          position: "relative",
-          flexShrink: 0,
-          transition: "background 300ms ease, border-color 300ms ease",
-          animation: micAnimation,
-        }}
-      >
-        {/* Waveform bars — visible in listening/processing */}
-        {(voiceState === "listening" || voiceState === "processing") ? (
-          <div
-            aria-hidden="true"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: space.xxs,
-              height: space["5xl"],
-            }}
-          >
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div
-                key={i}
-                style={{
-                  width: space.xs,
-                  borderRadius: radius.pill,
-                  background: micColor,
-                  animation: `waveBar${i} ${0.4 + i * 0.08}s ease-in-out infinite alternate`,
-                }}
-              />
-            ))}
-          </div>
-        ) : voiceState === "responded" ? (
-          /* Checkmark on respond */
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-            <polyline points="3,9 7,13 15,5" stroke={micColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        ) : (
-          /* Idle mic icon */
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={micColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-            <line x1="12" y1="19" x2="12" y2="23" />
-            <line x1="8" y1="23" x2="16" y2="23" />
-          </svg>
-        )}
-      </button>
-
-      <span
-        style={{
-          fontFamily: font.mono,
-          fontSize: typeScale.eyebrow,
-          color: micColor,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          lineHeight: 1,
-          whiteSpace: "nowrap",
-          transition: "color 300ms ease",
-        }}
-      >
-        {voiceState === "idle"
-          ? "Speak"
-          : voiceState === "listening"
-            ? "Listening"
-            : voiceState === "processing"
-              ? "Processing"
-              : "Responded"}
-      </span>
-    </div>
-  );
-}
-
-// ─── TALON Status Strip (left of action tiles) ────────────────────────────────
-
-function TalonStatusStrip({ state }: { state: ShellState }) {
-  const { scene, workflowPhase } = state;
-  const response = state.talonConversation.response;
-
-  const statusMap: Partial<Record<typeof scene, { label: string; detail: string; color: string }>> = {
-    "baseline":              { label: "Surveillance active",         detail: "All sensors nominal",                         color: T.teal },
-    "alert-command":         { label: "Interrupt triggered",         detail: "Awaiting dispatch authorization",             color: T.amber },
-    "investigation-pending": { label: "Lidar-02 en route",           detail: "Verifying Grid 4C · ETA ~14s",                color: T.cyan },
-    "verify-ready":          { label: "Evidence ready",              detail: "78% confidence · Await operator review",      color: T.amber },
-    "verify-active":         { label: "Building convergence",        detail: "Sensor fusion running · 3 sources active",   color: T.amber },
-    "authority-notification-ready": { label: "Authority packet ready", detail: "Human send starts Operations",             color: T.red },
-    "contain-recommended":   { label: "Operations staging",          detail: "Authorities notified · build the plan",       color: T.red },
-    "contain-alternate":     { label: "Alternate plan loaded",       detail: "Recomputed with operator override",           color: T.amber },
-    "contain-degraded":      { label: "Fallback evidence mode",      detail: "LiDAR incomplete · Using raw feed",           color: T.amber },
-    "rescue-nominal":        { label: "Coordinating field assets",   detail: "Route A active · 12/47 structures cleared",  color: T.fire },
-    "rescue-signal-degraded": { label: "Signal exception active",    detail: "Herald-01 degraded · Rerouting",             color: T.amber },
-    "rescue-battery-critical": { label: "Asset handoff in progress", detail: "Lidar-02 recall · Scout-03 en route",        color: T.amber },
-    "satellite-feed-loss":   { label: "Satellite offline",           detail: "Drone-only telemetry · 40% confidence",      color: T.amber },
-    "network-degraded":      { label: "High latency detected",       detail: "340ms avg · TALON at reduced throughput",    color: T.yellow },
-    "infrastructure-total-loss": { label: "System failure",          detail: "Manual protocol active",                     color: T.red },
+  const handleConversation = (next: TalonConversationState) => {
+    if (onConversationChange) {
+      onConversationChange(next);
+    } else if (next.voiceState !== voiceState) {
+      onVoiceChange(next.voiceState);
+    }
   };
-
-  const status = statusMap[scene] ?? { label: "TALON active", detail: "Monitoring situation", color: T.teal };
-  const displayStatus = response
-    ? { label: response.title, detail: response.body, color: response.tone }
-    : status;
-
   return (
-    <div
-      aria-live="polite"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        gap: space.xs,
-        minWidth: 160,
-        maxWidth: 200,
-        flexShrink: 0,
-        paddingRight: space.xl,
-        borderRight: `1px solid ${border.subtle}`,
+    <TalonSession
+      variant="compact"
+      conversation={currentConversation}
+      onConversationChange={handleConversation}
+      legacyMode={!onConversationChange}
+      context={{
+        recommendation: {
+          title: "TALON command",
+          body: "Review the active Sentinel state.",
+          actionLabel: "Review current state",
+          tone: T.cyan,
+          evidence: [],
+          blocker: null,
+          requiresHumanGate: false,
+        },
       }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: space.xs }}>
-        <span
-          style={{
-            width: space.xs,
-            height: space.xs,
-            borderRadius: radius.pill,
-            background: displayStatus.color,
-            display: "inline-block",
-            animation: "pulse 1.5s infinite",
-            flexShrink: 0,
-          }}
-          aria-hidden="true"
-        />
-        <span
-          style={{
-            fontFamily: font.mono,
-            fontSize: typeScale.metadata,
-            fontWeight: typeWeight.bold,
-            color: displayStatus.color,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            whiteSpace: "nowrap",
-          }}
-        >
-          TALON
-        </span>
-      </div>
-      <div
-        style={{
-          fontFamily: font.sans,
-          fontSize: typeScale.label,
-          fontWeight: typeWeight.semibold,
-          color: T.textPrimary,
-          lineHeight: 1.2,
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-        }}
-      >
-        {displayStatus.label}
-      </div>
-      <div
-        style={{
-          fontFamily: font.sans,
-          fontSize: typeScale.caption,
-          color: T.textMuted,
-          lineHeight: 1.2,
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-        }}
-      >
-        {displayStatus.detail}
-      </div>
-    </div>
-  );
-}
-
-// ─── Contextual Prompt Chips (right of action tiles) ─────────────────────────
-
-function ConversationalChips({
-  state,
-  onChip,
-}: {
-  state: ShellState;
-  onChip: (id: TalonChipId) => void;
-}) {
-  const chips = getSceneChips(state.scene);
-  const activeChip = state.talonConversation.activeChip;
-
-  if (chips.length === 0) return null;
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        gap: space.sm,
-        flexShrink: 0,
-        paddingLeft: space.xl,
-        borderLeft: `1px solid ${border.subtle}`,
-      }}
-    >
-      <div
-        style={{
-          fontFamily: font.mono,
-          fontSize: typeScale.eyebrow,
-          color: T.textMuted,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          marginBottom: space.xxs,
-        }}
-      >
-        Ask TALON
-      </div>
-      {chips.map((chip) => {
-        const isActive = activeChip === chip.id;
-        return (
-          <button
-            key={chip.id}
-            type="button"
-            onClick={() => onChip(chip.id)}
-            aria-pressed={isActive}
-            aria-label={`Ask TALON: ${chip.label}`}
-            style={{
-              padding: `${space.sm}px ${space.lg}px`,
-              borderRadius: radius.md,
-              border: `1px solid ${isActive ? tint(T.cyan, 0.4) : border.strong}`,
-              background: isActive ? tone.info.fillStrong : surface.control,
-              color: isActive ? T.cyan : T.textSecondary,
-              fontFamily: font.sans,
-              fontSize: typeScale.caption,
-              fontWeight: typeWeight.semibold,
-              cursor: "pointer",
-              textAlign: "left",
-              whiteSpace: "nowrap",
-              transition: "background 120ms ease, border-color 120ms ease, color 120ms ease",
-            }}
-          >
-            {chip.label}
-          </button>
-        );
-      })}
-    </div>
+    />
   );
 }
 
 // ─── Main ActionBar ───────────────────────────────────────────────────────────
 
-// Maximum primary tiles visible before overflow kicks in.
-// At 1366px center lane (~700px) this keeps the bar fitting without horizontal scroll.
-const MAX_VISIBLE_PRIMARY = 3;
+// Destructive / high-consequence commands live in the danger menu, never inline.
+const DANGER_IDS: QuickActionId[] = ["abort-mission", "stand-down"];
 
 export function ActionBar({
   state,
   onAction,
+  coreMode = false,
   expanded,
   onToggleExpand,
   onTalonVoiceChange,
+  onTalonConversationChange,
   onTalonChip,
   burnPermitVerified = false,
   onBurnPermitVerifyChange,
 }: ActionBarProps) {
-  const rawPrimary = state.actionSurface.primary.filter((action) => action.status !== "hidden");
-  const primary = state.scene === "verify-active" && !burnPermitVerified
-    ? rawPrimary.map(action => action.id === "confirm-incident"
-      ? { ...action, status: "disabled" as const, description: "Blocked by source conflict. Verify burn permit before packet preparation." }
-      : action)
-    : rawPrimary;
-
-  // Split primary into visible (≤3) and overflow (rest) so the bar never exceeds viewport
-  const visiblePrimary = primary.slice(0, MAX_VISIBLE_PRIMARY);
-  const overflowPrimary = primary.slice(MAX_VISIBLE_PRIMARY);
-
-  const secondary = state.actionSurface.secondary.filter((action) => action.status !== "hidden").slice(0, 5);
-  // Overflow primary tiles are surfaced in the secondary (expanded) row
-  const expandedSecondary = [...overflowPrimary, ...secondary];
-  const hasSplit = expandedSecondary.length > 0;
   const voiceState = state.talonConversation.voiceState;
 
-  const handleAction = useCallback(
-    (id: QuickActionId, isSecondary: boolean) => {
-      onAction(id);
-      if (isSecondary && expanded) {
-        onToggleExpand();
-      }
-    },
-    [expanded, onAction, onToggleExpand],
-  );
+  const rawPrimary = state.actionSurface.primary.filter((a) => a.status !== "hidden");
+  const primary = state.scene === "verify-active" && !burnPermitVerified
+    ? rawPrimary.map((a) => a.id === "confirm-incident"
+      ? { ...a, status: "disabled" as const, description: "Blocked by source conflict. Verify burn permit before packet preparation." }
+      : a)
+    : rawPrimary;
+  const secondary = state.actionSurface.secondary.filter((a) => a.status !== "hidden");
 
-  const handleVoiceChange = useCallback(
-    (vs: TalonVoiceState) => {
-      onTalonVoiceChange?.(vs);
-    },
-    [onTalonVoiceChange],
-  );
+  // Keep one accountable command beside the stable TALON control. Core mode keeps
+  // the same candidate filtering while removing the lower-priority menu.
+  const promoted = secondary.filter((a) => a.status === "recommended" && !DANGER_IDS.includes(a.id));
+  const coreCandidate =
+    [...primary, ...promoted].find((action) => action.status === "recommended") ??
+    [...primary, ...promoted].find((action) => action.status === "in-progress") ??
+    [...primary, ...promoted].find(
+      (action) => action.status === "available" && !DANGER_IDS.includes(action.id),
+    );
+  const flank = coreCandidate ? [coreCandidate] : [];
+  const menuActions = coreMode
+    ? []
+    : secondary.filter((a) => a.id !== coreCandidate?.id);
 
+  const handleAction = useCallback((id: QuickActionId) => onAction(id), [onAction]);
   const handleChip = useCallback(
     (id: TalonChipId) => {
+      if (onTalonConversationChange) {
+        const sameChip = state.talonConversation.activeChip === id;
+        onTalonConversationChange(
+          updateTalonConversation(state.talonConversation, {
+            activeChip: sameChip ? null : id,
+            response: sameChip ? null : getTalonChipResponse(id),
+            phase: sameChip ? "watching" : "recommendation",
+          }),
+        );
+        return;
+      }
       onTalonChip?.(id);
     },
-    [onTalonChip],
+    [onTalonChip, onTalonConversationChange, state.talonConversation],
+  );
+  const handleConversation = useCallback(
+    (next: TalonConversationState) => {
+      if (onTalonConversationChange) {
+        onTalonConversationChange(next);
+      } else if (next.voiceState !== voiceState) {
+        onTalonVoiceChange?.(next.voiceState);
+      }
+    },
+    [onTalonConversationChange, onTalonVoiceChange, voiceState],
   );
 
-  const showChips = Boolean(onTalonChip) && !hasSplit && visiblePrimary.length <= 2;
-  const hasActions = primary.length > 0 || secondary.length > 0;
+  const isGate = state.scene === "verify-active";
+  const talonModel = getTalonInteractionModel(state);
+  const talonRecommendation = getTalonSessionRecommendation(state);
+  const displayedRecommendation = state.talonConversation.response
+    ? {
+        ...talonRecommendation,
+        title: state.talonConversation.response.title,
+        body: state.talonConversation.response.body,
+        tone: state.talonConversation.response.tone,
+      }
+    : talonRecommendation;
 
   return (
     <div
       style={{
         width: "100%",
         height: "100%",
-        position: "relative",
         display: "flex",
-        flexDirection: "row",
+        flexDirection: "column",
         alignItems: "center",
-        gap: space.xl,
+        justifyContent: "center",
+        gap: isGate ? space.sm : space.none,
       }}
       role="toolbar"
       aria-label="TALON command bar"
     >
-      {/* Left: TALON Mic */}
-      <TalonMicButton
-        voiceState={voiceState}
-        onVoiceChange={handleVoiceChange}
-      />
-
-      {/* Center-left: TALON Status */}
-      <TalonStatusStrip state={state} />
-
-      {/* Forced Calibrator / Source Conflict Gate */}
-      {state.scene === "verify-active" && (
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes commandTileIn {
+          from { opacity: 0; transform: translateY(6px) scale(.985); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          @keyframes commandTileIn {
+            from { opacity: 1; transform: none; }
+            to { opacity: 1; transform: none; }
+          }
+        }
+      `}} />
+      {/* Source-conflict calibrator gate (verify-active) */}
+      {isGate && (
         <div style={{
           display: "flex",
-          flexDirection: "row",
           alignItems: "center",
           gap: space["3xl"],
-          background: tone.danger.fill,
-          border: `1.5px solid ${T.red}`,
+          background: tone.caution.fill,
+          border: `1.5px solid ${T.amber}`,
           borderRadius: radius.xl,
-          padding: `${space.lg}px ${space["3xl"]}px`,
-          marginLeft: space.xs,
-          flex: 1.5,
+          padding: `${space.md}px ${space["3xl"]}px`,
+          maxWidth: 760,
         }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: space.xs }}>
-            <span style={{
-              fontFamily: font.sans,
-              fontSize: typeScale.label,
-              fontWeight: typeWeight.bold,
-              color: T.red,
-              letterSpacing: "-0.01em",
-            }}>
-              SOURCE DISAGREEMENT: Thermal anomaly vs. active burn permit
+          <div style={{ display: "flex", flexDirection: "column", gap: space.xxs, minWidth: 0 }}>
+            <span style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.bold, color: T.amber }}>
+              Source disagreement: thermal anomaly vs. active burn permit
             </span>
-            <span style={{
-              fontFamily: font.sans,
-              fontSize: typeScale.caption,
-              color: T.textSecondary,
-              lineHeight: 1.2,
-            }}>
-              Sensor Fusion flags thermal spike but Satellite IR indicates a controlled agricultural burn.
+            <span style={{ fontFamily: font.sans, fontSize: typeScale.body, color: T.textSecondary, lineHeight: 1.35 }}>
+              Sensor Fusion flags a thermal spike but Satellite IR indicates a controlled agricultural burn.
             </span>
           </div>
-
           <label style={{
-            display: "flex",
-            alignItems: "center",
-            gap: space.md,
-            fontFamily: font.sans,
-            fontSize: typeScale.caption,
-            color: T.textPrimary,
-            fontWeight: typeWeight.semibold,
-            cursor: "pointer",
-            userSelect: "none",
-            marginLeft: "auto",
-            background: surface.controlHover,
-            padding: `${space.sm}px ${space.xl}px`,
-            borderRadius: radius.md,
-            border: `1px solid ${border.strong}`,
-            whiteSpace: "nowrap",
+            display: "flex", alignItems: "center", gap: space.md,
+            fontFamily: font.sans, fontSize: typeScale.label, color: T.textPrimary, fontWeight: typeWeight.semibold,
+            cursor: "pointer", userSelect: "none", whiteSpace: "nowrap",
+            background: surface.controlHover, padding: `${space.sm}px ${space.xl}px`, borderRadius: radius.md, border: `1px solid ${border.strong}`,
           }}>
-            <input
-              type="checkbox"
-              checked={burnPermitVerified}
-              onChange={(e) => onBurnPermitVerifyChange?.(e.target.checked)}
-              style={{
-                cursor: "pointer",
-                width: space["2xl"],
-                height: space["2xl"],
-                accentColor: T.red,
-              }}
-            />
+            <input type="checkbox" checked={burnPermitVerified} onChange={(e) => onBurnPermitVerifyChange?.(e.target.checked)}
+              style={{ cursor: "pointer", width: space["2xl"], height: space["2xl"], accentColor: T.amber }} />
             <span>I have verified agricultural burn permits for this sector.</span>
           </label>
         </div>
       )}
 
-      {/* Center: Action Tiles */}
-      {hasActions ? (
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            alignItems: "center",
-            gap: expanded && hasSplit ? ROW_GAP : 0,
-            padding: hasSplit ? `${space["4xl"]}px 0 ${space["3xl"]}px` : `${space["3xl"]}px 0`,
-            position: "relative",
+      {/* Premium TALON Control: Speak Orb + Inline Quick-Ask Chips */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: space.xl, position: "relative" }}>
+        <TalonSession
+          variant="floating"
+          conversation={state.talonConversation}
+          onConversationChange={handleConversation}
+          legacyMode={!onTalonConversationChange}
+          expanded={expanded}
+          onExpandedChange={() => onToggleExpand()}
+          onChip={onTalonChip || onTalonConversationChange ? handleChip : undefined}
+          context={{
+            recommendation: displayedRecommendation,
+            statusLabel: displayedRecommendation.title,
+            detail: displayedRecommendation.body,
+            chips: coreMode ? [] : talonModel.chips,
           }}
-        >
-          <div
+        />
+
+        {/* Circular Speak Orb */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: space.xxs }}>
+          <button
+            type="button"
+            onClick={() => onToggleExpand()}
+            aria-expanded={expanded}
+            aria-label={expanded ? "Close TALON session" : "Open TALON session"}
+            title={expanded ? "Close TALON session" : "Open TALON session"}
             style={{
-              width: "100%",
+              position: "relative",
+              width: 52,
+              height: 52,
+              borderRadius: "50%",
+              background: tint(
+                state.talonConversation.voiceState === "listening"
+                  ? T.red
+                  : state.talonConversation.voiceState === "processing"
+                    ? T.amber
+                    : state.talonConversation.voiceState === "responded"
+                      ? T.teal
+                      : T.cyan,
+                0.14,
+              ),
+              border: `2px solid ${
+                state.talonConversation.voiceState === "listening"
+                  ? T.red
+                  : state.talonConversation.voiceState === "processing"
+                    ? T.amber
+                    : state.talonConversation.voiceState === "responded"
+                      ? T.teal
+                      : T.cyan
+              }`,
+              color:
+                state.talonConversation.voiceState === "listening"
+                  ? T.red
+                  : state.talonConversation.voiceState === "processing"
+                    ? T.amber
+                    : state.talonConversation.voiceState === "responded"
+                      ? T.teal
+                      : T.cyan,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: space.lg,
-              minWidth: space.none,
+              cursor: "pointer",
+              boxShadow: `0 0 16px ${tint(
+                state.talonConversation.voiceState === "listening"
+                  ? T.red
+                  : state.talonConversation.voiceState === "processing"
+                    ? T.amber
+                    : state.talonConversation.voiceState === "responded"
+                      ? T.teal
+                      : T.cyan,
+                0.4,
+              )}`,
+              transition: "background 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease",
             }}
           >
-            <TileRow actions={visiblePrimary} onAction={(id) => handleAction(id, false)} state={state} />
-            {hasSplit ? <ExpandButton expanded={expanded} onToggleExpand={onToggleExpand} overflowCount={overflowPrimary.length} /> : null}
-          </div>
-
+            {state.talonConversation.voiceState === "listening" && (
+              <span
+                style={{
+                  position: "absolute",
+                  inset: -6,
+                  borderRadius: "50%",
+                  border: `1.5px solid ${T.red}`,
+                  animation: "talonRipple 1.4s ease-out infinite",
+                }}
+              />
+            )}
+            <TalonMark
+              color={
+                state.talonConversation.voiceState === "listening"
+                  ? T.red
+                  : state.talonConversation.voiceState === "processing"
+                    ? T.amber
+                    : state.talonConversation.voiceState === "responded"
+                      ? T.teal
+                      : T.cyan
+              }
+              size={28}
+              decorative
+            />
+          </button>
           <div
             style={{
-              width: "100%",
-              overflow: "hidden",
-              maxHeight: expanded && hasSplit ? TILE_H + ROW_GAP + space.sm : space.none,
-              transition: "max-height 220ms cubic-bezier(0.34,1.30,0.64,1)",
+              fontFamily: font.mono,
+              fontSize: typeScale.metadata,
+              color: T.textMuted,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+            }}
+          >
+            {state.talonConversation.voiceState === "idle" || !state.talonConversation.voiceState
+              ? "CLICK TO SPEAK"
+              : state.talonConversation.voiceState.toUpperCase()}
+          </div>
+        </div>
+
+        {/* Inline Quick-Ask Chips */}
+        {!coreMode && talonModel.chips.length > 0 && (
+          <div
+            style={{
               display: "flex",
               flexDirection: "column",
-              alignItems: "center",
-              gap: ROW_GAP,
+              gap: space.xxs,
+              borderLeft: `1px solid ${border.subtle}`,
+              paddingLeft: space.lg,
             }}
           >
             <div
-              aria-hidden="true"
               style={{
-                width: `calc(100% - ${space["6xl"] + space["3xl"]}px)`,
-                height: space.xxs / 2,
-                background: border.subtle,
-              }}
-            />
-            <TileRow actions={expandedSecondary} onAction={(id) => handleAction(id, true)} state={state} />
-          </div>
-        </div>
-      ) : (
-        /* No actions — show quiet TALON status */
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: space.lg,
-              padding: `${space.lg}px ${space["4xl"]}px`,
-              borderRadius: radius.xl,
-              background: tone.safe.fill,
-              border: `1px solid ${tone.safe.border}`,
-            }}
-          >
-            <span
-              style={{
-                width: space.sm,
-                height: space.sm,
-                borderRadius: radius.pill,
-                background: T.teal,
-                animation: "pulse 1.5s infinite",
-              }}
-              aria-hidden="true"
-            />
-            <span
-              style={{
-                fontFamily: font.sans,
-                fontSize: typeScale.body,
-                color: T.textSecondary,
-                fontStyle: "italic",
+                fontFamily: font.mono,
+                fontSize: typeScale.metadata,
+                color: T.textMuted,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
               }}
             >
-              TALON is watching. Human gates appear only when evidence requires action.
-            </span>
+              Ask TALON
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: space.xs }}>
+              {talonModel.chips.map((chip) => {
+                const active = state.talonConversation.activeChip === chip.id;
+                return (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    onClick={() => {
+                      handleChip(chip.id);
+                      if (!expanded) onToggleExpand();
+                    }}
+                    style={{
+                      padding: `${space.xs}px ${space.md}px`,
+                      borderRadius: radius.md,
+                      border: `1px solid ${active ? tint(T.cyan, 0.5) : border.strong}`,
+                      background: active ? tint(T.cyan, 0.16) : surface.control,
+                      color: active ? T.cyan : T.textSecondary,
+                      fontFamily: font.sans,
+                      fontSize: typeScale.caption,
+                      fontWeight: typeWeight.semibold,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      transition: "all 120ms ease",
+                    }}
+                  >
+                    {chip.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
-
-      {/* Right: Conversational Chips */}
-      {showChips && (
-        <ConversationalChips state={state} onChip={handleChip} />
-      )}
+        )}
+        <TileGroup actions={flank} onAction={handleAction} state={state} />
+        {menuActions.length > 0 && <DangerMenu actions={menuActions} onAction={handleAction} state={state} />}
+      </div>
     </div>
   );
 }
 
-function ExpandButton({
-  expanded,
-  onToggleExpand,
-  overflowCount = 0,
-}: {
-  expanded: boolean;
-  onToggleExpand: () => void;
-  overflowCount?: number;
-}) {
-  const [hovered, setHovered] = useState(false);
-  const [pressed, setPressed] = useState(false);
+// ─── Flanking tile group (content-width) ─────────────────────────────────────
 
+function TileGroup({ actions, onAction, state }: { actions: QuickActionState[]; onAction: (id: QuickActionId) => void; state: ShellState }) {
+  if (actions.length === 0) return null;
   return (
-    <button
-      type="button"
-      onClick={onToggleExpand}
-      aria-expanded={expanded}
-      aria-label={expanded ? "Collapse action bar" : "Show more actions"}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => {
-        setHovered(false);
-        setPressed(false);
-      }}
-      onMouseDown={() => setPressed(true)}
-      onMouseUp={() => setPressed(false)}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: space.sm,
-        padding: `${space.sm}px ${space.xl}px`,
-        borderRadius: radius.pill,
-        border: `1px solid ${tone.info.border}`,
-        background: hovered ? tone.info.fillStrong : tone.info.fill,
-        color: T.textMuted,
-        flexShrink: 0,
-        cursor: "pointer",
-        transform: pressed ? "translateY(1px) scale(0.985)" : hovered ? "translateY(-1px)" : "translateY(0)",
-        transition: "background 120ms ease, transform 120ms ease, border-color 120ms ease",
-      }}
-    >
-      <span
-        style={{
-          fontFamily: font.mono,
-          fontSize: typeScale.metadata,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-        }}
-      >
-        {expanded ? "Less" : overflowCount > 0 ? `+${overflowCount} more` : "More"}
-      </span>
-      <span
-        aria-hidden="true"
-        style={{
-          fontSize: typeScale.label,
-          lineHeight: 1,
-          opacity: 0.6,
-          transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
-          transition: "transform 180ms ease",
-        }}
-      >
-        ⌄
-      </span>
-    </button>
-  );
-}
-
-function TileRow({
-  actions,
-  onAction,
-  state,
-}: {
-  actions: QuickActionState[];
-  onAction: (id: QuickActionId) => void;
-  state: ShellState;
-}) {
-  if (actions.length === 0) {
-    return null;
-  }
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: TILE_GAP,
-        width: "100%",
-        minWidth: space.none,
-        overflowX: "auto",
-        scrollbarWidth: "none",
-        flexWrap: "nowrap",
-      }}
-    >
+    <div style={{ display: "flex", alignItems: "center", gap: TILE_GAP, flexShrink: 0, animation: "commandTileIn 180ms cubic-bezier(0.23,1,0.32,1)" }}>
       {actions.map((action) =>
         action.id === "authorize-containment" ? (
           <HoldTile key={action.id} action={action} onConfirm={() => onAction(action.id)} />
         ) : (
           <ActionTile key={action.id} action={action} state={state} onClick={() => onAction(action.id)} />
         ),
+      )}
+    </div>
+  );
+}
+
+// ─── Danger menu — high-consequence commands behind a deliberate gate ─────────
+
+function DangerMenu({ actions, onAction, state }: { actions: QuickActionState[]; onAction: (id: QuickActionId) => void; state: ShellState }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ position: "relative", flexShrink: 0, animation: "commandTileIn 180ms cubic-bezier(0.23,1,0.32,1)" }}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-label="High-consequence commands"
+        aria-expanded={open}
+        title="High-consequence commands"
+        style={{
+          width: 44, height: 44, borderRadius: radius.lg,
+          border: `1px solid ${open ? T.red : border.strong}`,
+          background: open ? tint(T.red, 0.12) : surface.control,
+          color: open ? T.red : T.textMuted,
+          display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+          transition: "border-color 120ms ease, background 120ms ease, color 120ms ease",
+        }}
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+          <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 1 }} aria-hidden="true" />
+          <div
+            role="menu"
+            style={{
+              position: "absolute", bottom: "calc(100% + 10px)", right: 0, zIndex: 2,
+              ...GLASS, borderColor: tint(T.red, 0.3), minWidth: 220,
+              padding: space.md, display: "flex", flexDirection: "column", gap: space.xs,
+            }}
+          >
+            <div style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.red, padding: `${space.xs}px ${space.sm}px` }}>
+              High-consequence commands
+            </div>
+            {actions.map((action) => {
+              const danger = DANGER_IDS.includes(action.id);
+              const disabled = action.status === "disabled" || action.status === "complete";
+              const c = danger ? T.red : action.status === "complete" ? T.teal : T.textSecondary;
+              return (
+                <button
+                  key={action.id}
+                  type="button"
+                  role="menuitem"
+                  disabled={disabled}
+                  onClick={() => { onAction(action.id); setOpen(false); }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: space.md, width: "100%",
+                    padding: `${space.md}px ${space.lg}px`, borderRadius: radius.md,
+                    border: `1px solid ${danger ? tint(T.red, 0.24) : border.subtle}`,
+                    background: danger ? tint(T.red, 0.06) : surface.control,
+                    color: c, cursor: disabled ? "default" : "pointer",
+                    opacity: disabled ? 0.5 : 1,
+                    fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.semibold, textAlign: "left",
+                  }}
+                >
+                  <OperationalIcon actionId={action.id} color={c} size={15} />
+                  {action.label}
+                  {action.status === "complete" && (
+                    <span style={{ marginLeft: "auto", fontFamily: font.mono, fontSize: typeScale.label, color: T.teal }}>Done</span>
+                  )}
+                </button>
+              );
+            })}
+            <div style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textMuted, padding: `${space.xs}px ${space.sm}px`, lineHeight: 1.4 }}>
+              {state.workflowPhase === "operations" ? "Closing or aborting the operation requires this deliberate step." : "Stand-down ends the active watch."}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
@@ -785,12 +588,9 @@ function ActionTile({ action, onClick, state }: { action: QuickActionState; stat
     ? state.drones.find((d) => d.assignedMission === missionType)
     : undefined;
 
-  const boxShadow =
-    isRecommended && !pressed
-      ? `inset 0 1px 0 ${withAlpha(tone, 0.24)}, 0 0 0 1px ${withAlpha(tone, 0.12)}, 0 12px 32px ${withAlpha(tone, 0.14)}`
-      : hovered && isInteractive
-        ? `inset 0 1px 0 ${border.soft}, 0 14px 28px ${withAlpha(tone, 0.12)}`
-        : `inset 0 1px 0 ${border.soft}`;
+  const boxShadow = isRecommended
+    ? `inset 0 1px 0 ${withAlpha(tone, 0.24)}`
+    : `inset 0 1px 0 ${border.soft}`;
 
   return (
     <button
@@ -826,6 +626,7 @@ function ActionTile({ action, onClick, state }: { action: QuickActionState; stat
         transition: "transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease, background 120ms ease",
         textAlign: "center",
         padding: `${space.lg}px ${space.xl}px`,
+        animation: "commandTileIn 180ms cubic-bezier(0.23,1,0.32,1)",
       }}
     >
       {isInProgress ? (
@@ -843,40 +644,29 @@ function ActionTile({ action, onClick, state }: { action: QuickActionState; stat
         />
       ) : null}
 
-      {/* Recommended shimmer accent (top edge) */}
-      {isRecommended && (
+      {(isComplete || isRecommended || isInProgress) && (
         <div
           aria-hidden="true"
           style={{
             position: "absolute",
-            left: space.none,
-            right: space.none,
-            top: space.none,
-            height: space.xxs,
-            background: `linear-gradient(90deg, transparent, ${tone}, transparent)`,
-            opacity: 0.7,
+            top: space.md,
+            right: space.md,
+            fontFamily: font.mono,
+            fontSize: typeScale.label,
+            fontWeight: typeWeight.bold,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            lineHeight: 1.2,
+            color: isComplete ? T.teal : tone,
+            background: withAlpha(isComplete ? T.teal : tone, 0.12),
+            border: `1px solid ${withAlpha(isComplete ? T.teal : tone, 0.3)}`,
+            borderRadius: radius.pill,
+            padding: `${space.xxs}px ${space.sm}px`,
           }}
-        />
+        >
+          {isComplete ? "Done" : isInProgress ? "Live" : "Ready"}
+        </div>
       )}
-
-      <div
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          top: space.md,
-          right: space.lg,
-          minWidth: 14,
-          minHeight: 14,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: isComplete ? T.teal : tone,
-          fontFamily: font.mono,
-          fontSize: typeScale.metadata,
-        }}
-      >
-        {isComplete ? "Done" : isRecommended ? "Ready" : null}
-      </div>
 
       <OperationalIcon actionId={action.id} color={text} size={22} />
 
@@ -885,8 +675,6 @@ function ActionTile({ action, onClick, state }: { action: QuickActionState; stat
           fontFamily: font.sans,
           fontSize: typeScale.label,
           fontWeight: 700,
-          letterSpacing: "0.05em",
-          textTransform: "uppercase",
           lineHeight: 1.25,
           maxWidth: "100%",
         }}
@@ -898,7 +686,7 @@ function ActionTile({ action, onClick, state }: { action: QuickActionState; stat
         <div
           style={{
             fontFamily: font.mono,
-            fontSize: typeScale.eyebrow,
+            fontSize: typeScale.label,
             color: T.textMuted,
             letterSpacing: "0.04em",
             maxWidth: "100%",
@@ -915,10 +703,8 @@ function ActionTile({ action, onClick, state }: { action: QuickActionState; stat
       {isComplete && assignedDrone && (
         <div style={{
           fontFamily: font.mono,
-          fontSize: typeScale.eyebrow,
+          fontSize: typeScale.label,
           color: withAlpha(T.teal, 0.9),
-          letterSpacing: "0.06em",
-          textTransform: "uppercase",
           background: withAlpha(T.teal, 0.1),
           border: `1px solid ${withAlpha(T.teal, 0.25)}`,
           borderRadius: radius.sm,
@@ -1026,9 +812,10 @@ function HoldTile({ action, onConfirm }: { action: QuickActionState; onConfirm: 
         justifyContent: "center",
         gap: space.md,
         cursor: disabled ? "default" : "pointer",
-        boxShadow: hovered && !disabled ? `inset 0 1px 0 ${border.soft}, 0 14px 28px ${withAlpha(tone, 0.12)}` : `inset 0 1px 0 ${border.soft}`,
+        boxShadow: `inset 0 1px 0 ${border.soft}`,
         transform: holding ? "scale(0.99)" : hovered && !disabled ? "translateY(-1px)" : "translateY(0)",
         transition: "transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease",
+        animation: "commandTileIn 180ms cubic-bezier(0.23,1,0.32,1)",
       }}
     >
       <div
@@ -1050,7 +837,7 @@ function HoldTile({ action, onConfirm }: { action: QuickActionState; onConfirm: 
           top: space.md,
           right: space.lg,
           fontFamily: font.mono,
-          fontSize: typeScale.metadata,
+          fontSize: typeScale.label,
           color: tone,
         }}
       >
@@ -1091,8 +878,6 @@ function HoldTile({ action, onConfirm }: { action: QuickActionState; onConfirm: 
           fontFamily: font.sans,
           fontSize: typeScale.label,
           fontWeight: 700,
-          letterSpacing: "0.05em",
-          textTransform: "uppercase",
           lineHeight: 1.25,
           textAlign: "center",
         }}
@@ -1104,10 +889,8 @@ function HoldTile({ action, onConfirm }: { action: QuickActionState; onConfirm: 
           position: "relative",
           zIndex: 1,
           fontFamily: font.mono,
-          fontSize: typeScale.eyebrow,
+          fontSize: typeScale.label,
           color: disabled ? T.textMuted : withAlpha(tone, 0.92),
-          letterSpacing: "0.06em",
-          textTransform: "uppercase",
         }}
       >
         {disabled ? "Blocked" : holding ? "Authorizing" : "Hold 2s"}

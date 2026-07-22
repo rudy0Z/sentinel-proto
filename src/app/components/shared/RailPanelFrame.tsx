@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { PanelVariant } from "../../tokens";
-import { GLASS, T, border, focus, font, motion, panel, radius, shadow, space, surface, tint, tone, typeScale, typeWeight } from "../../tokens";
+import { T, border, focus, font, motion, panel, radius, space, surface, tint, tone, typeScale, typeWeight } from "../../tokens";
 import { StatusPill } from "./StatusPill";
 
 function variantChrome(variant: PanelVariant) {
@@ -26,11 +26,11 @@ function variantChrome(variant: PanelVariant) {
 
 export function RailPanelFrame({
   children,
-  flex = 1,
   variant = "standard",
   minHeight,
 }: {
   children: ReactNode;
+  /** @deprecated panels now size to content; the rail scrolls as one column */
   flex?: number;
   variant?: PanelVariant;
   minHeight?: number;
@@ -39,10 +39,13 @@ export function RailPanelFrame({
   return (
     <div
       style={{
-        ...GLASS,
-        flex,
-        minHeight: minHeight ?? (variant === "compact" ? panel.minCompactHeight : variant === "focus" ? panel.minFocusHeight : panel.minStandardHeight),
+        // Size to content (not a forced flex fraction). A tiny floor only avoids
+        // collapse; the rail scrolls as a single column when total exceeds height.
+        flex: "0 0 auto",
+        minHeight: minHeight ?? 52,
         overflow: "hidden",
+        borderRadius: radius.xl,
+        border: `1px solid ${chrome.borderColor}`,
         borderColor: chrome.borderColor,
         background: chrome.background,
       }}
@@ -60,6 +63,7 @@ export function PanelHeader({
   metric,
   actionLabel,
   onAction,
+  accessory,
 }: {
   title: string;
   badgeLabel?: string;
@@ -67,12 +71,14 @@ export function PanelHeader({
   metric?: string;
   actionLabel?: string;
   onAction?: () => void;
+  /** Optional control rendered on the right of the header (e.g. a small toggle) */
+  accessory?: ReactNode;
 }) {
   return (
     <div
       style={{
         minHeight: panel.headerHeight,
-        padding: `${space["2xl"]}px ${panel.bodyPadding}px ${space.xl}px`,
+        padding: `${space["2xl"]}px ${panel.bodyPadding}px`,
         borderBottom: `1px solid ${border.subtle}`,
         display: "flex",
         alignItems: "center",
@@ -84,7 +90,7 @@ export function PanelHeader({
         <div
           style={{
             fontFamily: font.sans,
-            fontSize: typeScale.title,
+            fontSize: typeScale.subhead,
             fontWeight: typeWeight.semibold,
             color: T.textPrimary,
             whiteSpace: "nowrap",
@@ -114,16 +120,14 @@ export function PanelHeader({
             onClick={onAction}
             aria-label={actionLabel}
             style={{
-              fontFamily: font.mono,
-              fontSize: typeScale.caption,
+              fontFamily: font.sans,
+              fontSize: typeScale.label,
               color: T.textMuted,
-              letterSpacing: "0.06em",
               cursor: "pointer",
               padding: `${space.xs}px ${space.md}px`,
               borderRadius: radius.md,
               border: `1px solid ${border.default}`,
               background: surface.control,
-              textTransform: "uppercase",
               transition: `background ${motion.fast}, border-color ${motion.fast}, color ${motion.fast}`,
             }}
             onFocus={(event) => {
@@ -137,7 +141,10 @@ export function PanelHeader({
           </button>
         ) : null}
       </div>
-      {badgeLabel && badgeColor ? <StatusPill label={badgeLabel} color={badgeColor} /> : null}
+      <div style={{ display: "flex", alignItems: "center", gap: space.md, flexShrink: 0 }}>
+        {accessory}
+        {badgeLabel && badgeColor ? <StatusPill label={badgeLabel} color={badgeColor} /> : null}
+      </div>
     </div>
   );
 }
@@ -156,8 +163,10 @@ export function PanelBody({
       style={{
         flex: 1,
         minHeight: 0,
-        overflowY: "auto",
-        padding: `${bodyPadding}px ${panel.bodyPadding}px ${panel.bodyPadding}px`,
+        // Content flows naturally — the panel sizes to it and the rail scrolls as
+        // one column. (No per-panel internal scroll = no cramped windows.)
+        overflowY: "visible",
+      padding: `${bodyPadding}px ${panel.bodyPadding}px ${panel.bodyPadding}px`,
         display: "flex",
         flexDirection: "column",
         gap,
@@ -180,11 +189,10 @@ export function PanelSection({
       {label ? (
         <div
           style={{
-            fontFamily: font.mono,
-            fontSize: typeScale.eyebrow,
+            fontFamily: font.sans,
+            fontSize: typeScale.label,
+            fontWeight: typeWeight.semibold,
             color: T.textMuted,
-            letterSpacing: "0.14em",
-            textTransform: "uppercase",
           }}
         >
           {label}
@@ -221,7 +229,6 @@ export function PanelStateBlock({
         border: `1px solid ${tint(stateTone, 0.26)}`,
         background: tint(stateTone, 0.07),
         padding: `${space.lg}px ${space.xl}px`,
-        boxShadow: shadow.quiet,
       }}
     >
       <div style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.bold, color: stateTone, marginBottom: space.xs }}>
@@ -251,7 +258,7 @@ export function PanelExceptionCard({
         padding: `${space.lg}px ${space.xl}px`,
       }}
     >
-      <div style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: severityTone, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: space.xs }}>
+      <div style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.semibold, color: severityTone, marginBottom: space.xs }}>
         {severity}
       </div>
       <div style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.bold, color: T.textPrimary, marginBottom: space.xs }}>{title}</div>

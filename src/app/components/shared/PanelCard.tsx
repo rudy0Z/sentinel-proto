@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
+import { useContext, type ReactNode } from "react";
 import { PanelBody, PanelHeader } from "./RailPanelFrame";
+import { RailChromeContext } from "./railChrome";
 
 interface PanelCardProps {
   title: string;
@@ -9,14 +10,22 @@ interface PanelCardProps {
   actionLabel?: string;
   /** Callback for the action button */
   onAction?: () => void;
+  /** Force body-only rendering (no header). Otherwise inherited from RailChromeContext. */
+  chromeless?: boolean;
+  /** Optional control rendered on the right of the header (e.g. a small toggle) */
+  headerAccessory?: ReactNode;
   children: ReactNode;
 }
 
-/** Rail panel content primitive. The outer glass frame is owned by RailPanelFrame. */
-export function PanelCard({ title, badgeLabel, badgeColor, actionLabel, onAction, children }: PanelCardProps) {
+/** Rail panel content primitive. The outer glass frame is owned by RailPanelFrame / RailStack. */
+export function PanelCard({ title, badgeLabel, badgeColor, actionLabel, onAction, chromeless, headerAccessory, children }: PanelCardProps) {
+  const ctx = useContext(RailChromeContext);
+  const headerless = chromeless ?? ctx.chromeless;
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <PanelHeader title={title} badgeLabel={badgeLabel} badgeColor={badgeColor} actionLabel={actionLabel} onAction={onAction} />
+    <div style={{ width: "100%", minHeight: 0, display: "flex", flexDirection: "column", overflow: "visible" }}>
+      {!headerless && (
+        <PanelHeader title={title} badgeLabel={badgeLabel} badgeColor={badgeColor} actionLabel={actionLabel} onAction={onAction} accessory={headerAccessory} />
+      )}
       <PanelBody>
         {children}
       </PanelBody>

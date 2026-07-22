@@ -9,6 +9,9 @@ import {
   GI,
   MODE_META,
   PANEL_TITLES,
+  TILE_GAP,
+  TILE_H,
+  TILE_W,
   T,
   font,
 } from "../tokens";
@@ -19,9 +22,9 @@ const FRAME = {
   navbarH: 52,
   leftRailW: 300,
   rightRailW: 300,
-  tileW: 152,
-  tileH: 68,
-  tileGap: 12,
+  tileW: TILE_W,
+  tileH: TILE_H,
+  tileGap: TILE_GAP,
 };
 
 const colorTokens = [
@@ -41,11 +44,11 @@ const colorTokens = [
 ];
 
 const typeScale = [
-  { label: "Display / page header", spec: "Inter 700 / 32", sample: "Sentinel Operator Shell 2.0" },
-  { label: "Section title", spec: "Inter 700 / 20", sample: "Action System" },
-  { label: "Panel title", spec: "Inter 600 / 13", sample: "Tactical Intelligence" },
-  { label: "Body copy", spec: "Inter 400 / 12", sample: "Recommendations explain why the system is surfacing this action." },
-  { label: "Action tile label", spec: "Inter 700 / 11 / uppercase", sample: "AUTHORIZE" },
+  { label: "Display / page header", spec: "IBM Plex Sans 700 / 26", sample: "Sentinel Operator Shell 2.0" },
+  { label: "Section title", spec: "IBM Plex Sans 650 / 18", sample: "Action System" },
+  { label: "Panel title", spec: "IBM Plex Sans 600 / 15", sample: "Tactical Intelligence" },
+  { label: "Body copy", spec: "IBM Plex Sans 400 / 12", sample: "Recommendations explain why the system is surfacing this action." },
+  { label: "Action label", spec: "IBM Plex Sans 600 / 12", sample: "Authorize containment" },
   { label: "Telemetry label", spec: "JetBrains Mono 9-10 / uppercase", sample: "03:49:18 UTC" },
   { label: "Metric value", spec: "JetBrains Mono 11", sample: "91%  98%  ETA 00:43" },
 ];
@@ -73,7 +76,7 @@ const actionPhases = [
   {
     phase: "Contain",
     tone: T.red,
-    note: "Five primary staging actions plus three secondary actions in a split action bar.",
+    note: "Core mode shows one dominant action. Free exploration keeps the full staging set behind progressive disclosure.",
     actions: ["Deploy survey", "Stage perimeter", "Guide responders", "Prepare evacuation", "Relay field intel", "Notify auth.", "Notify teams", "Authorize"],
   },
   {

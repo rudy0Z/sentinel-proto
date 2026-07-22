@@ -15,12 +15,11 @@ export const T = {
   textPrimary: "#E8EDF4",
   textSecondary: "#9AACBE",
   textMuted: "#7A8BA0",
-  // ─── Temporal AI Glow System ──────────────────────────────────────────────
-  // Used by TALON mic states and evidence convergence animations
-  talonIdle: "#00C8FF",       // cyan — ambient presence
-  talonListening: "#E5533C", // red — capturing voice
-  talonProcessing: "#F5A623", // amber — computing
-  talonResponded: "#2DD4A0", // teal — delivered insight
+  // TALON convergence-gate perimeter states.
+  talonIdle: "#00C8FF",
+  talonListening: "#E5533C",
+  talonProcessing: "#F5A623",
+  talonResponded: "#2DD4A0",
 } as const;
 
 /** Consistent opacity for disabled interactive elements (WCAG-friendly) */
@@ -40,7 +39,7 @@ export const ACTIONBAR_H_EXPANDED = 184;
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const font = {
-  sans: "'Inter', sans-serif",
+  sans: "'IBM Plex Sans', 'Segoe UI', sans-serif",
   mono: "'JetBrains Mono', 'Courier New', monospace",
 } as const;
 
@@ -67,7 +66,7 @@ export const radius = {
   xl: 12,
   card: 14,
   overlay: 16,
-  glass: 20,
+  glass: 14,
   pill: 999,
 } as const;
 
@@ -104,9 +103,9 @@ export function tint(hex: string, alpha: number) {
 export const surface = {
   base: T.bgBase,
   map: T.bgMap,
-  panel: "rgba(8, 16, 28, 0.55)",
-  panelDense: "rgba(8, 16, 28, 0.72)",
-  raised: "rgba(18, 32, 51, 0.68)",
+  panel: "rgba(8, 16, 28, 0.78)",
+  panelDense: "rgba(8, 16, 28, 0.90)",
+  raised: "rgba(18, 32, 51, 0.76)",
   inset: "rgba(255, 255, 255, 0.025)",
   control: "rgba(255, 255, 255, 0.04)",
   controlHover: "rgba(255, 255, 255, 0.07)",
@@ -124,9 +123,9 @@ export const border = {
 } as const;
 
 export const shadow = {
-  panel: "inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 18px 48px rgba(0, 0, 0, 0.38)",
-  overlay: "0 32px 80px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.06)",
-  quiet: "0 8px 24px rgba(0, 0, 0, 0.24)",
+  panel: "inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 10px 28px rgba(0, 0, 0, 0.28)",
+  overlay: "0 24px 64px rgba(0, 0, 0, 0.58), inset 0 1px 0 rgba(255, 255, 255, 0.06)",
+  quiet: "0 6px 18px rgba(0, 0, 0, 0.20)",
 } as const;
 
 export const tone = {
@@ -198,9 +197,19 @@ export const focus = {
 } as const;
 
 export const motion = {
-  fast: "120ms ease",
-  normal: "180ms ease",
-  deliberate: "260ms cubic-bezier(0.34, 1, 0.64, 1)",
+  fast: "120ms cubic-bezier(0.23, 1, 0.32, 1)",
+  normal: "180ms cubic-bezier(0.23, 1, 0.32, 1)",
+  deliberate: "240ms cubic-bezier(0.32, 0.72, 0, 1)",
+} as const;
+
+/** Shared TALON UI and scripted-prototype timing. */
+export const TALON_SESSION_TIMING = {
+  press: 110,
+  stateChange: 160,
+  surface: 220,
+  scriptedCapture: 1400,
+  evidenceCheck: 1600,
+  executionReceipt: 1800,
 } as const;
 
 export const scrollbar = {
@@ -211,18 +220,18 @@ export const scrollbar = {
 
 export const GLASS: CSSProperties = {
   background: surface.panel,
-  backdropFilter: "blur(28px) saturate(1.5)",
-  WebkitBackdropFilter: "blur(28px) saturate(1.5)",
+  backdropFilter: "blur(18px) saturate(1.25)",
+  WebkitBackdropFilter: "blur(18px) saturate(1.25)",
   borderRadius: radius.glass,
   border: `1px solid ${border.subtle}`,
-  boxShadow: `${shadow.panel}, radial-gradient(circle at top left, rgba(255, 255, 255, 0.03), transparent 70%)`,
+  boxShadow: shadow.panel,
 };
 
 /** Subtle glass for inner cards within panels */
 export const GLASS_SUBTLE: CSSProperties = {
   background: surface.raised,
-  backdropFilter: "blur(16px) saturate(1.2)",
-  WebkitBackdropFilter: "blur(16px) saturate(1.2)",
+  backdropFilter: "blur(12px) saturate(1.12)",
+  WebkitBackdropFilter: "blur(12px) saturate(1.12)",
   border: `1px solid ${border.soft}`,
   borderRadius: radius.card,
   boxShadow: shadow.quiet,
@@ -316,7 +325,39 @@ export interface TalonAgentTask {
   auditId?: string;
 }
 
+/** @deprecated Compatibility state for existing shell callbacks. */
 export type TalonVoiceState = "idle" | "listening" | "processing" | "responded";
+
+export type TalonSessionPhase =
+  | "watching"
+  | "input"
+  | "review"
+  | "checking"
+  | "recommendation"
+  | "human-gate"
+  | "executing"
+  | "receipt"
+  | "error"
+  | "cancelled";
+
+export type TalonInputMode = "voice" | "typed" | "scripted" | null;
+
+export interface TalonSessionRecommendation {
+  title: string;
+  body: string;
+  actionLabel: string;
+  actionId?: QuickActionId;
+  tone: string;
+  evidence: string[];
+  blocker: string | null;
+  requiresHumanGate: boolean;
+}
+
+export interface TalonExecutionReceipt {
+  id: string;
+  summary: string;
+  createdAt: string;
+}
 
 export type TalonChipId =
   | "why-now"
@@ -338,13 +379,25 @@ export type TalonConversationState = {
   activeChip: TalonChipId | null;
   response: TalonChipResponse | null;
   voiceState: TalonVoiceState;
+  /** Rich session fields are optional so existing Shell initializers remain valid. */
+  phase?: TalonSessionPhase;
+  inputMode?: TalonInputMode;
+  transcript?: string;
+  interimTranscript?: string;
+  recommendation?: TalonSessionRecommendation | null;
+  receipt?: TalonExecutionReceipt | null;
+  error?: string | null;
+  scriptedFallback?: boolean;
+  contextActionId?: QuickActionId | null;
+  confirmedPhase?: "recommendation" | "human-gate" | "receipt" | null;
 };
+
+export type TalonConversationChangeHandler = (next: TalonConversationState) => void;
 
 export type SceneId =
   | "baseline"
   | "alert-command"
   | "investigation-pending"
-  | "verify-ready"
   | "verify-active"
   | "authority-notification-ready"
   | "contain-recommended"
@@ -352,6 +405,9 @@ export type SceneId =
   | "contain-degraded"
   | "rescue-nominal"
   | "rescue-signal-degraded"
+  // ── Human/AI Disagreement Scenes ──
+  | "monitoring-contested"
+  | "talon-reraise"
   // ── Edge Case / Failure Scenes (accessible via Review Dock) ──
   | "rescue-battery-critical"
   | "satellite-feed-loss"
@@ -361,6 +417,51 @@ export type SceneId =
 export type SurfaceMode = "map" | "drone-grid";
 export type PlanVariant = "recommended" | "alternate";
 export type OverrideReason = "False positive" | "Incomplete data" | "Operational constraint" | "Other";
+
+/*
+ * ── Human/AI disagreement ───────────────────────────────────────────────
+ * Disagreement runs in two directions with different risk. When TALON wants
+ * to escalate and the operator refuses, the cost of a wrong operator is an
+ * unreported incident. When TALON wants to hold and the operator escalates
+ * anyway, the cost is a false alarm. Authority is human in both cases, so the
+ * system's job is not to win the argument — it is to keep both positions
+ * legible, attached to the artifact, and answerable once ground truth lands.
+ */
+export type DissentDirection = "talon-escalates" | "talon-holds";
+
+/** Whether a packet exists because TALON asked for it or because the operator insisted. */
+export type EscalationBasis = "talon-recommended" | "operator-initiated";
+
+export interface DissentRecord {
+  id: string;
+  direction: DissentDirection;
+  /** The operator's stated reason. Required — dissent is never silent. */
+  reason: OverrideReason;
+  operatorNote?: string;
+  /** TALON's position at the moment it was overruled, preserved verbatim. */
+  talonPosition: string;
+  talonConfidence: number;
+  recordedAt: string;
+  auditId: string;
+  /**
+   * Rejection is not deletion. TALON keeps watching the rejected hypothesis at
+   * reduced weight, and may only re-raise once evidence crosses this higher
+   * bar — which is what stops an appeal from becoming a nag.
+   */
+  reRaiseThreshold: number;
+  /** Set once ground truth arrives and the disagreement can be answered. */
+  resolution?: DissentResolution;
+}
+
+export type DissentOutcome = "operator-correct" | "talon-correct" | "inconclusive";
+
+export interface DissentResolution {
+  outcome: DissentOutcome;
+  groundTruth: string;
+  resolvedAt: string;
+  /** What the system changes because of this, if anything. */
+  systemResponse: string;
+}
 export type IncidentStatus =
   | "monitoring"
   | "alerted"
@@ -381,6 +482,14 @@ export type OperationalExceptionId =
 export type OperationalExceptionSeverity = "advisory" | "degraded" | "blocked" | "critical";
 export type OperationalExceptionStatus = "active" | "recovering" | "manual";
 
+export interface SpatialUncertainty {
+  /** Safety margin added around the affected operational geometry. */
+  marginMeters: number;
+  affectedZoneIds: string[];
+  basis: string;
+  observedAt: string;
+}
+
 export interface OperationalException {
   id: OperationalExceptionId;
   title: string;
@@ -394,6 +503,8 @@ export interface OperationalException {
   recommendedRecoveryCommand: QuickActionId | null;
   auditText: string;
   mapImpact: string;
+  /** Optional for backward compatibility; populated when the exception has a defensible spatial effect. */
+  spatialUncertainty?: SpatialUncertainty;
 }
 
 export type SelectedEntity =
@@ -564,6 +675,126 @@ export interface RescueProgress {
   fireDeptEta: string;
 }
 
+export interface ContainmentPlanSpread {
+  baselineRate: string;
+  projectedResidualRate: string;
+  direction: string;
+  uncertaintyMarginMeters: number;
+}
+
+export interface ContainmentPlanExposure {
+  structuresInPath: number;
+  structuresAtResidualRisk: number;
+  affectedZoneIds: string[];
+  routeExposure: string;
+}
+
+export interface ContainmentPlanProtection {
+  structuresCovered: number;
+  coveragePercent: number;
+  protectionWindow: string;
+}
+
+export interface ContainmentPlanResourceCost {
+  dronesCommitted: number;
+  groundTeamsCommitted: number;
+  reserveImpact: string;
+  tradeoff: string;
+}
+
+export interface ContainmentPlanConfidence {
+  score: number;
+  level: "moderate" | "high";
+  basis: string[];
+  constraints: string[];
+}
+
+export interface ContainmentPlanEta {
+  stagingMinutes: number;
+  protectionReadyMinutes: number;
+  label: string;
+}
+
+export interface ContainmentPlanSummary {
+  /** Legacy display fields remain stable for current consumers. */
+  title: string;
+  sentence: string;
+  reasoning: string;
+  spreadRate: string;
+  wind: string;
+  structuresAtRisk: string;
+  spread: ContainmentPlanSpread;
+  exposure: ContainmentPlanExposure;
+  protectedStructures: ContainmentPlanProtection;
+  resourceCost: ContainmentPlanResourceCost;
+  confidence: ContainmentPlanConfidence;
+  eta: ContainmentPlanEta;
+}
+
+export type VerificationDeviationState =
+  | "within-tolerance"
+  | "deviated"
+  | "pending"
+  | "unverifiable";
+
+/** Closed-loop check for the most recently executed operator-authorized action. */
+export interface ActionOutcomeVerification {
+  id: string;
+  actionId: QuickActionId;
+  actionLabel: string;
+  auditId: string;
+  activityLogId?: string;
+  expectedOutcome: string;
+  observedOutcome: string;
+  deviationState: VerificationDeviationState;
+  deviationSummary: string;
+  timestamp: string;
+}
+
+export interface FocusedIncidentDetail {
+  id: string;
+  location: string;
+  coords: string;
+  detectedAt: string;
+  operator: string;
+  aiConfidence: number;
+  windVector: string;
+  fireBehavior: string;
+  estimatedFootprint: string;
+  spreadRate: string;
+  structuresAtRisk: number;
+  evacuationScope: number;
+  activeZoneId: string;
+}
+
+interface IncidentQueueBase {
+  id: string;
+  label: string;
+  location: string;
+  status: IncidentStatus;
+  severity: SeverityTone;
+  lastUpdated: string;
+}
+
+export interface ActiveIncidentQueueItem extends IncidentQueueBase {
+  kind: "active";
+  readOnly: false;
+  detail: FocusedIncidentDetail;
+}
+
+export interface IncidentQueueSummaryItem extends IncidentQueueBase {
+  kind: "summary";
+  readOnly: true;
+  /** Summary incidents have no independent scene, model run, or command state in this prototype. */
+  independentSimulation: false;
+  summary: string;
+  dataFreshness: string;
+}
+
+export type FocusedIncidentQueueItem =
+  | ActiveIncidentQueueItem
+  | IncidentQueueSummaryItem;
+
 export interface ShellState {
   mode: OperationalMode;
   /** Derived two-phase workflow framing: Intelligence (scan/verify) or Operations (contain/rescue) */
@@ -592,10 +823,18 @@ export interface ShellState {
   standDownComplete: boolean;
   acknowledgedPriorityIds: string[];
   overrideReason: OverrideReason;
+  /** Active operator/TALON disagreement, preserved until ground truth resolves it. */
+  dissent: DissentRecord | null;
+  /** Provenance of the authority packet — TALON asked, or the operator insisted. */
+  escalationBasis: EscalationBasis;
   rescueProgress: RescueProgress;
   operationalException: OperationalException | null;
   /** TALON conversational state — drives copilot rail content */
   talonConversation: TalonConversationState;
+  /** Optional until incident selection is wired into the shell. */
+  activeIncidentId?: string;
+  /** Optional so existing scene initializers remain source-compatible. */
+  recentActionVerification?: ActionOutcomeVerification | null;
   activeOperator?: string;
 }
 
