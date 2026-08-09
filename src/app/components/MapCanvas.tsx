@@ -18,7 +18,7 @@ import {
   getZoneLabel,
   ZONES,
 } from "../mockData";
-import { DroneMissionType, SelectedEntity, ShellState, T, font, motion } from "../tokens";
+import { DroneMissionType, SelectedEntity, ShellState, T, font, motion, typeScale, radius } from "../tokens";
 
 // ─── Props interface (unchanged — consumed by SentinelShell) ────────────────
 interface MapCanvasProps {
@@ -1127,7 +1127,7 @@ function MapView({
           transform: "translateX(-50%)",
           minWidth: 190,
           padding: "6px 10px",
-          borderRadius: 6,
+          borderRadius: radius.control,
           border: `1px solid ${isPreVerify ? "rgba(0,200,255,0.28)" : "rgba(45,212,160,0.3)"}`,
           background: "rgba(5,10,18,0.84)",
           color: isPreVerify ? T.cyan : T.teal,
@@ -2003,7 +2003,7 @@ function DroneGridSurface({
             onFocus={() => onSpatialHoverChange?.({ type: "drone", id: drone.id })}
             onBlur={() => onSpatialHoverChange?.(null)}
             style={{
-              borderRadius: 22,
+              borderRadius: radius.overlay,
               border: `1px solid ${active ? `${accent}66` : spatiallyLinked ? `${T.cyan}66` : "rgba(255,255,255,0.08)"}`,
               background: spatiallyLinked ? "rgba(0,200,255,0.07)" : "rgba(8,13,22,0.78)",
               overflow: "hidden",
@@ -2064,7 +2064,7 @@ function DroneGridSurface({
                 <div style={{ fontFamily: font.mono, fontSize: 10, color: accent, letterSpacing: "0.08em", textTransform: "uppercase" }}>
                   {drone.gridLabel}
                 </div>
-                <div style={{ fontFamily: font.sans, fontSize: 20, fontWeight: 700, color: T.textPrimary, marginTop: 6 }}>
+                <div style={{ fontFamily: font.sans, fontSize: typeScale.heading, fontWeight: 700, color: T.textPrimary, marginTop: 6 }}>
                   {drone.name}
                 </div>
                 <div style={{ fontFamily: font.sans, fontSize: 11, color: T.textSecondary, marginTop: 4 }}>
@@ -2087,7 +2087,7 @@ function DroneGridSurface({
 function DroneStatusBadge({ label, color }: { label: string; color: string }) {
   return (
     <span style={{
-      fontFamily: font.sans, fontSize: 9, fontWeight: 700,
+      fontFamily: font.sans, fontSize: typeScale.label, fontWeight: 700,
       letterSpacing: "0.06em", textTransform: "uppercase", color,
       padding: "4px 8px", borderRadius: 999,
       border: `1px solid ${color}44`, background: `${color}12`,

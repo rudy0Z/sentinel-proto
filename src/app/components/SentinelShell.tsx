@@ -16,11 +16,15 @@ import { TalonCopilotPanel } from "./panels/TalonCopilotPanel";
 import { MapLegend } from "./shared/MapLegend";
 import { RailStack, type RailView } from "./shared/RailStack";
 import { PopoverSurface, usePopoverDismissal } from "./shared/PopoverSurface";
+import { ReviewDock } from "./shell/ReviewDock";
+import { EntryScreen, ScenarioBrief, ScenarioEndCard, SituationResolved } from "./shell/EntrySurfaces";
+import { InfrastructureLossTakeover } from "./shell/InfrastructureLossTakeover";
 import { createCommandAction } from "../domain/commands";
 import { createDissent, resolveDissent } from "../domain/disagreement";
 import { getOperationalException } from "../domain/exceptions";
 import { COMMAND_LABELS } from "../domain/microcopy";
 import {
+  canTransition,
   resolveTransition,
   type SceneTransition,
   type TransitionContext,
@@ -43,7 +47,7 @@ import {
   getZoneById,
 } from "../mockData";
 import {
-  GLASS,
+  material,
   GI,
   DroneClass,
   DroneMissionType,
@@ -74,6 +78,7 @@ import {
   tint,
   typeScale,
   typeWeight,
+  tracking,
 } from "../tokens";
 
 const SCREEN_INSET = shellTokens.screenInset;
@@ -263,7 +268,12 @@ export function SentinelShell() {
 
   useEffect(() => {
     if (state.scene !== "monitoring-contested") return;
-    dispatch("timer.reraise-threshold");
+    dispatch("timer.reraise-threshold", (transition) =>
+      updateState((draft) => ({
+        ...draft,
+        scene: transition.to,
+      })),
+    );
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contestedElapsed, state.scene]);
 
@@ -640,21 +650,6 @@ export function SentinelShell() {
   const railBottomInset = SCREEN_INSET + (showsActionBar ? actionBarHeight + 12 : 0);
   const reviewDockBottom = SCREEN_INSET + (showsActionBar ? actionBarHeight + 12 : 12);
 
-  const handleTalonChip = (chipId: TalonChipId) => {
-    setState((current) => {
-      const prevConvo = current.talonConversation;
-      const sameChip = prevConvo.activeChip === chipId;
-      const nextConvo: TalonConversationState = sameChip
-        ? { activeChip: null, response: null, voiceState: "idle" }
-        : { activeChip: chipId, response: getTalonChipResponse(chipId), voiceState: "responded" };
-
-      return {
-        ...current,
-        talonConversation: nextConvo,
-      };
-    });
-  };
-
   const handleTalonVoice = (vs: "idle" | "listening" | "processing" | "responded") => {
     setState((current) => ({
       ...current,
@@ -675,6 +670,10 @@ export function SentinelShell() {
   };
 
   const operationalException = state.operationalException ?? getOperationalException(state.scene);
+  const criticalFocusMode =
+    state.scene === "rescue-battery-critical" ||
+    (state.scene === "rescue-signal-degraded" && state.exceptionState === "signal-degraded");
+  const focusMode = coreMode || criticalFocusMode;
   const agentTasks = getAgentTasks(state.scene);
   const activeAgentCount = agentTasks.filter((agent) => agent.status === "running").length;
   const gatedAgentCount = agentTasks.filter((agent) => agent.status === "blocked" || agent.requiresHumanGate).length;
@@ -733,7 +732,7 @@ export function SentinelShell() {
       badge: { text: `${activeAgentCount}`, color: activeAgentCount ? T.teal : T.textMuted },
       render: () => (
         <>
-          {!coreMode && state.scene === "investigation-pending" ? <InvestigationStrip investigationElapsed={investigationElapsed} /> : null}
+          {!focusMode && state.scene === "investigation-pending" ? <InvestigationStrip investigationElapsed={investigationElapsed} /> : null}
           <TalonCopilotPanel state={state} />
         </>
       ),
@@ -772,10 +771,10 @@ export function SentinelShell() {
       render: () => <ExceptionPanel state={state} />,
     },
   ];
-  const visibleLeftViews = coreMode
+  const visibleLeftViews = focusMode
     ? leftViews.filter((view) => view.id === "inspect")
     : leftViews;
-  const visibleRightViews = coreMode
+  const visibleRightViews = focusMode
     ? rightViews.filter((view) => view.id === "talon")
     : rightViews;
 
@@ -794,9 +793,8 @@ export function SentinelShell() {
         * { box-sizing: border-box; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 999px; }
-        [data-scroll-surface] { scrollbar-width: none; -ms-overflow-style: none; }
-        [data-scroll-surface]::-webkit-scrollbar { display: none; width: 0; height: 0; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.16); border-radius: 999px; }
+        [data-scroll-surface] { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.16) transparent; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
         @keyframes talonIdlePulse {
@@ -835,7 +833,7 @@ export function SentinelShell() {
       <div style={{ position: "absolute", inset: 0, zIndex: layer.map }}>
         <MapCanvas
           state={state}
-          coreMode={coreMode}
+          coreMode={focusMode}
           onSelectEntity={handleSelectEntity}
           spatialHover={spatialHover}
           onSpatialHoverChange={setSpatialHover}
@@ -867,7 +865,7 @@ export function SentinelShell() {
           display: "flex",
           alignItems: "center",
           padding: `0 ${SCREEN_INSET}px`,
-          gap: space["3xl"],
+          gap: space.lg,
         }}
       >
         <Navbar
@@ -878,11 +876,11 @@ export function SentinelShell() {
           onOpenTimeline={() => setTimelineOpen((current) => !current)}
           timelineOpen={timelineOpen}
           timelineTriggerRef={timelineTriggerRef}
-          coreMode={coreMode}
+          coreMode={focusMode}
         />
       </div>
 
-      <MapLegend coreMode={coreMode} />
+      <MapLegend coreMode={focusMode} />
 
       {timelineOpen && (
         <TimelinePopover
@@ -900,6 +898,7 @@ export function SentinelShell() {
           open={reviewDockOpen}
           activeScene={state.scene}
           bottomOffset={reviewDockBottom}
+          rightOffset={RIGHT_RAIL_W + SCREEN_INSET + 12}
           onToggle={() => setReviewDockOpen((current) => !current)}
           onJumpToScene={setScene}
         />
@@ -924,7 +923,7 @@ export function SentinelShell() {
       >
         <RailStack
           views={visibleLeftViews}
-          defaultViewId={coreMode ? "inspect" : leftDefaultView}
+          defaultViewId={focusMode ? "inspect" : leftDefaultView}
           ariaLabel="Observation rail"
         />
       </div>
@@ -948,7 +947,7 @@ export function SentinelShell() {
       >
         <RailStack
           views={visibleRightViews}
-          defaultViewId={coreMode ? "talon" : rightDefaultView}
+          defaultViewId={focusMode ? "talon" : rightDefaultView}
           ariaLabel="TALON synthesis rail"
         />
       </div>
@@ -965,23 +964,22 @@ export function SentinelShell() {
             height: actionBarHeight,
             maxWidth: `calc(100vw - ${SCREEN_INSET * 2}px)`,
             zIndex: layer.command,
-            ...GLASS,
+            // No dock. The command cluster floats over a full-bleed map; only the
+            // orb, the command pill, and the danger affordance carry surface.
             display: "flex",
             alignItems: "center",
-            padding: `0 ${space["2xl"]}px`,
             overflow: "visible",
-            transition: "height 220ms cubic-bezier(0.23,1,0.32,1), max-width 220ms cubic-bezier(0.23,1,0.32,1)",
+            transition: "height 220ms cubic-bezier(0.23,1,0.32,1)",
           }}
         >
           <ActionBar
             state={state}
             onAction={handleAction}
-            coreMode={coreMode}
+            coreMode={focusMode}
             expanded={isActionBarExpanded}
             onToggleExpand={() => setIsActionBarExpanded((value) => !value)}
             onTalonVoiceChange={handleTalonVoice}
             onTalonConversationChange={handleTalonConversation}
-            onTalonChip={handleTalonChip}
             burnPermitVerified={burnPermitVerified}
             onBurnPermitVerifyChange={setBurnPermitVerified}
           />
@@ -1011,10 +1009,10 @@ export function SentinelShell() {
                 style={{
                   padding: "6px 9px",
                   borderRadius: 999,
-                  border: `1px solid ${reason === state.overrideReason ? `${T.amber}55` : "rgba(255,255,255,0.10)"}`,
+                  border: `1px solid ${reason === state.overrideReason ? `${T.amber}55` : border.strong}`,
                   background: reason === state.overrideReason ? "rgba(245,166,35,0.16)" : "rgba(255,255,255,0.04)",
                   fontFamily: font.sans,
-                  fontSize: 10,
+                  fontSize: typeScale.metadata,
                   color: reason === state.overrideReason ? T.amber : T.textSecondary,
                 }}
               >
@@ -1025,7 +1023,7 @@ export function SentinelShell() {
           
           {/* Voice to TALON override strip — uses the unified TALON conversation system */}
           <div style={{ marginTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 16 }}>
-             <div style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>Brief TALON by voice</div>
+             <div style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.textMuted, letterSpacing: tracking.eyebrow, textTransform: "uppercase", marginBottom: 10 }}>Brief TALON by voice</div>
              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                 <TalonMicButton
                   voiceState={state.talonConversation.voiceState}
@@ -1034,25 +1032,25 @@ export function SentinelShell() {
                   onConversationChange={handleTalonConversation}
                 />
 
-                <div style={{ flex: 1, padding: "12px 14px", background: "rgba(255,255,255,0.03)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", minHeight: 44, display: "flex", alignItems: "center" }}>
+                <div style={{ flex: 1, padding: "12px 14px", background: surface.control, borderRadius: radius.tile, border: `1px solid ${border.subtle}`, minHeight: 44, display: "flex", alignItems: "center" }}>
                   {state.talonConversation.voiceState === "idle" && (
-                    <span style={{ fontFamily: font.sans, fontSize: 12, color: T.textMuted }}>
+                    <span style={{ fontFamily: font.sans, fontSize: typeScale.body, color: T.textMuted }}>
                       "TALON, wind shifted northeast — move perimeter hold to buffer east..."
                     </span>
                   )}
                   {state.talonConversation.voiceState === "listening" && (
-                    <span style={{ fontFamily: font.sans, fontSize: 12, color: T.textPrimary, fontStyle: "italic" }}>Listening...</span>
+                    <span style={{ fontFamily: font.sans, fontSize: typeScale.body, color: T.textPrimary, fontStyle: "italic" }}>Listening...</span>
                   )}
                   {state.talonConversation.voiceState === "processing" && (
-                    <span style={{ fontFamily: font.mono, fontSize: 11, color: T.cyan }}>TALON processing...</span>
+                    <span style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.cyan }}>TALON processing...</span>
                   )}
                   {state.talonConversation.voiceState === "responded" && state.talonConversation.response && (
-                    <span style={{ fontFamily: font.sans, fontSize: 12, color: T.teal, lineHeight: 1.55 }}>
+                    <span style={{ fontFamily: font.sans, fontSize: typeScale.body, color: T.teal, lineHeight: 1.55 }}>
                       {state.talonConversation.response.body}
                     </span>
                   )}
                   {state.talonConversation.voiceState === "responded" && !state.talonConversation.response && (
-                    <span style={{ fontFamily: font.sans, fontSize: 12, color: T.teal, lineHeight: 1.55 }}>
+                    <span style={{ fontFamily: font.sans, fontSize: typeScale.body, color: T.teal, lineHeight: 1.55 }}>
                       Plan recomputed with operator correction. Review the updated alternate plan.
                     </span>
                   )}
@@ -1069,18 +1067,18 @@ export function SentinelShell() {
               marginTop: 16,
               width: "100%",
               padding: "8px 0",
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.12)",
-              borderRadius: 6,
+              background: border.subtle,
+              border: `1px solid ${border.strong}`,
+              borderRadius: radius.control,
               color: T.textPrimary,
               fontFamily: font.sans,
-              fontSize: 12,
-              fontWeight: 600,
+              fontSize: typeScale.body,
+              fontWeight: typeWeight.semibold,
               cursor: "pointer",
               transition: "background 180ms ease, border-color 180ms ease, color 180ms ease"
             }}
             onMouseOver={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
-            onMouseOut={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.06)"}
+            onMouseOut={(e) => e.currentTarget.style.background = border.subtle}
           >
             Acknowledge & Close
           </button>
@@ -1104,162 +1102,35 @@ export function SentinelShell() {
               marginTop: 16,
               width: "100%",
               padding: "8px 0",
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.12)",
-              borderRadius: 6,
+              background: border.subtle,
+              border: `1px solid ${border.strong}`,
+              borderRadius: radius.control,
               color: T.textPrimary,
               fontFamily: font.sans,
-              fontSize: 12,
-              fontWeight: 600,
+              fontSize: typeScale.body,
+              fontWeight: typeWeight.semibold,
               cursor: "pointer",
               transition: "background 180ms ease, border-color 180ms ease, color 180ms ease"
             }}
             onMouseOver={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
-            onMouseOut={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.06)"}
+            onMouseOut={(e) => e.currentTarget.style.background = border.subtle}
           >
             Acknowledge & Close
           </button>
         </CompactPanel>
       ) : null}
 
-      {/* ── INFRASTRUCTURE TOTAL LOSS ─────────────────────────────────────────
-          Full-screen catastrophic failure takeover. The entire interface is
-          replaced with a dramatic recovery screen and manual protocol instructions.
-      ────────────────────────────────────────────────────────────────────── */}
       {state.scene === "infrastructure-total-loss" && (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            zIndex: layer.takeover,
-            background: "rgba(4, 6, 10, 0.97)",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 0,
-            animation: "fadeIn 400ms ease",
+        <InfrastructureLossTakeover
+          isRestarting={isRestartingSystem}
+          onRestart={() => {
+            setIsRestartingSystem(true);
+            setTimeout(() => {
+              setIsRestartingSystem(false);
+              setScene("baseline");
+            }, 1400);
           }}
-        >
-          {/* Pulsing red border */}
-          <div style={{
-            position: "absolute", inset: 0,
-            border: "2px solid rgba(229,83,60,0.5)",
-            borderRadius: 0,
-            boxShadow: "inset 0 0 80px rgba(229,83,60,0.08), 0 0 60px rgba(229,83,60,0.12)",
-            animation: "pulse 2s ease-in-out infinite",
-            pointerEvents: "none",
-          }} />
-
-          {/* Corner scan lines */}
-          <div style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
-            <div style={{ position: "absolute", top: 0, left: 0, width: 120, height: 2, background: `linear-gradient(90deg, ${T.red}, transparent)`, opacity: 0.6 }} />
-            <div style={{ position: "absolute", top: 0, left: 0, width: 2, height: 120, background: `linear-gradient(180deg, ${T.red}, transparent)`, opacity: 0.6 }} />
-            <div style={{ position: "absolute", top: 0, right: 0, width: 120, height: 2, background: `linear-gradient(270deg, ${T.red}, transparent)`, opacity: 0.6 }} />
-            <div style={{ position: "absolute", top: 0, right: 0, width: 2, height: 120, background: `linear-gradient(180deg, ${T.red}, transparent)`, opacity: 0.6 }} />
-            <div style={{ position: "absolute", bottom: 0, left: 0, width: 120, height: 2, background: `linear-gradient(90deg, ${T.red}, transparent)`, opacity: 0.6 }} />
-            <div style={{ position: "absolute", bottom: 0, left: 0, width: 2, height: 120, background: `linear-gradient(0deg, ${T.red}, transparent)`, opacity: 0.6 }} />
-            <div style={{ position: "absolute", bottom: 0, right: 0, width: 120, height: 2, background: `linear-gradient(270deg, ${T.red}, transparent)`, opacity: 0.6 }} />
-            <div style={{ position: "absolute", bottom: 0, right: 0, width: 2, height: 120, background: `linear-gradient(0deg, ${T.red}, transparent)`, opacity: 0.6 }} />
-          </div>
-
-          <div style={{ maxWidth: 560, width: "100%", padding: "0 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 32 }}>
-            {/* Icon + header */}
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-              <div style={{ width: 64, height: 64, borderRadius: 16, background: "rgba(229,83,60,0.12)", border: "1px solid rgba(229,83,60,0.35)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <OperationalIcon name="warning" color={T.red} size={28} />
-              </div>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontFamily: font.mono, fontSize: 10, letterSpacing: "0.16em", color: T.red, textTransform: "uppercase", marginBottom: 10 }}>
-                  CRITICAL SYSTEM FAILURE
-                </div>
-                <div style={{ fontFamily: font.sans, fontSize: 26, fontWeight: 700, color: T.textPrimary, lineHeight: 1.2 }}>
-                  Infrastructure connection lost
-                </div>
-                <div style={{ fontFamily: font.sans, fontSize: 13, color: T.textSecondary, marginTop: 8, lineHeight: 1.5 }}>
-                  Primary data feeds offline. TALON computation suspended. All drone telemetry timed out.
-                </div>
-              </div>
-            </div>
-
-            {/* Status indicators */}
-            <div style={{ width: "100%", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              {[
-                { label: "TALON AI", status: "Offline" },
-                { label: "Satellite", status: "Link lost" },
-                { label: "Drone Comms", status: "Timed out" },
-                { label: "Ground Teams", status: "Unconfirmed" },
-              ].map(({ label, status }) => (
-                <div key={label} style={{
-                  padding: "10px 14px",
-                  borderRadius: 10,
-                  background: "rgba(229,83,60,0.06)",
-                  border: "1px solid rgba(229,83,60,0.18)",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}>
-                  <div style={{ fontFamily: font.mono, fontSize: 10, color: T.textSecondary, letterSpacing: "0.06em" }}>{label}</div>
-                  <div style={{ fontFamily: font.mono, fontSize: 10, color: T.red, letterSpacing: "0.06em" }}>● {status}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Last known state */}
-            <div style={{ width: "100%", padding: "12px 16px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", display: "flex", gap: 12, alignItems: "center" }}>
-              <div style={{ fontFamily: font.mono, fontSize: 10, color: T.textMuted, letterSpacing: "0.06em", flexShrink: 0 }}>LAST KNOWN STATE</div>
-              <div style={{ fontFamily: font.mono, fontSize: 11, color: T.textSecondary }}>RESCUE NOMINAL · INC-2024-0847 · 03:52:14 UTC</div>
-            </div>
-
-            {/* Manual protocol */}
-            <div style={{ width: "100%", padding: "14px 18px", borderRadius: 12, background: "rgba(245,166,35,0.06)", border: "1px solid rgba(245,166,35,0.20)" }}>
-              <div style={{ fontFamily: font.mono, fontSize: 9, color: T.amber, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Manual Protocol — Fallback</div>
-              <div style={{ fontFamily: font.sans, fontSize: 12, color: T.textSecondary, lineHeight: 1.6 }}>
-                Switch to manual radio protocol. Contact Station 12 directly on <strong style={{ color: T.textPrimary }}>Ch. 7</strong>. Use last-known map state for ground coordination.
-                Alert Regional Dispatch to INC-2024-0847 status via landline.
-              </div>
-            </div>
-
-            {/* Reconnect button */}
-            <button
-              type="button"
-              disabled={isRestartingSystem}
-              onClick={() => {
-                setIsRestartingSystem(true);
-                setTimeout(() => {
-                  setIsRestartingSystem(false);
-                  setScene("baseline");
-                }, 1400);
-              }}
-              style={{
-                padding: "14px 40px",
-                borderRadius: 12,
-                background: isRestartingSystem ? "rgba(45,212,160,0.08)" : "rgba(229,83,60,0.1)",
-                border: `1px solid ${isRestartingSystem ? T.teal : T.red}`,
-                color: isRestartingSystem ? T.teal : T.red,
-                fontFamily: font.sans,
-                fontSize: 13,
-                fontWeight: 700,
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                cursor: isRestartingSystem ? "default" : "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                transition: "background 300ms ease, border-color 300ms ease, color 300ms ease",
-              }}
-            >
-              {isRestartingSystem ? (
-                <>
-                  <span style={{ animation: "pulse 0.6s ease-in-out infinite" }}>◉</span>
-                  <span>Restarting system...</span>
-                </>
-              ) : (
-                "Attempt System Restart"
-              )}
-            </button>
-          </div>
-        </div>
+        />
       )}
 
       {/* ── UNIFIED EXCEPTION BANNER ──────────────────────────────────────────
@@ -1462,9 +1333,6 @@ export function SentinelShell() {
         <VerifyLiveFeed
           railWidth={adaptiveRailWidth}
           bottomInset={railBottomInset}
-          onPrimaryAction={() => handleAction("confirm-incident")}
-          onSecondaryAction={() => handleAction("monitor-only")}
-          primaryDisabled={!burnPermitVerified}
         />
       )}
 
@@ -1577,7 +1445,34 @@ export function SentinelShell() {
                 });
                 break;
               case "deploy-backup":
-                updateState((draft) => applyMissionAction(draft, "deploy-backup"));
+                setState((current) => {
+                  const draft = stripDerived(current);
+                  const transition = resolveTransition(
+                    draft.scene,
+                    "deploy-backup",
+                    {
+                      experienceMode,
+                      mode: draft.mode,
+                      authoritiesNotified: draft.authoritiesNotified,
+                      edgeCaseFired: draft.scene === "rescue-battery-critical",
+                      dissent: draft.dissent,
+                      evidenceConfidence: draft.dissent?.talonConfidence ?? 78,
+                    },
+                  );
+                  if (!transition) return current;
+                  const next = applyMissionAction(draft, "deploy-backup");
+                  next.scene = transition.to;
+                  next.exceptionState = "none";
+                  next.backupDeployed = true;
+                  appendLog(
+                    next,
+                    "Operator",
+                    "Recovery",
+                    "Backup relay deployed. Signal degradation cleared and rescue supervision resumed.",
+                    "info",
+                  );
+                  return syncState(next, investigationElapsed);
+                });
                 break;
               case "dispatch-scout":
                 dispatch("dispatch-scout");
@@ -1591,8 +1486,8 @@ export function SentinelShell() {
                   }),
                 );
                 break;
-              case "confirm-incident":
-                dispatch("confirm-incident", (transition) =>
+              case "confirm-incident": {
+                const committed = dispatch("confirm-incident", (transition) =>
                   updateState((draft) => {
                     const next = {
                       ...draft,
@@ -1612,14 +1507,17 @@ export function SentinelShell() {
                     return next;
                   }),
                 );
-                recordTalonExecution(
-                  "confirm-incident",
-                  "Authority packet prepared for operator review. TALON did not notify authorities.",
-                  "AUD-PKT-PREP-0847",
-                );
+                if (committed) {
+                  recordTalonExecution(
+                    "confirm-incident",
+                    "Authority packet prepared for operator review. TALON did not notify authorities.",
+                    "AUD-PKT-PREP-0847",
+                  );
+                }
                 break;
-              case "notify-authorities":
-                dispatch("notify-authorities", (transition) =>
+              }
+              case "notify-authorities": {
+                const committed = dispatch("notify-authorities", (transition) =>
                   updateState((draft) => {
                     if (draft.authoritiesNotified) return draft;
                     const next = {
@@ -1641,12 +1539,15 @@ export function SentinelShell() {
                     return next;
                   }),
                 );
-                recordTalonExecution(
-                  "notify-authorities",
-                  "Authority packet sent after explicit operator confirmation.",
-                  "AUD-AUTH-0847",
-                );
+                if (committed) {
+                  recordTalonExecution(
+                    "notify-authorities",
+                    "Authority packet sent after explicit operator confirmation.",
+                    "AUD-AUTH-0847",
+                  );
+                }
                 break;
+              }
               case "notify-teams":
                 updateState((draft) => {
                   if (draft.teamsNotified) return draft;
@@ -1703,49 +1604,12 @@ export function SentinelShell() {
         </Suspense>
       )}
 
-      {/* ── SITUATION RESOLVED DEBRIEF ───────────────────────────────────────
-          Positive endpoint for the mission, contrasting with the baseline.
-      ────────────────────────────────────────────────────────────────────── */}
       {showSituationResolved && (
-        <div style={{
-          position: "absolute", inset: 0, zIndex: layer.entry,
-          background: T.bgBase,
-          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-          animation: "fadeIn 600ms ease",
-        }}>
-          <div style={{ fontFamily: font.mono, fontSize: 12, color: T.textMuted, letterSpacing: "0.15em", marginBottom: 16 }}>INC-2024-0847</div>
-          <div style={{ fontFamily: font.sans, fontSize: 32, fontWeight: 700, color: T.teal, letterSpacing: "0.02em", marginBottom: 40 }}>SITUATION RESOLVED</div>
-
-          {(() => {
-            const elapsedMins = Math.max(1, Math.floor(incidentElapsed / 60));
-            const structuresProtected = state.rescueProgress.cleared > 0 ? state.rescueProgress.cleared : state.rescueProgress.total;
-            const operatorDecisions = state.activityLog.filter((e) => e.actor === "Operator").length;
-            return (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 24, marginBottom: 48 }}>
-                <div style={{ padding: "20px 24px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 16, textAlign: "center", width: 140 }}>
-                  <div style={{ fontFamily: font.sans, fontSize: 32, color: T.textPrimary, marginBottom: 4 }}>{elapsedMins} min</div>
-                  <div style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted, textTransform: "uppercase" }}>Time to contain</div>
-                </div>
-                <div style={{ padding: "20px 24px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 16, textAlign: "center", width: 140 }}>
-                  <div style={{ fontFamily: font.sans, fontSize: 32, color: T.textPrimary, marginBottom: 4 }}>{structuresProtected}</div>
-                  <div style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted, textTransform: "uppercase" }}>Structures protected</div>
-                </div>
-                <div style={{ padding: "20px 24px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 16, textAlign: "center", width: 140 }}>
-                  <div style={{ fontFamily: font.sans, fontSize: 32, color: T.textPrimary, marginBottom: 4 }}>{Math.max(1, operatorDecisions)}</div>
-                  <div style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted, textTransform: "uppercase" }}>Operator decisions</div>
-                </div>
-              </div>
-            );
-          })()}
-
-          <div style={{ maxWidth: 440, padding: "16px 20px", background: "rgba(45,212,160,0.05)", border: `1px solid ${T.teal}40`, borderRadius: 12, display: "flex", gap: 12, alignItems: "flex-start" }}>
-            <div style={{ width: 6, height: 6, borderRadius: "50%", background: T.teal, marginTop: 6, flexShrink: 0 }} />
-            <div>
-              <div style={{ fontFamily: font.mono, fontSize: 10, color: T.teal, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>TALON · Final Audit Log</div>
-              <div style={{ fontFamily: font.sans, fontSize: 13, color: T.textSecondary, lineHeight: 1.6 }}>Incident closed. Supervised drone assets recalled. Ground team staging returned to nominal. The complete audit trail has been filed and preserved contextually. Returning system to passive monitoring.</div>
-            </div>
-          </div>
-        </div>
+        <SituationResolved
+          elapsedMins={Math.max(1, Math.floor(incidentElapsed / 60))}
+          structuresProtected={state.rescueProgress.cleared > 0 ? state.rescueProgress.cleared : state.rescueProgress.total}
+          operatorDecisions={state.activityLog.filter((e) => e.actor === "Operator").length}
+        />
       )}
 
       {/* ── SCENARIO END CARD ─────────────────────────────────────────────────
@@ -1819,12 +1683,12 @@ function TimelinePopover({
     >
       <div
         style={{
-          padding: `${space["2xl"]}px ${space["3xl"]}px`,
+          padding: `${space.lg}px ${space.lg}px`,
           borderBottom: `1px solid ${border.subtle}`,
           display: "flex",
           alignItems: "flex-start",
           justifyContent: "space-between",
-          gap: space.lg,
+          gap: space.md,
         }}
       >
         <div style={{ minWidth: 0 }}>
@@ -1858,9 +1722,9 @@ function TimelinePopover({
           onClick={onClose}
           aria-label="Close timeline"
           style={{
-            width: space["4xl"],
-            height: space["4xl"],
-            borderRadius: radius.md,
+            width: space.xl,
+            height: space.xl,
+            borderRadius: radius.control,
             border: `1px solid ${border.default}`,
             background: surface.control,
             color: T.textMuted,
@@ -1879,11 +1743,11 @@ function TimelinePopover({
 
       <div
         style={{
-          padding: space["2xl"],
+          padding: space.lg,
           overflowY: "auto",
           display: "flex",
           flexDirection: "column",
-          gap: space.md,
+          gap: space.sm,
         }}
       >
         {entries.map((entry) => {
@@ -1894,8 +1758,8 @@ function TimelinePopover({
               style={{
                 display: "grid",
                 gridTemplateColumns: "52px minmax(0, 1fr)",
-                gap: space.md,
-                padding: `${space.md}px ${space.xs}px`,
+                gap: space.sm,
+                padding: `${space.sm}px ${space.xs}px`,
                 borderBottom: `1px solid ${border.soft}`,
               }}
             >
@@ -1948,109 +1812,6 @@ function activitySeverityColor(severity: ActivityLogEntry["severity"]): string {
   }
 }
 
-function ReviewDock({
-  open,
-  activeScene,
-  bottomOffset,
-  onToggle,
-  onJumpToScene,
-}: {
-  open: boolean;
-  activeScene: SceneId;
-  bottomOffset: number;
-  onToggle: () => void;
-  onJumpToScene: (scene: SceneId) => void;
-}) {
-  return (
-    <div
-      style={{
-        position: "absolute",
-        bottom: bottomOffset,
-        right: RIGHT_RAIL_W + SCREEN_INSET + 12,
-        width: open ? 232 : "auto",
-        maxHeight: open ? 420 : "auto",
-        zIndex: layer.popover,
-        ...GLASS,
-        borderRadius: 16,
-        overflow: "hidden",
-        transition: "width 180ms ease, max-height 180ms ease",
-      }}
-      role="complementary"
-      aria-label="Prototype review dock"
-    >
-      <div
-        style={{
-          padding: open ? "10px 12px 8px" : "8px 12px",
-          borderBottom: open ? `1px solid ${GI.border}` : "none",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: open ? "space-between" : "center",
-          gap: 8,
-        }}
-      >
-        {open ? (
-          <div>
-            <div style={{ fontFamily: font.sans, fontSize: 11, fontWeight: 600, color: T.textPrimary }}>Review Dock</div>
-            <div style={{ fontFamily: font.sans, fontSize: 9, color: T.textMuted, marginTop: 1 }}>Prototype only · {REVIEW_SCENES.length} scenes</div>
-          </div>
-        ) : (
-          <span style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted, letterSpacing: "0.06em", textTransform: "uppercase" }}>Review</span>
-        )}
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-label={open ? "Collapse review dock" : "Expand review dock"}
-          style={{
-            width: 26,
-            height: 26,
-            borderRadius: 8,
-            border: "1px solid rgba(255,255,255,0.10)",
-            background: "rgba(255,255,255,0.05)",
-            color: T.textSecondary,
-            cursor: "pointer",
-            fontSize: 14,
-            lineHeight: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          {open ? "–" : "+"}
-        </button>
-      </div>
-
-      {open ? (
-        <div style={{ padding: 8, display: "flex", flexDirection: "column", gap: 6, overflowY: "auto", maxHeight: 360 }}>
-          {REVIEW_SCENES.map((scene) => {
-            const active = scene.id === activeScene;
-            return (
-              <button
-                type="button"
-                key={scene.id}
-                onClick={() => onJumpToScene(scene.id)}
-                aria-label={`Jump to ${scene.label} scene${active ? " (current)" : ""}`}
-                aria-current={active ? "true" : undefined}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  borderRadius: 10,
-                  border: `1px solid ${active ? `${T.cyan}55` : "rgba(255,255,255,0.08)"}`,
-                  background: active ? "rgba(0,200,255,0.14)" : "rgba(255,255,255,0.03)",
-                  padding: "8px 10px",
-                  cursor: "pointer",
-                }}
-              >
-                <div style={{ fontFamily: font.sans, fontSize: 11, fontWeight: 600, color: active ? T.cyan : T.textPrimary }}>{scene.label}</div>
-                <div style={{ fontFamily: font.sans, fontSize: 9, color: T.textMuted, lineHeight: 1.35, marginTop: 3 }}>{scene.note}</div>
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 function TopOverlay({
   title,
   subtitle,
@@ -2079,12 +1840,8 @@ function TopOverlay({
         transform: "translateX(-50%)",
         width: 560,
         zIndex: 50,
-        background: "rgba(8, 12, 22, 0.92)",
-        backdropFilter: "blur(28px) saturate(1.4)",
-        WebkitBackdropFilter: "blur(28px) saturate(1.4)",
-        borderRadius: 16,
+        ...material.overlay,
         border: `1px solid ${tone}4D`,
-        boxShadow: `0 0 0 1px ${tone}0F, 0 20px 48px rgba(0,0,0,0.42)`,
         padding: "14px 18px 14px 22px",
         overflow: "hidden",
       }}
@@ -2105,10 +1862,10 @@ function TopOverlay({
         <span
           style={{
             fontFamily: font.mono,
-            fontSize: 9,
-            fontWeight: 700,
+            fontSize: typeScale.label,
+            fontWeight: typeWeight.bold,
             color: tone,
-            letterSpacing: "0.1em",
+            letterSpacing: tracking.eyebrow,
             textTransform: "uppercase",
           }}
         >
@@ -2116,18 +1873,18 @@ function TopOverlay({
         </span>
       </div>
 
-      <div style={{ fontFamily: font.sans, fontSize: 20, fontWeight: 700, color: T.textPrimary }}>{title}</div>
-      <div style={{ fontFamily: font.sans, fontSize: 12, color: T.textSecondary, lineHeight: 1.5, marginTop: 6 }}>{subtitle}</div>
+      <div style={{ fontFamily: font.sans, fontSize: typeScale.heading, fontWeight: typeWeight.bold, color: T.textPrimary }}>{title}</div>
+      <div style={{ fontFamily: font.sans, fontSize: typeScale.body, color: T.textSecondary, lineHeight: 1.5, marginTop: 6 }}>{subtitle}</div>
 
       <div
         style={{
           marginTop: 14,
           padding: "10px 12px",
-          borderRadius: 12,
-          background: "rgba(255,255,255,0.05)",
-          border: "1px solid rgba(255,255,255,0.08)",
+          borderRadius: radius.panel,
+          background: surface.controlHover,
+          border: `1px solid ${border.default}`,
           fontFamily: font.mono,
-          fontSize: 10,
+          fontSize: typeScale.metadata,
           color: tone,
           letterSpacing: "0.05em",
           textTransform: "uppercase",
@@ -2170,18 +1927,15 @@ function CompactPanel({
         maxHeight: `calc(100dvh - ${NAVBAR_H + 26 + shellTokens.screenInset + 160}px)`,
         overflowY: "auto",
         zIndex: 50,
-        background: "rgba(8, 12, 22, 0.92)",
-        backdropFilter: "blur(28px) saturate(1.4)",
-        WebkitBackdropFilter: "blur(28px) saturate(1.4)",
-        borderRadius: 16,
+        ...material.overlay,
+        // Severity still arrives on the border; the material never changes.
         border: `1px solid ${tone}4D`,
-        boxShadow: `0 0 0 1px ${tone}0F, 0 20px 48px rgba(0,0,0,0.42)`,
         padding: "16px 18px",
         scrollbarWidth: "none",
       }}
     >
-      <div style={{ fontFamily: font.sans, fontSize: 18, fontWeight: 700, color: T.textPrimary }}>{title}</div>
-      <div style={{ fontFamily: font.sans, fontSize: 12, color: T.textSecondary, lineHeight: 1.5, marginTop: 6 }}>{subtitle}</div>
+      <div style={{ fontFamily: font.sans, fontSize: typeScale.heading, fontWeight: typeWeight.bold, color: T.textPrimary }}>{title}</div>
+      <div style={{ fontFamily: font.sans, fontSize: typeScale.body, color: T.textSecondary, lineHeight: 1.5, marginTop: 6 }}>{subtitle}</div>
       <div style={{ marginTop: 16 }}>{children}</div>
     </div>
   );
@@ -2191,14 +1945,14 @@ function InfoCallout({ title, body, tone }: { title: string; body: string; tone:
   return (
     <div
       style={{
-        borderRadius: 14,
+        borderRadius: radius.panel,
         border: `1px solid ${hexToRgba(tone, 0.2)}`,
         background: hexToRgba(tone, 0.07),
         padding: "12px 14px",
       }}
     >
-      <div style={{ fontFamily: font.sans, fontSize: 11, fontWeight: 600, color: tone }}>{title}</div>
-      <div style={{ fontFamily: font.sans, fontSize: 11, color: T.textSecondary, lineHeight: 1.45, marginTop: 5 }}>{body}</div>
+      <div style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.semibold, color: tone }}>{title}</div>
+      <div style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textSecondary, lineHeight: 1.45, marginTop: 5 }}>{body}</div>
     </div>
   );
 }
@@ -2206,14 +1960,14 @@ function InfoCallout({ title, body, tone }: { title: string; body: string; tone:
 const secondaryButtonStyle: CSSProperties = {
   flex: 1,
   padding: "11px 12px",
-  borderRadius: 12,
+  borderRadius: radius.panel,
   background: "transparent",
-  border: "1px solid rgba(255,255,255,0.12)",
+  border: `1px solid ${border.strong}`,
   color: T.textSecondary,
   fontFamily: font.sans,
-  fontSize: 11,
-  fontWeight: 700,
-  letterSpacing: "0.06em",
+  fontSize: typeScale.label,
+  fontWeight: typeWeight.bold,
+  letterSpacing: tracking.telemetry,
   textTransform: "uppercase",
   cursor: "pointer",
 };
@@ -2222,14 +1976,14 @@ function primaryButtonStyle(tone: string): CSSProperties {
   return {
     flex: 1.15,
     padding: "11px 12px",
-    borderRadius: 12,
+    borderRadius: radius.panel,
     background: `${tone}22`,
     border: `1px solid ${tone}`,
     color: tone,
     fontFamily: font.sans,
-    fontSize: 11,
-    fontWeight: 700,
-    letterSpacing: "0.06em",
+    fontSize: typeScale.label,
+    fontWeight: typeWeight.bold,
+    letterSpacing: tracking.telemetry,
     textTransform: "uppercase",
     cursor: "pointer",
   };
@@ -2255,12 +2009,8 @@ function AlertPopup({ onDispatch, onDismiss }: { onDispatch: () => void; onDismi
         transform: "translateX(-50%)",
         width: 520,
         zIndex: 60,
-        background: "rgba(6, 10, 18, 0.92)",
-        backdropFilter: "blur(32px) saturate(1.4)",
-        WebkitBackdropFilter: "blur(32px) saturate(1.4)",
-        borderRadius: 20,
+        ...material.overlay,
         border: `1px solid ${T.amber}44`,
-        boxShadow: `0 0 0 1px rgba(245,166,35,0.08), 0 24px 48px rgba(0,0,0,0.48)`,
         padding: "20px 22px 18px",
       }}
       role="region"
@@ -2284,8 +2034,8 @@ function AlertPopup({ onDispatch, onDismiss }: { onDispatch: () => void; onDismi
         <span
           style={{
             fontFamily: font.mono,
-            fontSize: 9,
-            fontWeight: 700,
+            fontSize: typeScale.label,
+            fontWeight: typeWeight.bold,
             color: T.amber,
             letterSpacing: "0.12em",
             textTransform: "uppercase",
@@ -2293,16 +2043,16 @@ function AlertPopup({ onDispatch, onDismiss }: { onDispatch: () => void; onDismi
         >
           TALON Alert · Interrupt
         </span>
-        <span style={{ marginLeft: "auto", fontFamily: font.mono, fontSize: 9, color: T.textMuted }}>
+        <span style={{ marginLeft: "auto", fontFamily: font.mono, fontSize: typeScale.label, color: T.textMuted }}>
           03:47:03 UTC
         </span>
       </div>
 
       {/* Title */}
-      <div style={{ fontFamily: font.sans, fontSize: 20, fontWeight: 700, color: T.textPrimary, lineHeight: 1.2 }}>
+      <div style={{ fontFamily: font.sans, fontSize: typeScale.heading, fontWeight: typeWeight.bold, color: T.textPrimary, lineHeight: 1.2 }}>
         Thermal spike detected
       </div>
-      <div style={{ fontFamily: font.sans, fontSize: 12, color: T.textSecondary, lineHeight: 1.5, marginTop: 6 }}>
+      <div style={{ fontFamily: font.sans, fontSize: typeScale.body, color: T.textSecondary, lineHeight: 1.5, marginTop: 6 }}>
         Grid 4C · North Forest Belt · Confidence 40%
       </div>
 
@@ -2311,7 +2061,7 @@ function AlertPopup({ onDispatch, onDismiss }: { onDispatch: () => void; onDismi
         style={{
           marginTop: 14,
           padding: "12px 14px",
-          borderRadius: 12,
+          borderRadius: radius.panel,
           background: "rgba(245,166,35,0.07)",
           border: "1px solid rgba(245,166,35,0.16)",
           display: "flex",
@@ -2319,13 +2069,13 @@ function AlertPopup({ onDispatch, onDismiss }: { onDispatch: () => void; onDismi
           gap: 8,
         }}
       >
-        <div style={{ fontFamily: font.mono, fontSize: 9, color: T.amber, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+        <div style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.amber, letterSpacing: tracking.telemetry, textTransform: "uppercase" }}>
           TALON Assessment
         </div>
-        <div style={{ fontFamily: font.sans, fontSize: 12, color: T.textPrimary, lineHeight: 1.5 }}>
+        <div style={{ fontFamily: font.sans, fontSize: typeScale.body, color: T.textPrimary, lineHeight: 1.5 }}>
           Area has <strong style={{ color: T.amber }}>high ignition risk</strong> based on burn memory from prior events, current wind corridor pointing northeast, and elevated thermal delta above seasonal baseline.
         </div>
-        <div style={{ fontFamily: font.sans, fontSize: 11, color: T.textMuted, lineHeight: 1.45 }}>
+        <div style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textMuted, lineHeight: 1.45 }}>
           Lidar-02 is pre-staged and ready for immediate dispatch. ETA to Grid 4C: ~14s.
         </div>
       </div>
@@ -2394,13 +2144,13 @@ function PopupActionButton({
         padding: compact ? "8px 12px" : "11px 14px",
         borderRadius: compact ? 10 : 12,
         border: `1px solid ${
-          disabled ? "rgba(255,255,255,0.1)" : subtle ? "rgba(255,255,255,0.12)" : `${tone}${emphasis ? "" : ""}`
+          disabled ? "rgba(255,255,255,0.1)" : subtle ? border.strong : `${tone}${emphasis ? "" : ""}`
         }`,
         background: disabled
           ? "rgba(255,255,255,0.04)"
           : subtle
             ? hovered
-              ? "rgba(255,255,255,0.08)"
+              ? border.default
               : "rgba(255,255,255,0.05)"
             : hovered
               ? hexToRgba(tone, emphasis ? 0.22 : 0.16)
@@ -2408,7 +2158,7 @@ function PopupActionButton({
         color: disabled ? T.textMuted : subtle ? T.textSecondary : tone,
         fontFamily: font.sans,
         fontSize: compact ? 10 : 11,
-        fontWeight: 700,
+        fontWeight: typeWeight.bold,
         letterSpacing: "0.05em",
         textTransform: "uppercase",
         cursor: disabled ? "default" : "pointer",
@@ -2455,10 +2205,10 @@ function InvestigationStrip({ investigationElapsed }: { investigationElapsed: nu
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontFamily: font.sans, fontSize: 12, fontWeight: 600, color: T.textPrimary }}>
+          <div style={{ fontFamily: font.sans, fontSize: typeScale.body, fontWeight: typeWeight.semibold, color: T.textPrimary }}>
             Lidar-02 en route
           </div>
-          <div style={{ fontFamily: font.sans, fontSize: 10, color: T.textMuted, marginTop: 2 }}>
+          <div style={{ fontFamily: font.sans, fontSize: typeScale.metadata, color: T.textMuted, marginTop: 2 }}>
             to Grid 4C
           </div>
         </div>
@@ -2469,9 +2219,9 @@ function InvestigationStrip({ investigationElapsed }: { investigationElapsed: nu
             gap: 5,
             flexShrink: 0,
             fontFamily: font.mono,
-            fontSize: 9,
+            fontSize: typeScale.label,
             color: T.cyan,
-            letterSpacing: "0.06em",
+            letterSpacing: tracking.telemetry,
             textTransform: "uppercase",
           }}
         >
@@ -2500,23 +2250,23 @@ function InvestigationStrip({ investigationElapsed }: { investigationElapsed: nu
         }}
       >
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontFamily: font.sans, fontSize: 10, color: T.textSecondary }}>
+          <div style={{ fontFamily: font.sans, fontSize: typeScale.metadata, color: T.textSecondary }}>
             Thermal + LiDAR · ETA {Math.max(0, 10 - investigationElapsed)} sec
           </div>
-          <div style={{ fontFamily: font.sans, fontSize: 10, color: T.textMuted, marginTop: 2 }}>
+          <div style={{ fontFamily: font.sans, fontSize: typeScale.metadata, color: T.textMuted, marginTop: 2 }}>
             {investigationElapsed >= 10 ? "Lidar-02 is on station. Ready." : "Verification unlocks when Lidar-02 is on station"}
           </div>
         </div>
         <div
           style={{
             padding: "5px 10px",
-            borderRadius: 8,
+            borderRadius: radius.control,
             background: investigationElapsed >= 10 ? "rgba(245,166,35,0.12)" : "rgba(0,200,255,0.08)",
             border: `1px solid ${investigationElapsed >= 10 ? "rgba(245,166,35,0.3)" : "rgba(0,200,255,0.18)"}`,
             fontFamily: font.mono,
-            fontSize: 9,
+            fontSize: typeScale.label,
             color: investigationElapsed >= 10 ? T.amber : T.cyan,
-            letterSpacing: "0.06em",
+            letterSpacing: tracking.telemetry,
             textTransform: "uppercase",
             whiteSpace: "nowrap",
             flexShrink: 0,
@@ -2540,26 +2290,13 @@ function InvestigationStrip({ investigationElapsed }: { investigationElapsed: nu
  * transitions automatically when TALON confidence crosses the threshold).
  */
 function VerifyLiveFeed({
-  onPrimaryAction,
-  onSecondaryAction,
-  primaryDisabled,
   railWidth,
   bottomInset,
 }: {
-  onPrimaryAction: () => void;
-  onSecondaryAction: () => void;
-  primaryDisabled?: boolean;
   railWidth: number;
   bottomInset: number;
 }) {
   const mapLoaded = true;
-  const primaryAction = "confirm-incident";
-  const primaryLabel = "Prepare authority packet";
-  /*
-   * Declining here is not "do nothing" — TALON has recommended escalation, so
-   * refusing it is dissent and routes through the reason gate.
-   */
-  const secondaryLabel = "Decline escalation";
 
   return (
     <div
@@ -2570,7 +2307,7 @@ function VerifyLiveFeed({
         right: railWidth + SCREEN_INSET + 18,
         bottom: bottomInset,
         zIndex: 25,
-        borderRadius: 16,
+        borderRadius: radius.overlay,
         overflow: "hidden",
         border: mapLoaded
           ? `1px solid rgba(255,255,255,0.28)`
@@ -2661,10 +2398,10 @@ function VerifyLiveFeed({
             aria-hidden="true"
           />
         </div>
-        <div style={{ fontFamily: font.mono, fontSize: 11, color: T.cyan, letterSpacing: "0.1em" }}>
+        <div style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.cyan, letterSpacing: tracking.eyebrow }}>
           ◉ LIVE — Lidar-02 · Grid 4C
         </div>
-        <div style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted }}>
+        <div style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.textMuted }}>
           Thermal + HD vis · 24 fps · TALON model building...
         </div>
       </div>
@@ -2706,7 +2443,7 @@ function VerifyLiveFeed({
           zIndex: 3,
         }}
       >
-        <span style={{ fontFamily: font.mono, fontSize: 9, color: T.cyan, letterSpacing: "0.08em" }}>
+        <span style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.cyan, letterSpacing: tracking.telemetry }}>
           LIDAR-02 · THERMAL/LiDAR · 37.8821°N 122.4194°W
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -2719,12 +2456,12 @@ function VerifyLiveFeed({
               borderRadius: 3,
             }}>
               <div style={{ width: 4, height: 4, borderRadius: "50%", background: T.amber, animation: "pulse 2s infinite" }} />
-              <span style={{ fontFamily: font.mono, fontSize: 9, color: T.amber, fontWeight: 700, letterSpacing: "0.05em" }}>
+              <span style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.amber, fontWeight: typeWeight.bold, letterSpacing: "0.05em" }}>
                 CONFIDENCE: 78%
               </span>
             </div>
           )}
-          <span style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted }}>
+          <span style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.textMuted }}>
             03:48:14 UTC · {mapLoaded ? "TALON MAP BUILDING" : "FEED STABLE"}
           </span>
         </div>
@@ -2732,34 +2469,6 @@ function VerifyLiveFeed({
 
 
 
-      <div
-        style={{
-          position: "absolute",
-          right: 14,
-          bottom: mapLoaded ? 38 : 14,
-          display: "flex",
-          gap: 8,
-          zIndex: 4,
-        }}
-      >
-        <PopupActionButton
-          actionId="monitor-only"
-          label={secondaryLabel}
-          tone={T.textSecondary}
-          subtle
-          compact
-          onClick={onSecondaryAction}
-        />
-        <PopupActionButton
-          actionId={primaryAction}
-          label={primaryLabel}
-          tone={T.amber}
-          compact
-          emphasis
-          disabled={primaryDisabled}
-          onClick={onPrimaryAction}
-        />
-      </div>
     </div>
   );
 }
@@ -3001,6 +2710,21 @@ function sceneToMode(scene: SceneId): OperationalMode {
   return "scan";
 }
 
+function buildActionTransitionContext(draft: ShellDraft): TransitionContext {
+  return {
+    experienceMode: "free",
+    mode: draft.mode,
+    authoritiesNotified: draft.authoritiesNotified,
+    edgeCaseFired: draft.scene === "rescue-battery-critical",
+    dissent: draft.dissent,
+    evidenceConfidence: draft.dissent?.talonConfidence ?? 78,
+  };
+}
+
+function actionAllowed(draft: ShellDraft, event: TransitionEvent): boolean {
+  return canTransition(draft.scene, event, buildActionTransitionContext(draft));
+}
+
 function deriveQuickActions(draft: ShellDraft, investigationElapsed: number): ActionSurface {
   const flat = (primary: QuickActionState[], secondary: QuickActionState[] = []): ActionSurface => ({
     primary,
@@ -3046,14 +2770,24 @@ function deriveQuickActions(draft: ShellDraft, investigationElapsed: number): Ac
       ]);
     }
 
-    // verify-active: VerifyLiveFeed is the command surface — action bar shows TALON status only
+    // verify-active: command actions live in the action bar — not duplicated on the feed overlay
     case "verify-active":
-      return flat([]);
+      return flat([
+        mk("confirm-incident", "Prepare authority packet", "recommended",
+          "Authorize TALON to assemble the authority packet after the source conflict is resolved.", T.amber),
+        mk("monitor-only", "Decline escalation", "available",
+          "Record dissent and move to contested watch instead of escalating.", T.textSecondary),
+      ]);
 
     case "authority-notification-ready":
       return flat([
-        mk("notify-authorities", "Send Authority Packet", draft.authoritiesNotified ? "complete" : "recommended",
-          "Send TALON packet AUD-90-0847 and start Operations after the human gate.", T.red),
+        mk(
+          "notify-authorities",
+          "Send Authority Packet",
+          draft.authoritiesNotified || !actionAllowed(draft, "notify-authorities") ? "complete" : "recommended",
+          "Send TALON packet AUD-90-0847 and start Operations after the human gate.",
+          T.red,
+        ),
         mk("monitor-only", "Hold escalation", "available",
           "Keep the packet staged without notifying authorities.", T.textSecondary),
       ]);
@@ -3088,8 +2822,6 @@ function deriveQuickActions(draft: ShellDraft, investigationElapsed: number): Ac
       ];
 
       const secondaryContain = [
-        mk("notify-authorities", "Send Authority Packet", draft.authoritiesNotified ? "complete" : "available",
-          "Send incident scope to fire management and dispatch.", T.textSecondary),
         mk("notify-teams", "Notify teams", draft.teamsNotified ? "complete" : "available",
           "Alert and stage ground teams.", T.textSecondary),
         mk("stand-down", "Stand down", "available",
@@ -3110,8 +2842,6 @@ function deriveQuickActions(draft: ShellDraft, investigationElapsed: number): Ac
         const primaryPreEvac = [
           mk("emergency-evacuate", "Start evacuation", "recommended",
             "Activate residential evacuation for the projected path.", T.fire),
-          mk("notify-authorities", "Send rescue update", draft.authoritiesNotified ? "complete" : "available",
-            "Send active rescue scope to authorities.", T.textSecondary),
           mk("notify-teams", "Notify teams", draft.teamsNotified ? "complete" : "available",
             "Alert and brief all ground teams.", T.textSecondary),
           mk("abort-mission", "Abort mission", "available",
@@ -3127,8 +2857,6 @@ function deriveQuickActions(draft: ShellDraft, investigationElapsed: number): Ac
         mk("deploy-navigation-drone", "Guide personnel",
           draft.responderRouteActive ? "complete" : "recommended",
           "Responder-guidance drone via safest ingress corridor.", T.yellow),
-        mk("notify-authorities", "Send rescue update", draft.authoritiesNotified ? "complete" : "available",
-          "Confirm rescue scope with authorities.", T.textSecondary),
         mk("notify-teams", "Notify teams", draft.teamsNotified ? "complete" : "available",
           "Reconfirm field team staging readiness.", T.textSecondary),
       ];
@@ -3525,144 +3253,6 @@ function appendLog(
 
 // ── Experience overlay components ──────────────────────────────────────────
 
-function EntryScreen({ onBeginScenario, onExploreFree }: { onBeginScenario: () => void; onExploreFree: () => void }) {
-  return (
-    <div
-      style={{
-        position: "absolute",
-        inset: 0,
-        zIndex: layer.entry,
-        background: "rgba(6, 10, 18, 0.94)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        animation: "fadeIn 700ms ease",
-      }}
-    >
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 24, maxWidth: 480, padding: "0 32px", textAlign: "center" }}>
-        <div style={{ fontFamily: font.mono, fontSize: 10, color: T.textMuted, letterSpacing: "0.16em", textTransform: "uppercase" }}>
-          Wildfire Response · Prototype
-        </div>
-        <div style={{ fontFamily: font.sans, fontSize: 38, fontWeight: 700, color: T.textPrimary, lineHeight: 1.1, letterSpacing: "-0.02em" }}>
-          FlytBase Sentinel
-        </div>
-        <div style={{ fontFamily: font.sans, fontSize: 15, color: T.textSecondary, lineHeight: 1.7, maxWidth: 340 }}>
-          Wildfire response command interface.<br />AI proposes. Operator authorizes.
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 260, marginTop: 12 }}>
-          <button
-            onClick={onBeginScenario}
-            style={{
-              padding: "14px 0",
-              borderRadius: 10,
-              background: T.cyan,
-              border: "none",
-              color: "#06090f",
-              fontFamily: font.sans,
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: "pointer",
-              letterSpacing: "0.01em",
-            }}
-          >
-            Begin Scenario
-          </button>
-          <button
-            onClick={onExploreFree}
-            style={{
-              padding: "12px 0",
-              borderRadius: 10,
-              background: "transparent",
-              border: "1px solid rgba(255,255,255,0.14)",
-              color: T.textSecondary,
-              fontFamily: font.sans,
-              fontSize: 13,
-              cursor: "pointer",
-            }}
-          >
-            Explore freely
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ScenarioBrief({ onReady }: { onReady: () => void }) {
-  return (
-    <div
-      style={{
-        position: "absolute",
-        inset: 0,
-        zIndex: layer.modal,
-        background: "rgba(6, 10, 18, 0.78)",
-        backdropFilter: "blur(10px)",
-        WebkitBackdropFilter: "blur(10px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        animation: "fadeIn 400ms ease",
-      }}
-    >
-      <div
-        style={{
-          ...GLASS,
-          maxWidth: 460,
-          width: "100%",
-          margin: "0 24px",
-          padding: "36px 40px",
-          display: "flex",
-          flexDirection: "column",
-          gap: 22,
-        }}
-      >
-        <div>
-          <div style={{ fontFamily: font.mono, fontSize: 10, color: T.amber, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 10 }}>
-            03:47 UTC — Thermal anomaly detected, Grid 4C, Altadena
-          </div>
-          <div style={{ fontFamily: font.sans, fontSize: 18, fontWeight: 600, color: T.textPrimary, lineHeight: 1.4 }}>
-            TALON is analyzing. You are the operator on duty.
-          </div>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {(["Intelligence", "Authority Packet", "Operations"] as const).map((phase, i) => (
-            <div key={phase} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontFamily: font.mono, fontSize: 10, color: T.textSecondary, letterSpacing: "0.06em" }}>{phase}</span>
-              {i < 2 && <span style={{ color: T.textMuted, fontSize: 9 }}>·</span>}
-            </div>
-          ))}
-        </div>
-
-        <div style={{ fontFamily: font.sans, fontSize: 13, color: T.textSecondary, lineHeight: 1.65 }}>
-          Your role: authorize or override the critical calls.
-        </div>
-
-        <button
-          onClick={onReady}
-          style={{
-            padding: "13px 24px",
-            borderRadius: 10,
-            background: T.cyan,
-            border: "none",
-            color: "#06090f",
-            fontFamily: font.sans,
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: "pointer",
-            alignSelf: "flex-start",
-          }}
-        >
-          I'm ready
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function GuidanceStrip({
   mode,
   scene,
@@ -3699,73 +3289,21 @@ function GuidanceStrip({
         alignItems: "center",
         gap: 14,
         padding: "0 18px",
-        background: "rgba(6, 10, 18, 0.72)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        borderRadius: 8,
-        border: "1px solid rgba(255,255,255,0.07)",
+        ...material.rail,
+        borderRadius: radius.control,
         pointerEvents: "none",
       }}
     >
-      <span style={{ fontFamily: font.mono, fontSize: 9, color: T.cyan, letterSpacing: "0.12em", textTransform: "uppercase", flexShrink: 0 }}>
+      <span style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.cyan, letterSpacing: "0.12em", textTransform: "uppercase", flexShrink: 0 }}>
         {info.label}
       </span>
-      <span style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted, flexShrink: 0 }}>
+      <span style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.textMuted, flexShrink: 0 }}>
         Phase {info.index} of 2
       </span>
-      <div style={{ width: 1, height: 14, background: "rgba(255,255,255,0.10)", flexShrink: 0 }} />
-      <span style={{ fontFamily: font.sans, fontSize: 12, color: T.textSecondary, lineHeight: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+      <div style={{ width: 1, height: 14, background: border.strong, flexShrink: 0 }} />
+      <span style={{ fontFamily: font.sans, fontSize: typeScale.body, color: T.textSecondary, lineHeight: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
         {info.prompt}
       </span>
-    </div>
-  );
-}
-
-function ScenarioEndCard({ onExplore }: { onExplore: () => void }) {
-  return (
-    <div
-      style={{
-        position: "absolute",
-        inset: 0,
-        zIndex: layer.entry,
-        background: "rgba(6, 10, 18, 0.90)",
-        backdropFilter: "blur(16px)",
-        WebkitBackdropFilter: "blur(16px)",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        animation: "fadeIn 600ms ease",
-      }}
-    >
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 18, maxWidth: 380, padding: "0 32px", textAlign: "center" }}>
-        <div style={{ fontFamily: font.mono, fontSize: 10, color: T.textMuted, letterSpacing: "0.15em", textTransform: "uppercase" }}>
-          INC-2024-0847 · Altadena Grid 4C
-        </div>
-        <div style={{ fontFamily: font.sans, fontSize: 28, fontWeight: 700, color: T.teal, letterSpacing: "-0.01em" }}>
-          Situation handled.
-        </div>
-        <div style={{ fontFamily: font.sans, fontSize: 14, color: T.textSecondary, lineHeight: 1.7 }}>
-          All assets recalled. Returning to passive monitoring.
-        </div>
-        <button
-          onClick={onExplore}
-          style={{
-            marginTop: 10,
-            padding: "13px 28px",
-            borderRadius: 10,
-            background: T.cyan,
-            border: "none",
-            color: "#06090f",
-            fontFamily: font.sans,
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
-        >
-          Explore the system freely
-        </button>
-      </div>
     </div>
   );
 }
@@ -3836,7 +3374,7 @@ function EscalationProtocolOverlay({
               Awaiting response
             </div>
             <div style={{
-              fontFamily: font.mono, fontSize: 13, fontWeight: 700,
+              fontFamily: font.mono, fontSize: typeScale.title, fontWeight: typeWeight.bold,
               color: T.amber, letterSpacing: "0.04em",
             }}>
               +{elapsed}s
@@ -3850,13 +3388,13 @@ function EscalationProtocolOverlay({
           {/* Title */}
           <div>
             <div style={{
-              fontFamily: font.sans, fontSize: 18, fontWeight: 700,
+              fontFamily: font.sans, fontSize: typeScale.heading, fontWeight: typeWeight.bold,
               color: T.textPrimary, marginBottom: 6, lineHeight: 1.25,
             }}>
               Operator approval unavailable
             </div>
             <div style={{
-              fontFamily: font.sans, fontSize: 12, color: T.textSecondary, lineHeight: 1.6,
+              fontFamily: font.sans, fontSize: typeScale.body, color: T.textSecondary, lineHeight: 1.6,
             }}>
               TALON has not dispatched any drones. Authorization requires a human decision.
               Routing alert to secondary operator and Regional Commander.
@@ -3876,22 +3414,22 @@ function EscalationProtocolOverlay({
             <div style={{
               display: "flex", alignItems: "center", gap: 12,
               padding: "10px 14px",
-              borderRadius: 10,
+              borderRadius: radius.tile,
               background: "rgba(245,166,35,0.07)",
               border: "1px solid rgba(245,166,35,0.2)",
             }}>
               <div style={{
-                width: 32, height: 32, borderRadius: radius.md,
+                width: 32, height: 32, borderRadius: radius.control,
                 background: "rgba(245,166,35,0.14)",
                 border: "1px solid rgba(245,166,35,0.3)",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 14, flexShrink: 0,
+                fontSize: typeScale.brand, flexShrink: 0,
               }}>
                 <OperationalIcon name="operator" color={T.amber} size={15} />
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{
-                  fontFamily: font.sans, fontSize: 12, fontWeight: 600,
+                  fontFamily: font.sans, fontSize: typeScale.body, fontWeight: typeWeight.semibold,
                   color: T.textPrimary, marginBottom: 2,
                 }}>
                   B. Singh, Secondary Operator
@@ -3901,7 +3439,7 @@ function EscalationProtocolOverlay({
                 </div>
               </div>
               <div style={{
-                padding: "3px 9px", borderRadius: radius.md,
+                padding: "3px 9px", borderRadius: radius.control,
                 background: "rgba(245,166,35,0.14)",
                 fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.semibold,
                 color: T.amber,
@@ -3914,22 +3452,22 @@ function EscalationProtocolOverlay({
             <div style={{
               display: "flex", alignItems: "center", gap: 12,
               padding: "10px 14px",
-              borderRadius: 10,
-              background: "rgba(255,255,255,0.03)",
-              border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: radius.tile,
+              background: surface.control,
+              border: `1px solid ${border.default}`,
             }}>
               <div style={{
-                width: 32, height: 32, borderRadius: radius.md,
+                width: 32, height: 32, borderRadius: radius.control,
                 background: "rgba(229,83,60,0.1)",
                 border: "1px solid rgba(229,83,60,0.22)",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 14, flexShrink: 0,
+                fontSize: typeScale.brand, flexShrink: 0,
               }}>
                 <OperationalIcon name="operator" color={T.red} size={15} />
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{
-                  fontFamily: font.sans, fontSize: 12, fontWeight: 600,
+                  fontFamily: font.sans, fontSize: typeScale.body, fontWeight: typeWeight.semibold,
                   color: T.textPrimary, marginBottom: 2,
                 }}>
                   Regional Commander, R. Patel
@@ -3939,7 +3477,7 @@ function EscalationProtocolOverlay({
                 </div>
               </div>
               <div style={{
-                padding: "3px 9px", borderRadius: radius.md,
+                padding: "3px 9px", borderRadius: radius.control,
                 background: "rgba(229,83,60,0.1)",
                 fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.semibold,
                 color: T.red,
@@ -3953,13 +3491,13 @@ function EscalationProtocolOverlay({
           <div style={{
             display: "flex", alignItems: "center", gap: 10,
             padding: "8px 14px",
-            borderRadius: 8,
+            borderRadius: radius.control,
             background: "rgba(229,83,60,0.06)",
             border: "1px solid rgba(229,83,60,0.15)",
           }}>
             <OperationalIcon name="alert" color={T.red} size={15} />
             <div style={{
-              fontFamily: font.sans, fontSize: 11, color: "rgba(229,83,60,0.8)", lineHeight: 1.4,
+              fontFamily: font.sans, fontSize: typeScale.label, color: "rgba(229,83,60,0.8)", lineHeight: 1.4,
             }}>
               Hard auditory alarm sounding at command center. Station 12 on Ch. 7 notified.
             </div>
@@ -3980,13 +3518,13 @@ function EscalationProtocolOverlay({
                 style={{
                   flex: 1,
                   padding: "11px 0",
-                  borderRadius: 10,
+                  borderRadius: radius.tile,
                   background: "rgba(245,166,35,0.16)",
                   border: "1px solid rgba(245,166,35,0.4)",
                   color: T.amber,
                   fontFamily: font.sans,
-                  fontSize: 12,
-                  fontWeight: 700,
+                  fontSize: typeScale.body,
+                  fontWeight: typeWeight.bold,
                   cursor: "pointer",
                 }}
               >
@@ -3997,7 +3535,7 @@ function EscalationProtocolOverlay({
                 onClick={onOperatorResponds}
                 style={{
                   padding: "11px 14px",
-                  borderRadius: radius.lg,
+                  borderRadius: radius.tile,
                   background: surface.control,
                   border: `1px solid ${border.default}`,
                   color: T.textPrimary,
@@ -4014,13 +3552,13 @@ function EscalationProtocolOverlay({
                 onClick={onDismiss}
                 style={{
                   padding: "11px 16px",
-                  borderRadius: 10,
-                  background: "rgba(255,255,255,0.04)",
+                  borderRadius: radius.tile,
+                  background: surface.control,
                   border: "1px solid rgba(255,255,255,0.1)",
                   color: T.textSecondary,
                   fontFamily: font.sans,
-                  fontSize: 12,
-                  fontWeight: 600,
+                  fontSize: typeScale.body,
+                  fontWeight: typeWeight.semibold,
                   cursor: "pointer",
                 }}
               >

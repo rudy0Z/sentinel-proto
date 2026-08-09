@@ -1,29 +1,22 @@
 import { useCallback, useRef, useState } from "react";
 import { OperationalIcon } from "./OperationalIcon";
 import {
-  getTalonChipResponse,
-  getTalonInteractionModel,
   getTalonSessionRecommendation,
-  updateTalonConversation,
 } from "../domain/talon";
 import { COMMAND_LABELS } from "../domain/microcopy";
 import { TalonSession } from "./talon/TalonSession";
 import {
   DISABLED_OPACITY,
-  TILE_GAP,
-  TILE_H,
-  TILE_W,
   type QuickActionId,
   type QuickActionState,
   type ShellState,
   type DroneMissionType,
-  type TalonChipId,
   type TalonConversationChangeHandler,
   type TalonConversationState,
   type TalonVoiceState,
-  GLASS,
   T,
   border,
+  material,
   font,
   radius,
   space,
@@ -34,6 +27,15 @@ import {
   typeWeight,
 } from "../tokens";
 
+/*
+ * The command cluster is content-width: one orb, one authorize-able command,
+ * one danger affordance. These are the pill dimensions, sized to sit level with
+ * the 56px TALON orb.
+ */
+const PILL_H = 56;
+const PILL_MIN_W = 208;
+const PILL_MAX_W = 320;
+
 interface ActionBarProps {
   state: ShellState;
   onAction: (actionId: QuickActionId) => void;
@@ -42,7 +44,6 @@ interface ActionBarProps {
   onToggleExpand: () => void;
   onTalonVoiceChange?: (vs: TalonVoiceState) => void;
   onTalonConversationChange?: TalonConversationChangeHandler;
-  onTalonChip?: (chipId: TalonChipId) => void;
   burnPermitVerified?: boolean;
   onBurnPermitVerifyChange?: (verified: boolean) => void;
 }
@@ -159,7 +160,6 @@ export function ActionBar({
   onToggleExpand,
   onTalonVoiceChange,
   onTalonConversationChange,
-  onTalonChip,
   burnPermitVerified = false,
   onBurnPermitVerifyChange,
 }: ActionBarProps) {
@@ -188,23 +188,6 @@ export function ActionBar({
     : secondary.filter((a) => a.id !== coreCandidate?.id);
 
   const handleAction = useCallback((id: QuickActionId) => onAction(id), [onAction]);
-  const handleChip = useCallback(
-    (id: TalonChipId) => {
-      if (onTalonConversationChange) {
-        const sameChip = state.talonConversation.activeChip === id;
-        onTalonConversationChange(
-          updateTalonConversation(state.talonConversation, {
-            activeChip: sameChip ? null : id,
-            response: sameChip ? null : getTalonChipResponse(id),
-            phase: sameChip ? "watching" : "recommendation",
-          }),
-        );
-        return;
-      }
-      onTalonChip?.(id);
-    },
-    [onTalonChip, onTalonConversationChange, state.talonConversation],
-  );
   const handleConversation = useCallback(
     (next: TalonConversationState) => {
       if (onTalonConversationChange) {
@@ -217,7 +200,6 @@ export function ActionBar({
   );
 
   const isGate = state.scene === "verify-active";
-  const talonModel = getTalonInteractionModel(state);
   const talonRecommendation = getTalonSessionRecommendation(state);
   const displayedRecommendation = state.talonConversation.response
     ? {
@@ -245,7 +227,7 @@ export function ActionBar({
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        gap: isGate ? space.sm : space.none,
+        gap: space.md,
       }}
       role="toolbar"
       aria-label="TALON command bar"
@@ -267,14 +249,14 @@ export function ActionBar({
         <div style={{
           display: "flex",
           alignItems: "center",
-          gap: space["3xl"],
+          gap: space.lg,
           background: tone.caution.fill,
           border: `1.5px solid ${T.amber}`,
-          borderRadius: radius.xl,
-          padding: `${space.md}px ${space["3xl"]}px`,
+          borderRadius: radius.panel,
+          padding: `${space.sm}px ${space.lg}px`,
           maxWidth: 760,
         }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: space.xxs, minWidth: 0 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: space.xs, minWidth: 0 }}>
             <span style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.bold, color: T.amber }}>
               Source disagreement: thermal anomaly vs. active burn permit
             </span>
@@ -283,107 +265,139 @@ export function ActionBar({
             </span>
           </div>
           <label style={{
-            display: "flex", alignItems: "center", gap: space.md,
+            display: "flex", alignItems: "center", gap: space.sm,
             fontFamily: font.sans, fontSize: typeScale.label, color: T.textPrimary, fontWeight: typeWeight.semibold,
             cursor: "pointer", userSelect: "none", whiteSpace: "nowrap",
-            background: surface.controlHover, padding: `${space.sm}px ${space.xl}px`, borderRadius: radius.md, border: `1px solid ${border.strong}`,
+            background: surface.controlHover, padding: `${space.sm}px ${space.md}px`, borderRadius: radius.control, border: `1px solid ${border.strong}`,
           }}>
             <input type="checkbox" checked={burnPermitVerified} onChange={(e) => onBurnPermitVerifyChange?.(e.target.checked)}
-              style={{ cursor: "pointer", width: space["2xl"], height: space["2xl"], accentColor: T.amber }} />
+              style={{ cursor: "pointer", width: space.lg, height: space.lg, accentColor: T.amber }} />
             <span>I have verified agricultural burn permits for this sector.</span>
           </label>
         </div>
       )}
 
+      {/*
+        One line of gate / blocker state, directly above the control it governs.
+        In quiet watch there is no gate to name, so the line goes away rather
+        than asserting an authorization that nothing is waiting on. The open
+        session states its own gate, so the line yields to it.
+      */}
+      {flank.length > 0 && !expanded && (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "center",
+          gap: space.sm,
+          maxWidth: "min(660px, calc(100vw - 48px))",
+          textAlign: "center",
+        }}
+        role="status"
+        aria-live="polite"
+      >
+        <span
+          style={{
+            fontFamily: font.sans,
+            fontSize: typeScale.caption,
+            fontWeight: typeWeight.bold,
+            color: isGate || displayedRecommendation.requiresHumanGate ? T.amber : T.cyan,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {authorizationLabel}
+        </span>
+        <span
+          style={{
+            fontFamily: font.sans,
+            fontSize: typeScale.caption,
+            color: T.textSecondary,
+            lineHeight: 1.4,
+          }}
+        >
+          {authorizationDetail}
+        </span>
+      </div>
+      )}
+
+      {/*
+        Three-column frame keeps the orb on the true horizontal centre no matter
+        how wide the current command is. The frame itself has no surface — the
+        map runs underneath the cluster.
+      */}
       <div
         style={{
           width: "min(980px, calc(100vw - 48px))",
-          minHeight: 84,
-          display: "flex",
+          display: "grid",
+          gridTemplateColumns: "1fr auto 1fr",
           alignItems: "center",
-          justifyContent: "center",
           gap: space.md,
-          position: "relative",
-          padding: space.md,
-          background: surface.panel,
-          backdropFilter: "blur(18px) saturate(1.15)",
-          WebkitBackdropFilter: "blur(18px) saturate(1.15)",
-          border: `1px solid ${border.subtle}`,
-          borderRadius: radius.overlay,
-          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05), 0 16px 40px rgba(0,0,0,0.3)",
         }}
       >
+        <div aria-hidden="true" />
+
         <TalonSession
-          variant="command"
+          variant="floating"
           conversation={state.talonConversation}
           onConversationChange={handleConversation}
           legacyMode={!onTalonConversationChange}
           expanded={expanded}
           onExpandedChange={() => onToggleExpand()}
-          onChip={onTalonChip || onTalonConversationChange ? handleChip : undefined}
           context={{
             recommendation: displayedRecommendation,
             statusLabel: displayedRecommendation.title,
             detail: displayedRecommendation.body,
-            chips: coreMode ? [] : talonModel.chips,
           }}
         />
 
-        <div
-          style={{
-            minWidth: 0,
-            flex: 1,
-            alignSelf: "stretch",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            gap: space.xxs,
-            padding: `0 ${space.md}px`,
-            borderLeft: `1px solid ${border.soft}`,
-          }}
-          role="status"
-          aria-live="polite"
-        >
-          <span
-            style={{
-              fontFamily: font.mono,
-              fontSize: typeScale.metadata,
-              fontWeight: typeWeight.bold,
-              color: isGate || displayedRecommendation.requiresHumanGate ? T.amber : T.cyan,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-            }}
-          >
-            Human decision boundary
-          </span>
-          <span style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.bold, color: T.textPrimary }}>
-            {authorizationLabel}
-          </span>
-          <span style={{ fontFamily: font.sans, fontSize: typeScale.caption, color: T.textSecondary, lineHeight: 1.35 }}>
-            {authorizationDetail}
-          </span>
+        <div style={{ display: "flex", alignItems: "center", gap: space.md, justifySelf: "start", minWidth: 0 }}>
+          <CommandGroup actions={flank} onAction={handleAction} state={state} />
+          {menuActions.length > 0 && <DangerMenu actions={menuActions} onAction={handleAction} state={state} />}
         </div>
-        <TileGroup actions={flank} onAction={handleAction} state={state} />
-        {menuActions.length > 0 && <DangerMenu actions={menuActions} onAction={handleAction} state={state} />}
       </div>
+
     </div>
   );
 }
 
-// ─── Flanking tile group (content-width) ─────────────────────────────────────
+// ─── The one authorize-able command beside TALON ─────────────────────────────
 
-function TileGroup({ actions, onAction, state }: { actions: QuickActionState[]; onAction: (id: QuickActionId) => void; state: ShellState }) {
-  if (actions.length === 0) return null;
+function CommandGroup({ actions, onAction, state }: { actions: QuickActionState[]; onAction: (id: QuickActionId) => void; state: ShellState }) {
+  if (actions.length === 0) {
+    /*
+     * Quiet watch. TALON is still synthesizing, but nothing is waiting on the
+     * operator — say so rather than inventing a command.
+     */
+    return (
+      <div
+        style={{
+          height: PILL_H,
+          display: "flex",
+          alignItems: "center",
+          padding: `0 ${space.md}px`,
+          borderRadius: radius.panel,
+          border: `1px dashed ${border.default}`,
+          fontFamily: font.mono,
+          fontSize: typeScale.caption,
+          letterSpacing: "0.04em",
+          color: T.textMuted,
+          whiteSpace: "nowrap",
+        }}
+      >
+        No command staged
+      </div>
+    );
+  }
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: TILE_GAP, flexShrink: 0, animation: "commandTileIn 180ms cubic-bezier(0.23,1,0.32,1)" }}>
+    <>
       {actions.map((action) =>
         action.id === "authorize-containment" ? (
-          <HoldTile key={action.id} action={action} onConfirm={() => onAction(action.id)} />
+          <HoldPill key={action.id} action={action} onConfirm={() => onAction(action.id)} />
         ) : (
-          <ActionTile key={action.id} action={action} state={state} onClick={() => onAction(action.id)} />
+          <CommandPill key={action.id} action={action} state={state} onClick={() => onAction(action.id)} />
         ),
       )}
-    </div>
+    </>
   );
 }
 
@@ -400,7 +414,7 @@ function DangerMenu({ actions, onAction, state }: { actions: QuickActionState[];
         aria-expanded={open}
         title="High-consequence commands"
         style={{
-          width: 44, height: 44, borderRadius: radius.lg,
+          width: 44, height: 44, borderRadius: radius.tile,
           border: `1px solid ${open ? T.red : border.strong}`,
           background: open ? tint(T.red, 0.12) : surface.control,
           color: open ? T.red : T.textMuted,
@@ -420,8 +434,8 @@ function DangerMenu({ actions, onAction, state }: { actions: QuickActionState[];
             role="menu"
             style={{
               position: "absolute", bottom: "calc(100% + 10px)", right: 0, zIndex: 2,
-              ...GLASS, borderColor: tint(T.red, 0.3), minWidth: 220,
-              padding: space.md, display: "flex", flexDirection: "column", gap: space.xs,
+              ...material.popover, borderColor: tint(T.red, 0.3), minWidth: 220,
+              padding: space.sm, display: "flex", flexDirection: "column", gap: space.xs,
             }}
           >
             <div style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.red, padding: `${space.xs}px ${space.sm}px` }}>
@@ -439,8 +453,8 @@ function DangerMenu({ actions, onAction, state }: { actions: QuickActionState[];
                   disabled={disabled}
                   onClick={() => { onAction(action.id); setOpen(false); }}
                   style={{
-                    display: "flex", alignItems: "center", gap: space.md, width: "100%",
-                    padding: `${space.md}px ${space.lg}px`, borderRadius: radius.md,
+                    display: "flex", alignItems: "center", gap: space.sm, width: "100%",
+                    padding: `${space.sm}px ${space.md}px`, borderRadius: radius.control,
                     border: `1px solid ${danger ? tint(T.red, 0.24) : border.subtle}`,
                     background: danger ? tint(T.red, 0.06) : surface.control,
                     color: c, cursor: disabled ? "default" : "pointer",
@@ -478,25 +492,33 @@ const ACTION_TO_MISSION: Partial<Record<QuickActionId, DroneMissionType>> = {
   "deploy-backup": "backup-support",
 };
 
-function ActionTile({ action, onClick, state }: { action: QuickActionState; state: ShellState; onClick: () => void }) {
+/*
+ * The pill is the operator's half of the contract. Its fill, border, and
+ * subtitle all follow the action's status, so the surface beside TALON is what
+ * tells the operator whether anything is waiting on them.
+ */
+function pillSubtitle(action: QuickActionState, assignedDroneName?: string) {
+  if (action.status === "disabled") return action.description;
+  if (action.status === "complete") return assignedDroneName ? `${assignedDroneName} assigned` : "Receipt written";
+  if (action.status === "in-progress") return "Executing under supervision";
+  if (action.status === "recommended") return "Awaiting your authorization";
+  return action.description;
+}
+
+function CommandPill({ action, onClick, state }: { action: QuickActionState; state: ShellState; onClick: () => void }) {
   const [hovered, setHovered] = useState(false);
   const [pressed, setPressed] = useState(false);
-  const { tone, border: tileBorder, background, text } = baseTileColors(action);
+  const { tone, border: pillBorder, background, text } = baseTileColors(action);
   const isDisabled = action.status === "disabled";
   const isComplete = action.status === "complete";
   const isRecommended = action.status === "recommended";
   const isInteractive = !isDisabled && !isComplete;
   const isInProgress = action.status === "in-progress";
 
-  // Find assigned drone for this action (only relevant when complete)
   const missionType = ACTION_TO_MISSION[action.id];
   const assignedDrone = isComplete && missionType
     ? state.drones.find((d) => d.assignedMission === missionType)
     : undefined;
-
-  const boxShadow = isRecommended
-    ? `inset 0 1px 0 ${withAlpha(tone, 0.24)}`
-    : `inset 0 1px 0 ${border.soft}`;
 
   return (
     <button
@@ -512,27 +534,26 @@ function ActionTile({ action, onClick, state }: { action: QuickActionState; stat
       onMouseDown={() => setPressed(true)}
       onMouseUp={() => setPressed(false)}
       style={{
-        width: TILE_W,
-        height: TILE_H,
-        borderRadius: radius.card,
-        border: `1px solid ${tileBorder}`,
-        background,
+        height: PILL_H,
+        minWidth: PILL_MIN_W,
+        maxWidth: PILL_MAX_W,
+        borderRadius: radius.panel,
+        border: `1px solid ${isRecommended && hovered ? withAlpha(tone, 0.8) : pillBorder}`,
+        background: isRecommended && hovered ? withAlpha(tone, 0.18) : background,
         color: text,
         opacity: isDisabled ? DISABLED_OPACITY : 1,
         position: "relative",
         overflow: "hidden",
         display: "flex",
-        flexDirection: "column",
         alignItems: "center",
-        justifyContent: "center",
-        gap: isComplete && assignedDrone ? space.xs : space.md,
+        gap: space.md,
+        padding: `0 ${space.md}px`,
         cursor: isInteractive ? "pointer" : "default",
-        boxShadow,
-        transform: pressed ? "translateY(1px) scale(0.985)" : hovered && isInteractive ? "translateY(-1px)" : "translateY(0)",
-        transition: "transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease, background 120ms ease",
-        textAlign: "center",
-        padding: `${space.lg}px ${space.xl}px`,
-        animation: "commandTileIn 180ms cubic-bezier(0.23,1,0.32,1)",
+        boxShadow: `inset 0 1px 0 ${isRecommended ? withAlpha(tone, 0.24) : border.soft}`,
+        transform: pressed ? "translateY(1px) scale(0.99)" : hovered && isInteractive ? "translateY(-1px)" : "translateY(0)",
+        transition: "transform 120ms ease, border-color 160ms ease, background 160ms ease",
+        textAlign: "left",
+        animation: "commandTileIn 200ms cubic-bezier(0.23,1,0.32,1)",
       }}
     >
       {isInProgress ? (
@@ -542,92 +563,49 @@ function ActionTile({ action, onClick, state }: { action: QuickActionState; stat
             position: "absolute",
             left: space.none,
             right: space.none,
-            top: space.none,
+            bottom: space.none,
             height: space.xs,
-            background: `linear-gradient(90deg, ${withAlpha(tone, 0.2)} 0%, ${tone} 48%, ${withAlpha(tone, 0.2)} 100%)`,
+            background: withAlpha(tone, 0.55),
             animation: "pulseBar 1.5s ease-in-out infinite",
           }}
         />
       ) : null}
 
-      {(isComplete || isRecommended || isInProgress) && (
-        <div
-          aria-hidden="true"
+      <OperationalIcon actionId={action.id} color={text} size={20} />
+
+      <span style={{ display: "flex", flexDirection: "column", gap: space.xs, minWidth: 0 }}>
+        <span
           style={{
-            position: "absolute",
-            top: space.md,
-            right: space.md,
-            fontFamily: font.mono,
-            fontSize: typeScale.label,
+            fontFamily: font.sans,
+            fontSize: typeScale.body,
             fontWeight: typeWeight.bold,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            lineHeight: 1.2,
-            color: isComplete ? T.teal : tone,
-            background: withAlpha(isComplete ? T.teal : tone, 0.12),
-            border: `1px solid ${withAlpha(isComplete ? T.teal : tone, 0.3)}`,
-            borderRadius: radius.pill,
-            padding: `${space.xxs}px ${space.sm}px`,
-          }}
-        >
-          {isComplete ? "Done" : isInProgress ? "Live" : "Ready"}
-        </div>
-      )}
-
-      <OperationalIcon actionId={action.id} color={text} size={22} />
-
-      <div
-        style={{
-          fontFamily: font.sans,
-          fontSize: typeScale.label,
-          fontWeight: 700,
-          lineHeight: 1.25,
-          maxWidth: "100%",
-        }}
-      >
-        {action.label}
-      </div>
-
-      {isDisabled && (
-        <div
-          style={{
-            fontFamily: font.mono,
-            fontSize: typeScale.label,
-            color: T.textMuted,
-            letterSpacing: "0.04em",
-            maxWidth: "100%",
+            lineHeight: 1.25,
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
           }}
         >
-          {action.description}
-        </div>
-      )}
-
-      {/* Completed state: show assigned drone as a tag */}
-      {isComplete && assignedDrone && (
-        <div style={{
-          fontFamily: font.mono,
-          fontSize: typeScale.label,
-          color: withAlpha(T.teal, 0.9),
-          background: withAlpha(T.teal, 0.1),
-          border: `1px solid ${withAlpha(T.teal, 0.25)}`,
-          borderRadius: radius.sm,
-          padding: `${space.xxs}px ${space.sm}px`,
-          maxWidth: "100%",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}>
-          {assignedDrone.name}
-        </div>
-      )}
+          {action.label}
+        </span>
+        <span
+          style={{
+            fontFamily: font.mono,
+            fontSize: typeScale.caption,
+            color: isComplete ? withAlpha(T.teal, 0.92) : isDisabled ? T.textMuted : T.textSecondary,
+            letterSpacing: "0.02em",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {pillSubtitle(action, assignedDrone?.name)}
+        </span>
+      </span>
     </button>
   );
 }
 
-function HoldTile({ action, onConfirm }: { action: QuickActionState; onConfirm: () => void }) {
+function HoldPill({ action, onConfirm }: { action: QuickActionState; onConfirm: () => void }) {
   const [hovered, setHovered] = useState(false);
   const [holding, setHolding] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -703,9 +681,10 @@ function HoldTile({ action, onConfirm }: { action: QuickActionState; onConfirm: 
       onKeyUp={handleKeyUp}
       onBlur={stopHold}
       style={{
-        width: TILE_W,
-        height: TILE_H,
-        borderRadius: radius.card,
+        height: PILL_H,
+        minWidth: PILL_MIN_W,
+        maxWidth: PILL_MAX_W,
+        borderRadius: radius.panel,
         border: `1px solid ${tileBorder}`,
         background,
         color: text,
@@ -713,94 +692,61 @@ function HoldTile({ action, onConfirm }: { action: QuickActionState; onConfirm: 
         position: "relative",
         overflow: "hidden",
         display: "flex",
-        flexDirection: "column",
         alignItems: "center",
-        justifyContent: "center",
         gap: space.md,
+        padding: `0 ${space.md}px`,
         cursor: disabled ? "default" : "pointer",
         boxShadow: `inset 0 1px 0 ${border.soft}`,
         transform: holding ? "scale(0.99)" : hovered && !disabled ? "translateY(-1px)" : "translateY(0)",
-        transition: "transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease",
-        animation: "commandTileIn 180ms cubic-bezier(0.23,1,0.32,1)",
+        transition: "transform 120ms ease, border-color 160ms ease",
+        animation: "commandTileIn 200ms cubic-bezier(0.23,1,0.32,1)",
       }}
     >
+      {/* Hold progress reads as the fill advancing across the command itself. */}
       <div
         aria-hidden="true"
         style={{
           position: "absolute",
           inset: 0,
-          background: `linear-gradient(90deg, ${withAlpha(tone, 0.24)} 0%, ${withAlpha(tone, 0.08)} 100%)`,
+          background: withAlpha(tone, 0.22),
           transform: `scaleX(${progress / 100})`,
           transformOrigin: "left center",
           transition: holding ? "none" : "transform 120ms ease",
         }}
       />
 
-      <div
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          top: space.md,
-          right: space.lg,
-          fontFamily: font.mono,
-          fontSize: typeScale.label,
-          color: tone,
-        }}
-      >
-        {holding ? `${Math.ceil(progress)}%` : null}
-      </div>
+      <OperationalIcon actionId={action.id} color={text} size={20} style={{ position: "relative", zIndex: 1 }} />
 
-      <div
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          left: space.lg,
-          right: space.lg,
-          bottom: space.sm,
-          height: space.xs,
-          borderRadius: radius.pill,
-          background: border.subtle,
-          overflow: "hidden",
-          zIndex: 1,
-        }}
-      >
-        <div
+      <span style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: space.xs, minWidth: 0 }}>
+        <span
           style={{
-            width: `${Math.max(progress, disabled ? space.none : space.xxs)}%`,
-            height: "100%",
-            borderRadius: radius.pill,
-            background: disabled ? border.default : tone,
-            transition: holding ? "none" : "width 120ms ease",
+            fontFamily: font.sans,
+            fontSize: typeScale.body,
+            fontWeight: typeWeight.bold,
+            lineHeight: 1.25,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
           }}
-        />
-      </div>
-
-      <OperationalIcon actionId={action.id} color={text} size={22} style={{ position: "relative", zIndex: 1 }} />
-
-      <div
-        style={{
-          position: "relative",
-          zIndex: 1,
-          fontFamily: font.sans,
-          fontSize: typeScale.label,
-          fontWeight: 700,
-          lineHeight: 1.25,
-          textAlign: "center",
-        }}
-      >
-        {action.label}
-      </div>
-      <div
-        style={{
-          position: "relative",
-          zIndex: 1,
-          fontFamily: font.mono,
-          fontSize: typeScale.label,
-          color: disabled ? T.textMuted : withAlpha(tone, 0.92),
-        }}
-      >
-        {disabled ? "Blocked" : holding ? "Authorizing" : "Hold 2s"}
-      </div>
+        >
+          {action.label}
+        </span>
+        <span
+          style={{
+            fontFamily: font.mono,
+            fontSize: typeScale.caption,
+            color: disabled ? T.textMuted : withAlpha(tone, 0.92),
+            letterSpacing: "0.02em",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {disabled
+            ? action.description
+            : holding
+              ? `Authorizing · ${Math.ceil(progress)}%`
+              : "Hold 2s to authorize"}
+        </span>
+      </span>
     </div>
   );
 }

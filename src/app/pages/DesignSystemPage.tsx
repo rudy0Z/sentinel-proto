@@ -4,8 +4,7 @@ import {
   ACTIONBAR_H,
   ACTIONBAR_H_EXPANDED,
   DISABLED_OPACITY,
-  GLASS,
-  GLASS_SUBTLE,
+  material,
   GI,
   MODE_META,
   PANEL_TITLES,
@@ -14,6 +13,8 @@ import {
   TILE_W,
   T,
   font,
+  typeScale as typeTokens,
+  radius,
 } from "../tokens";
 
 const FRAME = {
@@ -45,11 +46,11 @@ const colorTokens = [
 
 const typeScale = [
   { label: "Display / page header", spec: "IBM Plex Sans 700 / 26", sample: "Sentinel Operator Shell 2.0" },
-  { label: "Section title", spec: "IBM Plex Sans 650 / 18", sample: "Action System" },
+  { label: "Section title", spec: "IBM Plex Sans 600 / 18", sample: "Action System" },
   { label: "Panel title", spec: "IBM Plex Sans 600 / 15", sample: "Tactical Intelligence" },
   { label: "Body copy", spec: "IBM Plex Sans 400 / 12", sample: "Recommendations explain why the system is surfacing this action." },
   { label: "Action label", spec: "IBM Plex Sans 600 / 12", sample: "Authorize containment" },
-  { label: "Telemetry label", spec: "JetBrains Mono 9-10 / uppercase", sample: "03:49:18 UTC" },
+  { label: "Telemetry label", spec: "JetBrains Mono 10 / uppercase", sample: "03:49:18 UTC" },
   { label: "Metric value", spec: "JetBrains Mono 11", sample: "91%  98%  ETA 00:43" },
 ];
 
@@ -179,7 +180,7 @@ export default function DesignSystemPage() {
           <div style={{ ...badgeStyle, display: "inline-flex", color: T.amber, borderColor: "rgba(245,166,35,0.24)", marginBottom: 12 }}>
             Synced to current operator shell
           </div>
-          <h1 style={{ margin: 0, fontSize: 34, lineHeight: 1.1, letterSpacing: "-0.03em" }}>
+          <h1 style={{ margin: 0, fontSize: typeTokens.metric, lineHeight: 1.1, letterSpacing: "-0.03em" }}>
             Design System 2.0
           </h1>
           <p style={{ margin: "14px 0 0", maxWidth: 840, fontSize: 14, lineHeight: 1.65, color: T.textSecondary }}>
@@ -219,7 +220,7 @@ export default function DesignSystemPage() {
               <div style={sectionEyebrowStyle}>Operational mode semantics</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {operationalSemantics.map((item) => (
-                  <div key={item.label} style={{ padding: 14, borderRadius: 14, border: `1px solid ${item.color}33`, background: `${item.color}12` }}>
+                  <div key={item.label} style={{ padding: 14, borderRadius: radius.panel, border: `1px solid ${item.color}33`, background: `${item.color}12` }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ width: 8, height: 8, borderRadius: "50%", background: item.color, display: "inline-block" }} />
                       <span style={{ fontSize: 12, fontWeight: 700, color: item.color }}>{item.label}</span>
@@ -282,32 +283,33 @@ export default function DesignSystemPage() {
           </div>
         </Section>
 
-        <Section title="Section 5 - Surface Recipes" description="The live interface depends more on material consistency than decorative variety.">
+        <Section title="Section 5 - Material Law" description="Three materials plus one backdrop. Every floating surface picks one; nothing invents its own blur, radius, or shadow stack. Frost is a material, never a state.">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 16 }}>
-            <SurfaceCard title="GLASS" description="Primary panel and action-bar surface. Deep transparent blue with heavy blur and a lifted shadow." style={GLASS} />
             <SurfaceCard
-              title="Modal glass"
-              description="High-focus surface for confirmation and mission-brief overlays."
-              style={{
-                background: "rgba(8, 16, 28, 0.96)",
-                backdropFilter: "blur(32px) saturate(1.4)",
-                WebkitBackdropFilter: "blur(32px) saturate(1.4)",
-                borderRadius: 20,
-                border: "1px solid rgba(255,255,255,0.12)",
-                boxShadow: "0 32px 80px rgba(0,0,0,0.65)",
-              }}
+              title="material.rail"
+              description="Panels seated over the live map. Light 10px frost so the map still reads underneath, one edge light, one soft drop."
+              style={material.rail}
             />
-            <SurfaceCard title="GLASS_SUBTLE" description="Inner card surface for dense readouts and small status modules." style={GLASS_SUBTLE} />
             <SurfaceCard
-              title="Disabled"
-              description="Applied to unavailable actions. Contrast and opacity drop before any extra ornament is added."
-              style={{
-                background: "rgba(255,255,255,0.03)",
-                border: `1px solid ${GI.borderDim}`,
-                borderRadius: 20,
-                opacity: DISABLED_OPACITY,
-              }}
+              title="material.overlay"
+              description="Modals, takeovers, and decision surfaces. Opaque with no frost — an authorization surface never competes with the map behind it."
+              style={material.overlay}
             />
+            <SurfaceCard
+              title="material.popover"
+              description="Menus and transient attachments. Overlay material, quieter drop."
+              style={material.popover}
+            />
+            <SurfaceCard
+              title="material.scrim"
+              description="The dim behind a takeover. Backdrop only: no edge, no radius, never a container."
+              style={material.scrim}
+            />
+          </div>
+          <div style={{ marginTop: 20, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
+            <MiniRule title="Edge, not glow" body="Depth is one light top edge, one dark bottom edge, one soft drop. No stacked blooms, no multi-glow." />
+            <MiniRule title="Frost ceiling" body="No blur above 12px on product chrome. Severity arrives on the border and in the words, never as more blur." />
+            <MiniRule title="Disabled" body={`Unavailable actions drop to ${Math.round(DISABLED_OPACITY * 100)}% opacity before any ornament is added.`} />
           </div>
         </Section>
 
@@ -359,7 +361,7 @@ function Card({ children }: { children: ReactNode }) {
     <div
       style={{
         padding: 18,
-        borderRadius: 20,
+        borderRadius: radius.overlay,
         border: `1px solid ${GI.border}`,
         background: "rgba(255,255,255,0.03)",
         boxShadow: GI.glow,
@@ -383,8 +385,19 @@ function TokenCard({ name, value, usage }: { name: string; value: string; usage:
 
 function SurfaceCard({ title, description, style }: { title: string; description: string; style: CSSProperties }) {
   return (
-    <div style={{ padding: 16, borderRadius: 20, border: `1px solid ${GI.border}`, background: "rgba(255,255,255,0.03)" }}>
-      <div style={{ ...style, height: 92, marginBottom: 12 }} />
+    <div style={{ padding: 16, borderRadius: radius.overlay, border: `1px solid ${GI.border}`, background: "rgba(255,255,255,0.03)" }}>
+      {/* A gridded plate stands in for the map, so frost and opacity are legible in the swatch. */}
+      <div
+        style={{
+          height: 92,
+          marginBottom: 12,
+          padding: 10,
+          borderRadius: radius.overlay,
+          background: `${T.bgMap} repeating-linear-gradient(135deg, rgba(0,200,255,0.16) 0 2px, transparent 2px 10px)`,
+        }}
+      >
+        <div style={{ ...style, height: "100%" }} />
+      </div>
       <div style={{ fontSize: 12, fontWeight: 700 }}>{title}</div>
       <div style={{ marginTop: 6, fontSize: 11, lineHeight: 1.55, color: T.textSecondary }}>{description}</div>
     </div>
@@ -393,7 +406,7 @@ function SurfaceCard({ title, description, style }: { title: string; description
 
 function MiniRule({ title, body }: { title: string; body: string }) {
   return (
-    <div style={{ padding: 14, borderRadius: 14, border: `1px solid ${GI.border}`, background: GI.surface }}>
+    <div style={{ padding: 14, borderRadius: radius.panel, border: `1px solid ${GI.border}`, background: GI.surface }}>
       <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>{title}</div>
       <div style={{ fontSize: 11, lineHeight: 1.55, color: T.textSecondary }}>{body}</div>
     </div>
@@ -430,12 +443,12 @@ function ShellPreview({ expanded }: { expanded: boolean }) {
       </div>
       <div style={{ height: previewHeight, borderRadius: 16, overflow: "hidden", border: `1px solid ${T.border}`, background: T.bgMap }}>
         <div style={{ height: navH, borderBottom: `1px solid ${T.border}`, background: T.bgMap, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px" }}>
-          <span style={{ fontSize: 8, fontWeight: 700, color: T.cyan }}>Sentinel</span>
-          <span style={{ fontSize: 8, color: T.textMuted, fontFamily: font.mono }}>Monitoring</span>
+          <span style={{ fontSize: typeTokens.metadata, fontWeight: 700, color: T.cyan }}>Sentinel</span>
+          <span style={{ fontSize: typeTokens.metadata, color: T.textMuted, fontFamily: font.mono }}>Monitoring</span>
         </div>
         <div style={{ display: "flex", height: previewHeight - navH - barH }}>
           <PreviewRail width={leftW} title="Left rail" subtitle={PANEL_TITLES.contain.left} />
-          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: T.textMuted, fontFamily: font.mono, fontSize: 9 }}>
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: T.textMuted, fontFamily: font.mono, fontSize: typeTokens.metadata }}>
             Map canvas
           </div>
           <PreviewRail width={rightW} title="Right rail" subtitle={PANEL_TITLES.rescue.priority} />
@@ -452,8 +465,8 @@ function ShellPreview({ expanded }: { expanded: boolean }) {
 function PreviewRail({ width, title, subtitle }: { width: number; title: string; subtitle: string }) {
   return (
     <div style={{ width, flexShrink: 0, borderRight: `1px solid ${T.border}`, borderLeft: `1px solid ${T.border}`, background: T.bgPanel, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
-      <div style={{ fontFamily: font.mono, fontSize: 8, color: T.textMuted }}>{title}</div>
-      <div style={{ fontSize: 9, fontWeight: 600 }}>{subtitle}</div>
+      <div style={{ fontFamily: font.mono, fontSize: typeTokens.metadata, color: T.textMuted }}>{title}</div>
+      <div style={{ fontSize: typeTokens.metadata, fontWeight: 600 }}>{subtitle}</div>
     </div>
   );
 }

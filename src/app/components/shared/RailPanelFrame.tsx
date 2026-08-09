@@ -1,14 +1,20 @@
 import type { ReactNode } from "react";
 import type { PanelVariant } from "../../tokens";
-import { T, border, focus, font, motion, panel, radius, space, surface, tint, tone, typeScale, typeWeight } from "../../tokens";
+import { T, border, focus, font, material, motion, panel, radius, space, surface, tint, tone, typeScale, typeWeight, tracking } from "../../tokens";
 import { StatusPill } from "./StatusPill";
+import { RailSectionLabel } from "./Section";
 
+/*
+ * Variants differ by border and semantic wash only. The base surface is always
+ * the rail material — a panel inside a frosted rail must not become a second,
+ * denser slab (see DESIGN.md § Materials).
+ */
 function variantChrome(variant: PanelVariant) {
   switch (variant) {
     case "focus":
-      return { borderColor: tint(T.cyan, 0.22), background: surface.panelDense };
+      return { borderColor: tint(T.cyan, 0.22), background: material.rail.background };
     case "dense":
-      return { borderColor: border.strong, background: surface.panelDense };
+      return { borderColor: border.strong, background: material.rail.background };
     case "degraded":
       return { borderColor: tone.caution.border, background: tint(T.amber, 0.06) };
     case "blocked":
@@ -20,7 +26,7 @@ function variantChrome(variant: PanelVariant) {
     case "compact":
     case "standard":
     default:
-      return { borderColor: border.subtle, background: surface.panel };
+      return { borderColor: border.subtle, background: material.rail.background };
   }
 }
 
@@ -44,7 +50,7 @@ export function RailPanelFrame({
         flex: "0 0 auto",
         minHeight: minHeight ?? 52,
         overflow: "hidden",
-        borderRadius: radius.xl,
+        borderRadius: radius.panel,
         border: `1px solid ${chrome.borderColor}`,
         borderColor: chrome.borderColor,
         background: chrome.background,
@@ -78,15 +84,15 @@ export function PanelHeader({
     <div
       style={{
         minHeight: panel.headerHeight,
-        padding: `${space["2xl"]}px ${panel.bodyPadding}px`,
+        padding: `${space.lg}px ${panel.bodyPadding}px`,
         borderBottom: `1px solid ${border.subtle}`,
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        gap: space.lg,
+        gap: space.md,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: space.lg, minWidth: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: space.md, minWidth: 0 }}>
         <div
           style={{
             fontFamily: font.sans,
@@ -106,7 +112,7 @@ export function PanelHeader({
               fontFamily: font.mono,
               fontSize: typeScale.metadata,
               color: T.textMuted,
-              letterSpacing: "0.06em",
+              letterSpacing: tracking.telemetry,
               textTransform: "uppercase",
               whiteSpace: "nowrap",
             }}
@@ -124,8 +130,8 @@ export function PanelHeader({
               fontSize: typeScale.label,
               color: T.textMuted,
               cursor: "pointer",
-              padding: `${space.xs}px ${space.md}px`,
-              borderRadius: radius.md,
+              padding: `${space.xs}px ${space.sm}px`,
+              borderRadius: radius.control,
               border: `1px solid ${border.default}`,
               background: surface.control,
               transition: `background ${motion.fast}, border-color ${motion.fast}, color ${motion.fast}`,
@@ -141,7 +147,7 @@ export function PanelHeader({
           </button>
         ) : null}
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: space.md, flexShrink: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: space.sm, flexShrink: 0 }}>
         {accessory}
         {badgeLabel && badgeColor ? <StatusPill label={badgeLabel} color={badgeColor} /> : null}
       </div>
@@ -185,19 +191,8 @@ export function PanelSection({
   children: ReactNode;
 }) {
   return (
-    <section style={{ display: "flex", flexDirection: "column", gap: space.lg }}>
-      {label ? (
-        <div
-          style={{
-            fontFamily: font.sans,
-            fontSize: typeScale.label,
-            fontWeight: typeWeight.semibold,
-            color: T.textMuted,
-          }}
-        >
-          {label}
-        </div>
-      ) : null}
+    <section style={{ display: "flex", flexDirection: "column", gap: space.md }}>
+      {label ? <RailSectionLabel>{label}</RailSectionLabel> : null}
       {children}
     </section>
   );
@@ -205,7 +200,7 @@ export function PanelSection({
 
 export function PanelMetricRow({ label, value, tone: rowTone = T.textPrimary }: { label: string; value: string; tone?: string }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", gap: space.md }}>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", gap: space.sm }}>
       <span style={{ fontFamily: font.sans, fontSize: typeScale.caption, color: T.textMuted }}>{label}</span>
       <span style={{ fontFamily: font.mono, fontSize: typeScale.caption, color: rowTone, fontWeight: typeWeight.semibold }}>{value}</span>
     </div>
@@ -225,10 +220,10 @@ export function PanelStateBlock({
   return (
     <div
       style={{
-        borderRadius: radius.lg,
+        borderRadius: radius.tile,
         border: `1px solid ${tint(stateTone, 0.26)}`,
         background: tint(stateTone, 0.07),
-        padding: `${space.lg}px ${space.xl}px`,
+        padding: `${space.md}px ${space.md}px`,
       }}
     >
       <div style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.bold, color: stateTone, marginBottom: space.xs }}>
@@ -252,10 +247,10 @@ export function PanelExceptionCard({
   return (
     <div
       style={{
-        borderRadius: radius.lg,
+        borderRadius: radius.tile,
         border: `1px solid ${tint(severityTone, 0.3)}`,
         background: tint(severityTone, 0.08),
-        padding: `${space.lg}px ${space.xl}px`,
+        padding: `${space.md}px ${space.md}px`,
       }}
     >
       <div style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.semibold, color: severityTone, marginBottom: space.xs }}>

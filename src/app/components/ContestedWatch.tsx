@@ -1,6 +1,6 @@
 import { useEffect, useRef, type KeyboardEvent } from "react";
 import type { DissentOutcome, DissentRecord } from "../tokens";
-import { T, font, layer, motion, radius, shadow, space, surface, tint, typeScale, typeWeight } from "../tokens";
+import { T, font, layer, material, motion, radius, space, surface, tint, typeScale, typeWeight } from "../tokens";
 import { getContestedWatch, getReRaiseBrief, resolveDissent } from "../domain/disagreement";
 
 /*
@@ -17,19 +17,19 @@ function DissentRecordCard({ dissent }: { dissent: DissentRecord }) {
   return (
     <div
       style={{
-        padding: `${space.lg}px ${space.xl}px`,
+        padding: `${space.md}px ${space.md}px`,
         background: "rgba(255,255,255,0.03)",
         border: "1px solid rgba(255,255,255,0.08)",
-        borderRadius: radius.card,
+        borderRadius: radius.panel,
         display: "grid",
-        gap: space.md,
+        gap: space.sm,
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: space.md }}>
-        <span style={{ fontFamily: font.mono, fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMuted }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: space.sm }}>
+        <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMuted }}>
           Operator decision
         </span>
-        <span style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted }}>{dissent.recordedAt}</span>
+        <span style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.textMuted }}>{dissent.recordedAt}</span>
       </div>
 
       <div style={{ fontFamily: font.sans, fontSize: typeScale.body, fontWeight: typeWeight.semibold, color: T.textPrimary }}>
@@ -44,7 +44,7 @@ function DissentRecordCard({ dissent }: { dissent: DissentRecord }) {
             color: T.textSecondary,
             lineHeight: 1.55,
             borderLeft: `2px solid ${tint(T.textMuted, 0.4)}`,
-            paddingLeft: space.md,
+            paddingLeft: space.sm,
           }}
         >
           “{dissent.operatorNote}”
@@ -54,24 +54,24 @@ function DissentRecordCard({ dissent }: { dissent: DissentRecord }) {
       {/* TALON's position is preserved verbatim, not summarised away. */}
       <div
         style={{
-          paddingTop: space.md,
+          paddingTop: space.sm,
           borderTop: "1px solid rgba(255,255,255,0.07)",
           display: "grid",
           gap: space.xs,
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-          <span style={{ fontFamily: font.mono, fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: T.cyan }}>
+          <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: "0.1em", textTransform: "uppercase", color: T.cyan }}>
             TALON position at override
           </span>
-          <span style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted }}>{dissent.talonConfidence}%</span>
+          <span style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.textMuted }}>{dissent.talonConfidence}%</span>
         </div>
         <p style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textSecondary, lineHeight: 1.55, margin: 0 }}>
           {dissent.talonPosition}
         </p>
       </div>
 
-      <div style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted }}>
+      <div style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.textMuted }}>
         Audit {dissent.auditId}
       </div>
     </div>
@@ -92,7 +92,7 @@ function ThresholdMeter({ current, threshold }: { current: number; threshold: nu
   return (
     <div style={{ display: "grid", gap: space.sm }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <span style={{ fontFamily: font.mono, fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMuted }}>
+        <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMuted }}>
           Evidence under reduced weighting
         </span>
         <span
@@ -171,20 +171,18 @@ export function ContestedWatchPanel({
     <section
       style={{
         width: 380,
-        background: surface.overlay,
+        ...material.overlay,
         border: `1px solid ${tint(T.cyan, 0.24)}`,
-        borderRadius: radius.overlay,
-        boxShadow: shadow.quiet,
-        padding: `${space.xl}px ${space["2xl"]}px`,
+        padding: `${space.md}px ${space.lg}px`,
         display: "grid",
-        gap: space.xl,
+        gap: space.md,
         animation: `slideInDown ${motion.normal}`,
       }}
       aria-label="Contested watch"
       aria-live="polite"
     >
       <header style={{ display: "grid", gap: space.xs }}>
-        <span style={{ fontFamily: font.mono, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: T.cyan }}>
+        <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: "0.12em", textTransform: "uppercase", color: T.cyan }}>
           Watch retained
         </span>
         <h2
@@ -208,7 +206,7 @@ export function ContestedWatchPanel({
       <DissentRecordCard dissent={dissent} />
 
       <div style={{ display: "grid", gap: space.sm }}>
-        <span style={{ fontFamily: font.mono, fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMuted }}>
+        <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMuted }}>
           Still watching
         </span>
         <div style={{ display: "flex", flexWrap: "wrap", gap: space.xs }}>
@@ -241,7 +239,7 @@ export function ContestedWatchPanel({
           color: T.textSecondary,
           background: "rgba(255,255,255,0.04)",
           border: "1px solid rgba(255,255,255,0.12)",
-          borderRadius: radius.lg,
+          borderRadius: radius.tile,
           padding: "9px 0",
           cursor: "pointer",
           transition: `background ${motion.fast}`,
@@ -270,13 +268,11 @@ export function ReRaiseBriefPanel({
     <section
       style={{
         width: 440,
-        background: surface.overlay,
+        ...material.overlay,
         border: `1px solid ${tint(T.amber, 0.32)}`,
-        borderRadius: radius.overlay,
-        boxShadow: shadow.quiet,
-        padding: `${space.xl}px ${space["2xl"]}px`,
+        padding: `${space.md}px ${space.lg}px`,
         display: "grid",
-        gap: space.xl,
+        gap: space.md,
         animation: `slideInDown ${motion.normal}`,
       }}
       aria-label="TALON re-raise brief"
@@ -284,7 +280,7 @@ export function ReRaiseBriefPanel({
       aria-live="polite"
     >
       <header style={{ display: "grid", gap: space.xs }}>
-        <span style={{ fontFamily: font.mono, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: T.amber }}>
+        <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: "0.12em", textTransform: "uppercase", color: T.amber }}>
           Threshold crossed
         </span>
         <h2
@@ -305,20 +301,20 @@ export function ReRaiseBriefPanel({
         style={{
           display: "flex",
           alignItems: "center",
-          gap: space.lg,
-          padding: `${space.md}px ${space.xl}px`,
+          gap: space.md,
+          padding: `${space.sm}px ${space.md}px`,
           background: tint(T.amber, 0.07),
           border: `1px solid ${tint(T.amber, 0.2)}`,
-          borderRadius: radius.card,
+          borderRadius: radius.panel,
         }}
       >
         <div style={{ display: "grid", gap: 2 }}>
-          <span style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted, textTransform: "uppercase" }}>At override</span>
+          <span style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.textMuted, textTransform: "uppercase" }}>At override</span>
           <span style={{ fontFamily: font.mono, fontSize: typeScale.subhead, color: T.textSecondary }}>{brief.confidenceThen}%</span>
         </div>
         <span style={{ fontFamily: font.mono, fontSize: typeScale.body, color: T.amber }}>→</span>
         <div style={{ display: "grid", gap: 2 }}>
-          <span style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted, textTransform: "uppercase" }}>Now</span>
+          <span style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.textMuted, textTransform: "uppercase" }}>Now</span>
           <span style={{ fontFamily: font.mono, fontSize: typeScale.subhead, fontWeight: typeWeight.bold, color: T.amber }}>
             {brief.confidenceNow}%
           </span>
@@ -326,7 +322,7 @@ export function ReRaiseBriefPanel({
       </div>
 
       <div style={{ display: "grid", gap: space.sm }}>
-        <span style={{ fontFamily: font.mono, fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMuted }}>
+        <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMuted }}>
           New evidence only
         </span>
         <ul style={{ margin: 0, paddingLeft: 16, display: "grid", gap: space.sm }}>
@@ -341,15 +337,15 @@ export function ReRaiseBriefPanel({
       {/* The appeal routes away from the operator who already decided. */}
       <div
         style={{
-          padding: `${space.lg}px ${space.xl}px`,
+          padding: `${space.md}px ${space.md}px`,
           background: "rgba(255,255,255,0.03)",
           border: "1px solid rgba(255,255,255,0.08)",
-          borderRadius: radius.card,
+          borderRadius: radius.panel,
           display: "grid",
           gap: space.xs,
         }}
       >
-        <span style={{ fontFamily: font.mono, fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMuted }}>
+        <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMuted }}>
           Routed to
         </span>
         <span style={{ fontFamily: font.sans, fontSize: typeScale.body, fontWeight: typeWeight.semibold, color: T.textPrimary }}>
@@ -358,9 +354,12 @@ export function ReRaiseBriefPanel({
         <p style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textSecondary, lineHeight: 1.55, margin: 0 }}>
           {brief.escalationReason}
         </p>
+        <div style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.textMuted }}>
+          Audit {dissent.auditId}
+        </div>
       </div>
 
-      <div style={{ display: "flex", gap: space.md }}>
+      <div style={{ display: "flex", gap: space.sm }}>
         <button
           type="button"
           onClick={onDecline}
@@ -372,7 +371,7 @@ export function ReRaiseBriefPanel({
             color: T.textSecondary,
             background: "transparent",
             border: "1px solid rgba(255,255,255,0.12)",
-            borderRadius: radius.lg,
+            borderRadius: radius.tile,
             padding: "10px 0",
             cursor: "pointer",
           }}
@@ -390,7 +389,7 @@ export function ReRaiseBriefPanel({
             color: T.amber,
             background: tint(T.amber, 0.16),
             border: `1px solid ${T.amber}`,
-            borderRadius: radius.lg,
+            borderRadius: radius.tile,
             padding: "10px 0",
             cursor: "pointer",
             transition: `background ${motion.fast}`,
@@ -503,7 +502,7 @@ export function ReconciliationPanel({
         position: "absolute",
         inset: 0,
         zIndex: layer.entry,
-        background: "rgba(4,8,14,0.72)",
+        ...material.scrim,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -518,21 +517,19 @@ export function ReconciliationPanel({
       <div
         style={{
           width: 560,
-          background: surface.overlay,
+          ...material.overlay,
           border: `1px solid ${tint(copy.tone, 0.3)}`,
-          borderRadius: radius.overlay,
-          boxShadow: shadow.quiet,
-          padding: `${space["2xl"]}px ${space["3xl"]}px`,
+          padding: `${space.lg}px ${space.lg}px`,
           display: "grid",
-          gap: space.xl,
+          gap: space.md,
         }}
       >
         <header style={{ display: "grid", gap: space.xs }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontFamily: font.mono, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color: copy.tone }}>
+            <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: "0.12em", textTransform: "uppercase", color: copy.tone }}>
               {copy.label}
             </span>
-            <span style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted }}>{resolvedAt}</span>
+            <span style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.textMuted }}>{resolvedAt}</span>
           </div>
           <h2
             style={{
@@ -549,15 +546,15 @@ export function ReconciliationPanel({
 
         <div
           style={{
-            padding: `${space.lg}px ${space.xl}px`,
+            padding: `${space.md}px ${space.md}px`,
             background: "rgba(255,255,255,0.03)",
             border: "1px solid rgba(255,255,255,0.08)",
-            borderRadius: radius.card,
+            borderRadius: radius.panel,
             display: "grid",
             gap: space.xs,
           }}
         >
-          <span style={{ fontFamily: font.mono, fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMuted }}>
+          <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMuted }}>
             Ground truth
           </span>
           <p style={{ fontFamily: font.sans, fontSize: typeScale.body, color: T.textSecondary, lineHeight: 1.6, margin: 0 }}>
@@ -566,33 +563,33 @@ export function ReconciliationPanel({
         </div>
 
         {/* Both positions, side by side, judged on what was knowable at the time. */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: space.md }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: space.sm }}>
           <div
             style={{
-              padding: `${space.lg}px ${space.xl}px`,
+              padding: `${space.md}px ${space.md}px`,
               background: outcome === "operator-correct" ? tint(T.teal, 0.08) : "rgba(255,255,255,0.03)",
               border: `1px solid ${outcome === "operator-correct" ? tint(T.teal, 0.3) : "rgba(255,255,255,0.08)"}`,
-              borderRadius: radius.card,
+              borderRadius: radius.panel,
               display: "grid",
               gap: space.xs,
             }}
           >
-            <span style={{ fontFamily: font.mono, fontSize: 9, textTransform: "uppercase", color: T.textMuted }}>Operator said</span>
+            <span style={{ fontFamily: font.mono, fontSize: typeScale.label, textTransform: "uppercase", color: T.textMuted }}>Operator said</span>
             <span style={{ fontFamily: font.sans, fontSize: typeScale.body, fontWeight: typeWeight.semibold, color: T.textPrimary }}>
               {dissent.reason}
             </span>
           </div>
           <div
             style={{
-              padding: `${space.lg}px ${space.xl}px`,
+              padding: `${space.md}px ${space.md}px`,
               background: outcome === "talon-correct" ? tint(T.red, 0.08) : "rgba(255,255,255,0.03)",
               border: `1px solid ${outcome === "talon-correct" ? tint(T.red, 0.3) : "rgba(255,255,255,0.08)"}`,
-              borderRadius: radius.card,
+              borderRadius: radius.panel,
               display: "grid",
               gap: space.xs,
             }}
           >
-            <span style={{ fontFamily: font.mono, fontSize: 9, textTransform: "uppercase", color: T.textMuted }}>TALON said</span>
+            <span style={{ fontFamily: font.mono, fontSize: typeScale.label, textTransform: "uppercase", color: T.textMuted }}>TALON said</span>
             <span style={{ fontFamily: font.sans, fontSize: typeScale.body, fontWeight: typeWeight.semibold, color: T.textPrimary }}>
               Escalate · {dissent.talonConfidence}%
             </span>
@@ -602,15 +599,15 @@ export function ReconciliationPanel({
         {/* What the system actually changes as a result — the point of the loop. */}
         <div
           style={{
-            padding: `${space.lg}px ${space.xl}px`,
+            padding: `${space.md}px ${space.md}px`,
             background: tint(copy.tone, 0.06),
             border: `1px solid ${tint(copy.tone, 0.2)}`,
-            borderRadius: radius.card,
+            borderRadius: radius.panel,
             display: "grid",
             gap: space.xs,
           }}
         >
-          <span style={{ fontFamily: font.mono, fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: copy.tone }}>
+          <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: "0.1em", textTransform: "uppercase", color: copy.tone }}>
             System response
           </span>
           <p style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textSecondary, lineHeight: 1.6, margin: 0 }}>
@@ -619,7 +616,7 @@ export function ReconciliationPanel({
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted }}>Audit {dissent.auditId}</span>
+          <span style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.textMuted }}>Audit {dissent.auditId}</span>
           <button
             type="button"
             onClick={onClose}
@@ -630,7 +627,7 @@ export function ReconciliationPanel({
               color: copy.tone,
               background: tint(copy.tone, 0.16),
               border: `1px solid ${copy.tone}`,
-              borderRadius: radius.lg,
+              borderRadius: radius.tile,
               padding: "10px 20px",
               cursor: "pointer",
             }}

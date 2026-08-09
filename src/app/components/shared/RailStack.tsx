@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { T, font, motion, radius, shadow, space, surface, tint, typeScale, typeWeight } from "../../tokens";
+import { T, font, material, motion, radius, space, surface, tint, typeScale, typeWeight } from "../../tokens";
 import { RailChromeContext } from "./railChrome";
 
 export interface RailView {
@@ -77,13 +77,9 @@ export function RailStack({ views, defaultViewId, ariaLabel }: { views: RailView
     pinView(views[nextIndex].id, true);
   };
 
-  const floatingSurface = {
-    background: surface.panel,
-    border: `1px solid ${tint(T.textPrimary, 0.08)}`,
-    boxShadow: shadow.quiet,
-    backdropFilter: "blur(24px) saturate(1.25)",
-    WebkitBackdropFilter: "blur(24px) saturate(1.25)",
-  };
+  // Both rails wear the one rail material, so left and right read as the same
+  // instrument seated over the map.
+  const floatingSurface = material.rail;
 
   return (
     <div
@@ -102,10 +98,10 @@ export function RailStack({ views, defaultViewId, ariaLabel }: { views: RailView
         <div
           style={{
             display: "flex",
-            gap: space.xxs,
+            gap: space.xs,
             padding: space.xs,
             ...floatingSurface,
-            borderRadius: radius.lg,
+            borderRadius: radius.panel,
             flexShrink: 0,
           }}
           role="tablist"
@@ -133,7 +129,7 @@ export function RailStack({ views, defaultViewId, ariaLabel }: { views: RailView
                   justifyContent: "center",
                   gap: space.xs,
                   padding: `${space.sm}px ${space.xs}px`,
-                  borderRadius: radius.md,
+                  borderRadius: radius.control,
                   border: "none",
                   outlineColor: T.cyan,
                   outlineOffset: 2,
@@ -156,8 +152,8 @@ export function RailStack({ views, defaultViewId, ariaLabel }: { views: RailView
                       fontWeight: typeWeight.bold,
                       color: v.badge.color,
                       background: tint(v.badge.color, 0.16),
-                      borderRadius: radius.xs,
-                      padding: `${space.xxs}px ${space.xs}px`,
+                      borderRadius: radius.dense,
+                      padding: `${space.xs}px ${space.xs}px`,
                       lineHeight: 1.4,
                     }}
                   >
@@ -189,7 +185,6 @@ export function RailStack({ views, defaultViewId, ariaLabel }: { views: RailView
         <div
           style={{
             ...floatingSurface,
-            borderRadius: radius.glass,
             overflow: "hidden",
             width: "100%",
           }}

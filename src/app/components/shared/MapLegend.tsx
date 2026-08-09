@@ -30,7 +30,7 @@ const LEGEND_ITEMS = [
           width: 24,
           height: 14,
           border: `1.5px dashed ${T.cyan}`,
-          borderRadius: radius.xs,
+          borderRadius: radius.dense,
           background: tint(T.cyan, 0.06),
           flexShrink: 0,
         }}
@@ -79,7 +79,7 @@ const LEGEND_ITEMS = [
           width: 24,
           height: 14,
           border: `2px dotted ${T.amber}`,
-          borderRadius: radius.xs,
+          borderRadius: radius.dense,
           background: tint(T.amber, 0.09),
           flexShrink: 0,
         }}
@@ -126,12 +126,12 @@ export function MapLegend({ coreMode = false }: MapLegendProps) {
         onClick={() => setOpen((current) => !current)}
         style={{
           minHeight: 32,
-          padding: `0 ${space.lg}px`,
+          padding: `0 ${space.md}px`,
           display: "inline-flex",
           alignItems: "center",
           gap: space.sm,
           border: `1px solid ${open ? tint(T.cyan, 0.44) : border.default}`,
-          borderRadius: radius.md,
+          borderRadius: radius.control,
           background: open ? surface.controlActive : "rgba(8,16,28,0.9)",
           color: open ? T.textPrimary : T.textSecondary,
           fontFamily: font.sans,
@@ -146,7 +146,7 @@ export function MapLegend({ coreMode = false }: MapLegendProps) {
             width: 14,
             height: 10,
             border: `1.5px dashed ${T.cyan}`,
-            borderRadius: radius.xs,
+            borderRadius: radius.dense,
           }}
         />
         Map key
@@ -162,7 +162,7 @@ export function MapLegend({ coreMode = false }: MapLegendProps) {
           <div id={popoverId} data-testid="map-legend-popover">
             <div
               style={{
-                padding: `${space.xl}px ${space["3xl"]}px`,
+                padding: `${space.md}px ${space.lg}px`,
                 borderBottom: `1px solid ${border.soft}`,
               }}
             >
@@ -173,7 +173,7 @@ export function MapLegend({ coreMode = false }: MapLegendProps) {
                 Selection uses a solid emphasis. Hover and keyboard focus are temporary.
               </div>
             </div>
-            <div style={{ padding: `${space.sm}px ${space["3xl"]}px ${space.lg}px` }}>
+            <div style={{ padding: `${space.sm}px ${space.lg}px ${space.md}px` }}>
               {LEGEND_ITEMS.map((item) => (
                 <div
                   key={item.id}
@@ -181,8 +181,8 @@ export function MapLegend({ coreMode = false }: MapLegendProps) {
                     display: "grid",
                     gridTemplateColumns: "28px minmax(0, 1fr)",
                     alignItems: "start",
-                    gap: space.md,
-                    padding: `${space.md}px 0`,
+                    gap: space.sm,
+                    padding: `${space.sm}px 0`,
                     borderBottom: item.id === "uncertainty" ? "none" : `1px solid ${border.soft}`,
                   }}
                 >

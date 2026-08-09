@@ -1,5 +1,5 @@
 import { Component, type ReactNode } from "react";
-import { T, font, radius, border } from "../tokens";
+import { T, font, radius, border, typeScale } from "../tokens";
 
 interface Props { children: ReactNode; }
 interface State { hasError: boolean; error: Error | null; }
@@ -37,10 +37,10 @@ export class ErrorBoundary extends Component<Props, State> {
         {/* Corner accents */}
         <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }} aria-hidden="true">
           {[
-            { top: 0, left: 0, borderTop: `2px solid ${T.red}`, borderLeft: `2px solid ${T.red}`, borderTopLeftRadius: radius.xl },
-            { top: 0, right: 0, borderTop: `2px solid ${T.red}`, borderRight: `2px solid ${T.red}`, borderTopRightRadius: radius.xl },
-            { bottom: 0, left: 0, borderBottom: `2px solid ${T.red}`, borderLeft: `2px solid ${T.red}`, borderBottomLeftRadius: radius.xl },
-            { bottom: 0, right: 0, borderBottom: `2px solid ${T.red}`, borderRight: `2px solid ${T.red}`, borderBottomRightRadius: radius.xl },
+            { top: 0, left: 0, borderTop: `2px solid ${T.red}`, borderLeft: `2px solid ${T.red}`, borderTopLeftRadius: radius.panel },
+            { top: 0, right: 0, borderTop: `2px solid ${T.red}`, borderRight: `2px solid ${T.red}`, borderTopRightRadius: radius.panel },
+            { bottom: 0, left: 0, borderBottom: `2px solid ${T.red}`, borderLeft: `2px solid ${T.red}`, borderBottomLeftRadius: radius.panel },
+            { bottom: 0, right: 0, borderBottom: `2px solid ${T.red}`, borderRight: `2px solid ${T.red}`, borderBottomRightRadius: radius.panel },
           ].map((style, i) => (
             <div key={i} style={{ position: "absolute", width: 48, height: 48, ...style, opacity: 0.5 }} />
           ))}
@@ -50,7 +50,7 @@ export class ErrorBoundary extends Component<Props, State> {
           style={{
             width: 56,
             height: 56,
-            borderRadius: radius.xl,
+            borderRadius: radius.panel,
             background: `rgba(229,83,60,0.10)`,
             border: `1px solid rgba(229,83,60,0.30)`,
             display: "flex",
@@ -69,7 +69,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <div
             style={{
               fontFamily: font.mono,
-              fontSize: 9,
+              fontSize: typeScale.metadata,
               color: T.red,
               letterSpacing: "0.16em",
               textTransform: "uppercase",
@@ -80,7 +80,7 @@ export class ErrorBoundary extends Component<Props, State> {
           </div>
           <div
             style={{
-              fontSize: 22,
+              fontSize: typeScale.heading,
               fontWeight: 700,
               color: T.textPrimary,
               lineHeight: 1.2,
@@ -105,11 +105,11 @@ export class ErrorBoundary extends Component<Props, State> {
           <div
             style={{
               padding: "10px 14px",
-              borderRadius: radius.md,
+              borderRadius: radius.control,
               background: "rgba(255,255,255,0.03)",
               border: `1px solid ${border.soft}`,
               fontFamily: font.mono,
-              fontSize: 9,
+              fontSize: typeScale.metadata,
               color: T.textMuted,
               maxWidth: 480,
               width: "100%",
@@ -126,7 +126,7 @@ export class ErrorBoundary extends Component<Props, State> {
           onClick={this.handleRestart}
           style={{
             padding: "12px 32px",
-            borderRadius: radius.lg,
+            borderRadius: radius.tile,
             background: "rgba(229,83,60,0.10)",
             border: `1px solid ${T.red}`,
             color: T.red,

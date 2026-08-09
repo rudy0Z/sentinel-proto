@@ -18,6 +18,7 @@ import {
   tint,
   typeScale,
   typeWeight,
+  tracking,
 } from "../../tokens";
 import { useState } from "react";
 import { PanelCard } from "../shared/PanelCard";
@@ -169,6 +170,7 @@ function DefaultObservation({
       <Section label="Observable Trend">
         <MiniTrend
           label={isOperations ? "Structures cleared trend" : "Thermal delta trend"}
+          unit={isOperations ? "%" : ""}
           values={isOperations ? signalHistory.structures : signalHistory.thermal}
           signalTone={isOperations ? "safe" : state.scene === "baseline" ? "safe" : "caution"}
         />
@@ -233,9 +235,9 @@ function ZoneInspector({
         />
         <div
           style={{
-            marginTop: space.md,
-            padding: `${space.md}px ${space.lg}px`,
-            borderRadius: radius.lg,
+            marginTop: space.sm,
+            padding: `${space.sm}px ${space.md}px`,
+            borderRadius: radius.tile,
             background: surface.inset,
             border: `1px solid ${border.soft}`,
             fontFamily: font.sans,
@@ -536,7 +538,7 @@ export function ActivityLogPanel({ state, incidentElapsed }: ActivityLogPanelPro
             { id: "attention", label: "Attention" },
           ]}
         />
-        <div role="log" aria-label="Decision ledger" aria-live="polite" style={{ display: "flex", flexDirection: "column", gap: space.md }}>
+        <div role="log" aria-label="Decision ledger" aria-live="polite" style={{ display: "flex", flexDirection: "column", gap: space.sm }}>
           {visibleEntries.length === 0 ? (
             <PanelStateBlock
               state="empty"
@@ -554,10 +556,10 @@ export function ActivityLogPanel({ state, incidentElapsed }: ActivityLogPanelPro
                 fontFamily: font.mono,
                 fontSize: typeScale.eyebrow,
                 color: T.textMuted,
-                letterSpacing: "0.08em",
+                letterSpacing: tracking.telemetry,
                 textTransform: "uppercase",
                 textAlign: "center",
-                padding: space.md,
+                padding: space.sm,
                 borderTop: `1px solid ${border.soft}`,
               }}
             >
@@ -586,9 +588,9 @@ function CompactSurfaceToggle({
     <div
       style={{
         display: "flex",
-        gap: space.xxs,
-        padding: space.xxs,
-        borderRadius: radius.md,
+        gap: space.xs,
+        padding: space.xs,
+        borderRadius: radius.control,
         background: surface.control,
         border: `1px solid ${border.default}`,
       }}
@@ -605,10 +607,10 @@ function CompactSurfaceToggle({
             aria-pressed={active}
             style={{
               border: "none",
-              borderRadius: radius.sm,
+              borderRadius: radius.control,
               background: active ? tint(T.cyan, 0.16) : "transparent",
               color: active ? T.cyan : T.textMuted,
-              padding: `${space.xs}px ${space.md}px`,
+              padding: `${space.xs}px ${space.sm}px`,
               fontFamily: font.sans,
               fontSize: typeScale.label,
               fontWeight: typeWeight.bold,
@@ -631,16 +633,16 @@ function StructureExposureStrip() {
   return (
     <div
       style={{
-        padding: `${space.lg}px ${space.xl}px`,
-        borderRadius: radius.xl,
+        padding: `${space.md}px ${space.md}px`,
+        borderRadius: radius.panel,
         border: `1px solid ${tint(T.red, 0.24)}`,
         background: tint(T.red, 0.07),
         display: "flex",
         flexDirection: "column",
-        gap: space.md,
+        gap: space.sm,
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: space.md }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: space.sm }}>
         <div>
           <div style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.semibold, color: T.red }}>
             Structures at risk
@@ -679,13 +681,13 @@ function MissionCluster({
     <div
       style={{
         borderTop: `1px solid ${tint(toneColor(cluster.signalTone), 0.16)}`,
-        paddingTop: space.lg,
+        paddingTop: space.md,
         display: "flex",
         flexDirection: "column",
-        gap: space.md,
+        gap: space.sm,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: space.md }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: space.sm }}>
         <div style={{ fontFamily: font.sans, fontSize: typeScale.label, color: toneColor(cluster.signalTone), fontWeight: typeWeight.semibold }}>
           {cluster.label}
         </div>
@@ -715,14 +717,14 @@ function MissionCluster({
             style={{
               width: "100%",
               textAlign: "left",
-              borderRadius: radius.md,
+              borderRadius: radius.control,
               border: `1px solid ${active ? tint(color, 0.4) : spatiallyLinked ? tint(T.cyan, 0.34) : border.soft}`,
               background: active ? tint(color, 0.08) : spatiallyLinked ? tint(T.cyan, 0.07) : "transparent",
-              padding: `${space.md}px ${space.lg}px`,
+              padding: `${space.sm}px ${space.md}px`,
               cursor: "pointer",
               display: "grid",
               gridTemplateColumns: "minmax(0, 1fr) auto",
-              gap: space.md,
+              gap: space.sm,
               alignItems: "center",
               transition: `background ${motion.fast}, border-color ${motion.fast}`,
             }}
@@ -764,8 +766,8 @@ function LedgerEntry({ entry }: { entry: ActivityLogEntry }) {
       style={{
         display: "grid",
         gridTemplateColumns: "48px minmax(0, 1fr)",
-        gap: space.md,
-        padding: `${space.md}px 0`,
+        gap: space.sm,
+        padding: `${space.sm}px 0`,
         borderBottom: `1px solid ${border.soft}`,
       }}
     >
@@ -791,7 +793,7 @@ function CompactNotes({ notes }: { notes: string[] }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: space.sm }}>
       {notes.map((note) => (
-        <div key={note} style={{ display: "flex", alignItems: "flex-start", gap: space.md }}>
+        <div key={note} style={{ display: "flex", alignItems: "flex-start", gap: space.sm }}>
           <span style={{ width: space.xs, height: space.xs, borderRadius: radius.pill, background: T.textMuted, marginTop: space.sm, flexShrink: 0 }} />
           <span style={{ fontFamily: font.sans, fontSize: typeScale.caption, color: T.textMuted, lineHeight: 1.4 }}>
             {note}

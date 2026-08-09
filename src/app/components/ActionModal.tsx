@@ -7,7 +7,7 @@ import type {
   ShellState,
   TalonConversationChangeHandler,
 } from "../tokens";
-import { T, border, font, layer, motion, radius, surface } from "../tokens";
+import { T, border, font, layer, material, motion, radius, surface, typeScale } from "../tokens";
 import { getTalonSessionView } from "../domain/talon";
 import { OperationalIcon } from "./OperationalIcon";
 import { TalonSession } from "./talon/TalonSession";
@@ -132,11 +132,8 @@ const BACKDROP: React.CSSProperties = {
   justifyContent: "center",
 };
 
-const GLASS_MODAL: React.CSSProperties = {
-  background: surface.overlay,
-  borderRadius: radius.overlay,
-  border: `1px solid ${border.strong}`,
-  boxShadow: "0 12px 20px rgba(0,0,0,0.42)",
+const MODAL_SURFACE: React.CSSProperties = {
+  ...material.overlay,
   width: 520,
   maxWidth: "90vw",
   maxHeight: "calc(100vh - 40px)",
@@ -151,13 +148,40 @@ function Label({ children }: { children: React.ReactNode }) {
   );
 }
 
-function ModalInput({ value, onChange, type = "text", placeholder }: { value: string; onChange: (v: string) => void; type?: string; placeholder?: string }) {
+function actionConfirmText(disabled?: boolean): string {
+  return disabled ? T.textMuted : T.onAction;
+}
+
+function ModalInput({
+  id,
+  name,
+  value,
+  onChange,
+  type = "text",
+  placeholder,
+  autoComplete,
+  spellCheck,
+}: {
+  id?: string;
+  name?: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  placeholder?: string;
+  autoComplete?: string;
+  spellCheck?: boolean;
+}) {
   return (
     <input
+      id={id}
+      name={name}
       type={type}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
+      autoComplete={autoComplete}
+      spellCheck={spellCheck}
+      aria-label={id ? undefined : placeholder}
       style={{
         width: "100%",
         background: "rgba(255,255,255,0.06)",
@@ -173,12 +197,27 @@ function ModalInput({ value, onChange, type = "text", placeholder }: { value: st
   );
 }
 
-function ModalSelect({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
+function ModalSelect({
+  id,
+  name,
+  value,
+  onChange,
+  options,
+}: {
+  id?: string;
+  name?: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
   return (
     <div style={{ position: "relative" }}>
       <select
+        id={id}
+        name={name}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        aria-label={id ? undefined : "Select option"}
         style={{
           width: "100%",
           background: "rgba(255,255,255,0.06)",
@@ -238,7 +277,7 @@ function ModalHeader({ title, subtitle, accentColor, icon }: { title: string; su
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
         {icon}
-        <div style={{ fontFamily: font.sans, fontSize: 16, fontWeight: 700, color: T.textPrimary, letterSpacing: "-0.01em" }}>
+        <div style={{ fontFamily: font.sans, fontSize: typeScale.heading, fontWeight: 700, color: T.textPrimary, letterSpacing: "-0.01em" }}>
           {title}
         </div>
       </div>
@@ -285,7 +324,7 @@ function ModalFooter({ onClose, onConfirm, confirmLabel, confirmColor, disabled 
           borderRadius: 10,
           border: "none",
           background: disabled ? "rgba(255,255,255,0.08)" : confirmColor,
-          color: disabled ? T.textMuted : "#fff",
+          color: actionConfirmText(disabled),
           fontFamily: font.sans,
           fontSize: 12,
           fontWeight: 700,
@@ -807,15 +846,19 @@ function ShiftHandoverModal({
 
         {/* Passcode validation block */}
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <label style={{ fontFamily: font.sans, fontSize: 11, fontWeight: 600, color: T.textSecondary }}>
+          <label htmlFor="shift-handover-pin" style={{ fontFamily: font.sans, fontSize: 11, fontWeight: 600, color: T.textSecondary }}>
             Enter Shift Lead PIN to log handoff:
           </label>
           <div style={{ display: "flex", gap: 10 }}>
             <input
+              id="shift-handover-pin"
+              name="shift-handover-pin"
               type="password"
               placeholder="••••"
               value={pin}
               maxLength={4}
+              autoComplete="off"
+              spellCheck={false}
               onChange={(e) => {
                 setPin(e.target.value);
                 setError("");
@@ -826,7 +869,7 @@ function ShiftHandoverModal({
                 border: error ? `1px solid ${T.red}` : "1px solid rgba(255,255,255,0.12)",
                 borderRadius: 8,
                 padding: "8px 12px",
-                color: "#fff",
+                color: T.onAction,
                 fontFamily: font.mono,
                 fontSize: 14,
                 textAlign: "center",
@@ -837,7 +880,7 @@ function ShiftHandoverModal({
               onClick={handleConfirm}
               style={{
                 background: T.amber,
-                color: "#000",
+                color: T.onAction,
                 border: "none",
                 borderRadius: 8,
                 padding: "0 20px",
@@ -962,7 +1005,7 @@ function MissionBriefModal({
         {/* Mission status */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
           <div style={{
-            padding: "3px 8px", borderRadius: 6, fontFamily: font.mono, fontSize: 11,
+            padding: "3px 8px", borderRadius: radius.control, fontFamily: font.mono, fontSize: 11,
             fontWeight: 700,
             background: revisedPlanReady ? `${T.amber}18` : `${tone}18`,
             border: `1px solid ${revisedPlanReady ? `${T.amber}44` : `${tone}44`}`,
@@ -978,7 +1021,7 @@ function MissionBriefModal({
           </div>
         </div>
 
-        <div style={{ fontFamily: font.sans, fontSize: 17, fontWeight: 700, color: T.textPrimary }}>{cfg.title}</div>
+        <div style={{ fontFamily: font.sans, fontSize: typeScale.heading, fontWeight: 700, color: T.textPrimary }}>{cfg.title}</div>
         <div style={{ fontFamily: font.sans, fontSize: 12, color: T.textSecondary, marginTop: 4, lineHeight: 1.5 }}>
           {revisedPlanReady
             ? "Operator correction reviewed. The revised recommendation remains held until you approve deployment."
@@ -1044,7 +1087,7 @@ function MissionBriefModal({
                   <div style={{ fontFamily: font.sans, fontSize: 11, color: T.textSecondary, marginTop: 3, lineHeight: 1.4 }}>{zoneData.spreadWindow}</div>
                 </div>
                 <div style={{
-                  padding: "3px 8px", borderRadius: 6, fontFamily: font.mono, fontSize: 11, fontWeight: 700,
+                  padding: "3px 8px", borderRadius: radius.control, fontFamily: font.mono, fontSize: 11, fontWeight: 700,
                   background: "rgba(229,83,60,0.12)", color: T.fire, border: "1px solid rgba(229,83,60,0.25)",
                   whiteSpace: "nowrap", flexShrink: 0,
                 }}>
@@ -1151,7 +1194,7 @@ function MissionBriefModal({
             borderRadius: 10,
             border: "none",
             background: revisedPlanReady ? T.amber : tone,
-            color: "#fff",
+            color: sessionBusy ? T.textMuted : T.onAction,
             fontFamily: font.sans,
             fontSize: 12,
             fontWeight: 700,
@@ -1381,7 +1424,7 @@ export function ActionModal({
         tabIndex={-1}
         onKeyDown={trapFocus}
         style={{
-          ...GLASS_MODAL,
+          ...MODAL_SURFACE,
           width: meta.width,
           overflowY: "auto",
           animation: "modalIn 220ms cubic-bezier(0.23,1,0.32,1)",

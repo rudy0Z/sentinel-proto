@@ -8,10 +8,12 @@
     "dev": "vite",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "audit:tokens": "node scripts/audit-design-tokens.mjs",
     "verify:routes": "node scripts/verify-routes.mjs",
     "verify:flows": "node scripts/verify-flows.mjs",
     "verify:machine": "npx --yes tsx scripts/audit-machine.ts",
-    "verify:signals": "npx --yes tsx scripts/audit-signals.ts"
+    "verify:signals": "npx --yes tsx scripts/audit-signals.ts",
+    "verify:design": "npm run typecheck && npm run audit:tokens"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.3",

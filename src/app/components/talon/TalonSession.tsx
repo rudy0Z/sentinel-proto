@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type {
-  TalonChipId,
   TalonConversationChangeHandler,
   TalonConversationState,
   TalonSessionRecommendation,
 } from "../../tokens";
-import { TALON_SESSION_TIMING, T } from "../../tokens";
+import { TALON_SESSION_TIMING, T, border, radius, shadow, surface } from "../../tokens";
 import {
   cancelTalonConversation,
   getTalonSessionView,
@@ -52,14 +51,12 @@ export interface TalonSessionContext {
   detail?: string;
   defaultTranscript?: string;
   scriptedReply?: string;
-  chips?: Array<{ id: TalonChipId; label: string }>;
 }
 
 export interface TalonSessionProps {
   conversation: TalonConversationState;
   context: TalonSessionContext;
   onConversationChange?: TalonConversationChangeHandler;
-  onChip?: (chipId: TalonChipId) => void;
   expanded?: boolean;
   onExpandedChange?: (expanded: boolean) => void;
   variant?: "command" | "compact" | "modal" | "floating";
@@ -114,7 +111,6 @@ export function TalonSession({
   conversation,
   context,
   onConversationChange,
-  onChip,
   expanded = false,
   onExpandedChange,
   variant = "command",
@@ -137,7 +133,12 @@ export function TalonSession({
   const manualStopRef = useRef(false);
 
   const view = getTalonSessionView(conversation);
-  const color = stateColor(conversation, context.recommendation.tone);
+  /*
+   * TALON's mark reports TALON's own session state. Incident severity is the
+   * pill's and the rails' job — borrowing it here made a watching orb look
+   * like an alarm.
+   */
+  const color = stateColor(conversation, T.talonIdle);
   const isBusy = view.phase === "input" || view.phase === "review" || view.phase === "checking" || view.phase === "executing";
   const canWriteSession = Boolean(onConversationChange);
 
@@ -418,8 +419,38 @@ export function TalonSession({
     <div
       ref={containerRef}
       className={`talon-session talon-session--${variant}`}
-      style={{ "--talon-state": color } as React.CSSProperties}
+      style={{
+        "--talon-state": color,
+        "--talon-overlay": surface.overlay,
+        "--talon-panel": surface.panel,
+        "--talon-control": surface.control,
+        "--talon-inset": surface.inset,
+        "--talon-border": border.default,
+        "--talon-border-strong": border.strong,
+        "--talon-radius-overlay": `${radius.overlay}px`,
+        "--talon-radius": `${radius.control}px`,
+        "--talon-radius-panel": `${radius.panel}px`,
+        "--talon-radius-tile": `${radius.tile}px`,
+        "--talon-shadow": shadow.edgeOverlay,
+        "--talon-shadow-quiet": shadow.edgePopover,
+        "--talon-text": T.textPrimary,
+        "--talon-text-secondary": T.textSecondary,
+      } as React.CSSProperties}
     >
+      {variant === "floating" ? (
+        <button
+          type="button"
+          className="talon-session__orb"
+          onClick={() => onExpandedChange?.(!expanded)}
+          aria-expanded={expanded}
+          aria-label={expanded ? "Close TALON session" : "Open TALON session"}
+          title={`TALON · ${status}`}
+        >
+          {view.phase === "input" ? <span className="talon-session__orb-ripple" aria-hidden="true" /> : null}
+          <TalonMark color="currentColor" size={28} decorative />
+        </button>
+      ) : null}
+
       {variant !== "modal" && variant !== "floating" ? (
         <div className="talon-session__control">
           <button
@@ -617,25 +648,6 @@ export function TalonSession({
               </div>
             ) : null}
 
-            <div className="talon-session__notice">
-              Prototype disclosure: speech capture may use the browser, but TALON replies and evidence checks are scripted.
-            </div>
-
-            {context.chips?.length && onChip ? (
-              <div className="talon-session__chips" aria-label="TALON explanation prompts">
-                {context.chips.map((chip) => (
-                  <button
-                    key={chip.id}
-                    type="button"
-                    className="talon-session__button"
-                    onClick={() => onChip(chip.id)}
-                    aria-pressed={conversation.activeChip === chip.id}
-                  >
-                    {chip.label}
-                  </button>
-                ))}
-              </div>
-            ) : null}
           </div>
         </section>
       ) : null}

@@ -6,12 +6,9 @@ import {
   type RefObject,
 } from "react";
 import {
-  border,
   layer,
+  material,
   motion,
-  radius,
-  shadow,
-  surface,
 } from "../../tokens";
 
 interface PopoverSurfaceProps {
@@ -56,10 +53,7 @@ export const PopoverSurface = forwardRef<HTMLDivElement, PopoverSurfaceProps>(
             zIndex: layer.popover,
             width,
             maxWidth: "calc(100vw - 32px)",
-            background: surface.overlay,
-            border: `1px solid ${border.default}`,
-            borderRadius: radius.overlay,
-            boxShadow: shadow.quiet,
+            ...material.popover,
             overflow: "hidden",
             transformOrigin: origin,
             animation: `sentinelPopoverIn ${motion.normal} both`,

@@ -1,4 +1,4 @@
-import { useContext, useState, type KeyboardEvent } from "react";
+import { useContext, useState, type ReactNode } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -16,7 +16,7 @@ import type {
   TalonAgentTask,
   EvidenceSource,
 } from "../../tokens";
-import { T, border, font, radius, shadow, space, surface, tint, tone, typeScale, typeWeight } from "../../tokens";
+import { T, border, font, radius, space, surface, tint, tone, typeScale, typeWeight, tracking } from "../../tokens";
 import {
   getAuthorityPacket,
   getEvidenceSources,
@@ -67,8 +67,8 @@ function getAgentStatusLabel(status: TalonAgentTask["status"]): string {
 
 function ScanningRing() {
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", position: "relative", width: space["2xl"], height: space["2xl"], flexShrink: 0 }}>
-      <svg width={space["2xl"]} height={space["2xl"]} viewBox="0 0 36 36" style={{ animation: "spin 2s linear infinite" }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", position: "relative", width: space.lg, height: space.lg, flexShrink: 0 }}>
+      <svg width={space.lg} height={space.lg} viewBox="0 0 36 36" style={{ animation: "spin 2s linear infinite" }}>
         <circle cx="18" cy="18" r="15" fill="none" stroke={tint(T.cyan, 0.15)} strokeWidth="3" />
         <circle cx="18" cy="18" r="15" fill="none" stroke={T.cyan} strokeWidth="3" strokeDasharray="30 50" strokeLinecap="round" />
       </svg>
@@ -80,11 +80,10 @@ function TelemetryShimmerCard({ label }: { label: string }) {
   return (
     <div
       style={{
-        padding: `${space.md}px ${space.lg}px`,
-        borderRadius: radius.md,
+        padding: `${space.sm}px ${space.md}px`,
+        borderRadius: radius.control,
         background: surface.inset,
         border: `1px solid ${border.soft}`,
-        boxShadow: shadow.quiet,
         display: "flex",
         flexDirection: "column",
         gap: space.sm,
@@ -92,7 +91,7 @@ function TelemetryShimmerCard({ label }: { label: string }) {
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontFamily: font.sans, fontSize: typeScale.caption, color: T.textMuted, fontWeight: 500 }}>
+        <span style={{ fontFamily: font.sans, fontSize: typeScale.caption, color: T.textMuted, fontWeight: typeWeight.medium }}>
           {label}
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: space.xs }}>
@@ -102,7 +101,7 @@ function TelemetryShimmerCard({ label }: { label: string }) {
           </span>
         </div>
       </div>
-      <div style={{ width: "70%", height: space.xs, borderRadius: radius.xs, background: border.subtle }} />
+      <div style={{ width: "70%", height: space.xs, borderRadius: radius.dense, background: border.subtle }} />
     </div>
   );
 }
@@ -287,19 +286,18 @@ function HighFidelityTelemetryChart({ scene }: { scene: SceneId }) {
     <div
       style={{
         marginTop: space.sm,
-        marginBottom: space.md,
-        padding: `${space.lg}px ${space.xl}px`,
-        borderRadius: radius.lg,
+        marginBottom: space.sm,
+        padding: `${space.md}px ${space.md}px`,
+        borderRadius: radius.tile,
         background: surface.raised,
         border: `1px solid ${border.subtle}`,
-        boxShadow: shadow.quiet,
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: space.md }}>
-        <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: space.sm }}>
+        <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: tracking.telemetry, textTransform: "uppercase" }}>
           {chart.label}
         </span>
-        <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: chart.statusColor, fontWeight: 600 }}>
+        <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: chart.statusColor, fontWeight: typeWeight.semibold }}>
           {chart.statusLabel}
         </span>
       </div>
@@ -330,12 +328,12 @@ function HighFidelityTelemetryChart({ scene }: { scene: SceneId }) {
         <div style={{ display: "flex", alignItems: "center", gap: space.xs }}>
           <span style={{ width: space.xs, height: space.xs, borderRadius: radius.pill, background: chart.thermalColor }} />
           <span style={{ fontFamily: font.sans, fontSize: typeScale.eyebrow, color: T.textSecondary }}>Thermal slope</span>
-          <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: chart.thermalColor, marginLeft: space.xxs }}>{chart.thermalMetric}</span>
+          <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: chart.thermalColor, marginLeft: space.xs }}>{chart.thermalMetric}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: space.xs }}>
           <span style={{ width: space.xs, height: space.xs, borderRadius: radius.pill, background: chart.moistureColor }} />
           <span style={{ fontFamily: font.sans, fontSize: typeScale.eyebrow, color: T.textSecondary }}>Moisture delta</span>
-          <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: chart.moistureColor, marginLeft: space.xxs }}>{chart.moistureMetric}</span>
+          <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: chart.moistureColor, marginLeft: space.xs }}>{chart.moistureMetric}</span>
         </div>
       </div>
     </div>
@@ -358,9 +356,9 @@ function EvidenceChip({ source }: { source: EvidenceSource }) {
       style={{
         display: "flex",
         alignItems: "center",
-        gap: space.md,
-        padding: `${space.sm}px ${space.lg}px`,
-        borderRadius: radius.md,
+        gap: space.sm,
+        padding: `${space.sm}px ${space.md}px`,
+        borderRadius: radius.control,
         border: `1px solid ${color}${isActive ? "33" : "22"}`,
         background: `${color}0A`,
         cursor: "pointer",
@@ -385,7 +383,7 @@ function EvidenceChip({ source }: { source: EvidenceSource }) {
       {/* Label + status */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: space.sm }}>
-          <span style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textPrimary, fontWeight: 600, lineHeight: 1.2 }}>
+          <span style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textPrimary, fontWeight: typeWeight.semibold, lineHeight: 1.2 }}>
             {source.label}
           </span>
           <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted }}>
@@ -415,7 +413,7 @@ function EvidenceChip({ source }: { source: EvidenceSource }) {
             {source.confidence}%
           </span>
         ) : (
-          <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+          <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color, letterSpacing: tracking.telemetry, textTransform: "uppercase" }}>
             {source.status}
           </span>
         )}
@@ -464,8 +462,8 @@ function StatusDot({ status }: { status: TalonAgentTask["status"] }) {
         borderRadius: radius.pill,
         background: color,
         flexShrink: 0,
-        boxShadow: status === "running" ? `0 0 ${space.lg}px ${tint(color, 0.36)}` : undefined,
-        animation: status === "running" ? "workforcePulse 1.6s ease-in-out infinite" : undefined,
+        outline: status === "running" ? `1px solid ${tint(color, 0.55)}` : undefined,
+        outlineOffset: status === "running" ? 2 : undefined,
       }}
     />
   );
@@ -479,12 +477,12 @@ function CategoryBadge({ category }: { category: TalonAgentTask["category"] }) {
         fontFamily: font.mono,
         fontSize: typeScale.eyebrow,
         color: meta.color,
-        letterSpacing: "0.06em",
+        letterSpacing: tracking.telemetry,
         textTransform: "uppercase",
         border: `1px solid ${meta.border}`,
         background: meta.fill,
-        borderRadius: radius.xs,
-        padding: `${space.xxs}px ${space.xs}px`,
+        borderRadius: radius.dense,
+        padding: `${space.xs}px ${space.xs}px`,
         whiteSpace: "nowrap",
       }}
     >
@@ -501,7 +499,7 @@ function StatusBadge({ status }: { status: TalonAgentTask["status"] }) {
         fontFamily: font.mono,
         fontSize: typeScale.eyebrow,
         color,
-        letterSpacing: "0.06em",
+        letterSpacing: tracking.telemetry,
         textTransform: "uppercase",
         whiteSpace: "nowrap",
       }}
@@ -520,8 +518,8 @@ function InputBadge({ label }: { label: string }) {
         color: T.textSecondary,
         border: `1px solid ${border.soft}`,
         background: surface.control,
-        borderRadius: radius.xs,
-        padding: `${space.xxs}px ${space.xs}px`,
+        borderRadius: radius.dense,
+        padding: `${space.xs}px ${space.xs}px`,
         whiteSpace: "nowrap",
       }}
     >
@@ -538,14 +536,14 @@ function WorkforceMetric({ label, value, color }: { label: string; value: number
         minWidth: 0,
         border: `1px solid ${border.soft}`,
         background: surface.inset,
-        borderRadius: radius.md,
-        padding: `${space.sm}px ${space.md}px`,
+        borderRadius: radius.control,
+        padding: `${space.sm}px ${space.sm}px`,
       }}
     >
       <div style={{ fontFamily: font.mono, fontSize: typeScale.title, fontWeight: typeWeight.heavy, color, lineHeight: 1 }}>
         {value}
       </div>
-      <div style={{ marginTop: space.xs, fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+      <div style={{ marginTop: space.xs, fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: tracking.telemetry, textTransform: "uppercase" }}>
         {label}
       </div>
     </div>
@@ -564,7 +562,7 @@ function AgentThroughputStrip({ tasks }: { tasks: TalonAgentTask[] }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: space.sm }}>
-      <div style={{ display: "flex", height: space.md, borderRadius: radius.pill, overflow: "hidden", background: border.soft }}>
+      <div style={{ display: "flex", height: space.sm, borderRadius: radius.pill, overflow: "hidden", background: border.soft }}>
         {states.map(({ status }) => {
           const count = tasks.filter((task) => task.status === status).length;
           if (count === 0) return null;
@@ -576,7 +574,7 @@ function AgentThroughputStrip({ tasks }: { tasks: TalonAgentTask[] }) {
                 minWidth: space.xs,
                 background: getAgentStatusColor(status),
               }}
-              aria-label={`${count} ${status} agents`}
+              aria-hidden="true"
             />
           );
         })}
@@ -603,7 +601,7 @@ function SourceFreshnessTracker({ sources }: { sources: EvidenceSource[] }) {
       {sources.slice(0, 4).map((source) => {
         const color = getStatusColor(source.status);
         return (
-          <div key={source.id} style={{ border: `1px solid ${border.soft}`, background: surface.control, borderRadius: radius.md, padding: `${space.sm}px ${space.md}px`, minWidth: 0 }}>
+          <div key={source.id} style={{ border: `1px solid ${border.soft}`, background: surface.control, borderRadius: radius.control, padding: `${space.sm}px ${space.sm}px`, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: space.sm }}>
               <span style={{ fontFamily: font.sans, fontSize: typeScale.caption, color: T.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {source.label}
@@ -652,18 +650,18 @@ function MiniDeltaChart({ toneColor, label, values }: { toneColor: string; label
   }).join(" ");
 
   return (
-    <div style={{ border: `1px solid ${border.soft}`, background: surface.control, borderRadius: radius.md, padding: space.md }}>
+    <div style={{ border: `1px solid ${border.soft}`, background: surface.control, borderRadius: radius.control, padding: space.sm }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: space.sm, marginBottom: space.sm }}>
-        <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+        <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: tracking.telemetry, textTransform: "uppercase" }}>
           {label}
         </span>
         <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: toneColor }}>
           {values[values.length - 1]}
         </span>
       </div>
-      <svg viewBox="0 0 100 48" width="100%" height={space["6xl"] + space["3xl"]} aria-hidden="true">
-        <polyline points={points} fill="none" stroke={toneColor} strokeWidth={space.xxs} strokeLinecap="round" strokeLinejoin="round" />
-        <line x1={space.none} y1={44} x2={100} y2={44} stroke={border.soft} strokeWidth={space.xxs} />
+      <svg viewBox="0 0 100 48" width="100%" height={space["3xl"] + space.lg} aria-hidden="true">
+        <polyline points={points} fill="none" stroke={toneColor} strokeWidth={space.xs} strokeLinecap="round" strokeLinejoin="round" />
+        <line x1={space.none} y1={44} x2={100} y2={44} stroke={border.soft} strokeWidth={space.xs} />
       </svg>
     </div>
   );
@@ -682,16 +680,16 @@ function HumanGateChecklist({ tasks }: { tasks: TalonAgentTask[] }) {
   ];
 
   return (
-    <div style={{ border: `1px solid ${tone.caution.border}`, background: tone.caution.fill, borderRadius: radius.lg, padding: `${space.md}px ${space.lg}px`, display: "flex", flexDirection: "column", gap: space.sm }}>
+    <div style={{ border: `1px solid ${tone.caution.border}`, background: tone.caution.fill, borderRadius: radius.tile, padding: `${space.sm}px ${space.md}px`, display: "flex", flexDirection: "column", gap: space.sm }}>
       <div style={{ display: "flex", alignItems: "center", gap: space.sm }}>
-        <LockKeyhole size={space["3xl"]} color={T.amber} strokeWidth={space.xxs} />
-        <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.amber, letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: typeWeight.bold }}>
+        <LockKeyhole size={space.lg} color={T.amber} strokeWidth={space.xs} />
+        <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.amber, letterSpacing: tracking.telemetry, textTransform: "uppercase", fontWeight: typeWeight.bold }}>
           Human Gate Dependency
         </span>
       </div>
       {items.map((item) => (
         <div key={item.label} style={{ display: "flex", alignItems: "center", gap: space.sm, fontFamily: font.sans, fontSize: typeScale.caption, color: item.complete ? T.textSecondary : T.amber }}>
-          {item.complete ? <CheckCircle2 size={space.xl} color={T.teal} strokeWidth={space.xxs} /> : <AlertTriangle size={space.xl} color={T.amber} strokeWidth={space.xxs} />}
+          {item.complete ? <CheckCircle2 size={space.md} color={T.teal} strokeWidth={space.xs} /> : <AlertTriangle size={space.md} color={T.amber} strokeWidth={space.xs} />}
           <span>{item.label}</span>
         </div>
       ))}
@@ -705,7 +703,7 @@ function WorkforceSummary({ tasks }: { tasks: TalonAgentTask[] }) {
   const complete = tasks.filter((task) => task.status === "complete").length;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: space.md }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: space.sm }}>
       <div style={{ display: "flex", alignItems: "center", gap: space.sm }}>
         <WorkforceMetric label="active agents" value={active} color={T.cyan} />
         <WorkforceMetric label="gated tasks" value={blocked} color={blocked > 0 ? T.amber : T.teal} />
@@ -719,15 +717,15 @@ function WorkforceSummary({ tasks }: { tasks: TalonAgentTask[] }) {
 function OrchestratorCard({ task }: { task: TalonAgentTask }) {
   const color = getAgentStatusColor(task.status);
   return (
-    <div style={{ border: `1px solid ${getCategoryMeta(task.category).border}`, background: getCategoryMeta(task.category).fill, borderRadius: radius.lg, padding: `${space.md}px ${space.lg}px`, boxShadow: shadow.quiet }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: space.md }}>
+    <div style={{ border: `1px solid ${getCategoryMeta(task.category).border}`, background: getCategoryMeta(task.category).fill, borderRadius: radius.tile, padding: `${space.sm}px ${space.md}px` }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: space.sm }}>
         <div style={{ display: "flex", alignItems: "center", gap: space.sm, minWidth: 0 }}>
-          <Workflow size={space["3xl"]} color={color} strokeWidth={space.xxs} />
+          <Workflow size={space.lg} color={color} strokeWidth={space.xs} />
           <div style={{ minWidth: 0 }}>
             <div style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textPrimary, fontWeight: typeWeight.bold, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {task.agentName}
             </div>
-            <div style={{ marginTop: space.xxs, fontFamily: font.sans, fontSize: typeScale.caption, color: T.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div style={{ marginTop: space.xs, fontFamily: font.sans, fontSize: typeScale.caption, color: T.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {task.currentTask}
             </div>
           </div>
@@ -735,7 +733,7 @@ function OrchestratorCard({ task }: { task: TalonAgentTask }) {
         <StatusBadge status={task.status} />
       </div>
       {task.blocker && (
-        <div style={{ marginTop: space.sm, fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.amber, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+        <div style={{ marginTop: space.sm, fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.amber, letterSpacing: tracking.telemetry, textTransform: "uppercase" }}>
           {task.blocker}
         </div>
       )}
@@ -752,12 +750,12 @@ function AgenticFlowVisualization({ tasks }: { tasks: TalonAgentTask[] }) {
   ];
 
   return (
-    <div style={{ border: `1px solid ${border.default}`, background: surface.inset, borderRadius: radius.lg, padding: `${space.md}px ${space.lg}px`, display: "flex", flexDirection: "column", gap: space.sm }}>
+    <div style={{ border: `1px solid ${border.default}`, background: surface.inset, borderRadius: radius.tile, padding: `${space.sm}px ${space.md}px`, display: "flex", flexDirection: "column", gap: space.sm }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: space.sm }}>
-        <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+        <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: tracking.telemetry, textTransform: "uppercase" }}>
           Parallel Agent Flow
         </span>
-        <Activity size={space["3xl"]} color={T.cyan} strokeWidth={space.xxs} />
+        <Activity size={space.lg} color={T.cyan} strokeWidth={space.xs} />
       </div>
       {lanes.map((lane) => {
         const laneTasks = tasks.filter((task) => lane.categories.includes(task.category));
@@ -768,8 +766,8 @@ function AgenticFlowVisualization({ tasks }: { tasks: TalonAgentTask[] }) {
             <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, textTransform: "uppercase" }}>
               {lane.label}
             </span>
-            <div style={{ position: "relative", display: "flex", alignItems: "center", gap: space.xs, paddingLeft: space.lg, minWidth: 0 }}>
-              <div style={{ position: "absolute", left: space.none, top: "50%", width: space.lg, height: space.xxs, background: border.strong, overflow: "hidden" }}>
+            <div style={{ position: "relative", display: "flex", alignItems: "center", gap: space.xs, paddingLeft: space.md, minWidth: 0 }}>
+              <div style={{ position: "absolute", left: space.none, top: "50%", width: space.md, height: space.xs, background: border.strong, overflow: "hidden" }}>
                 {laneTasks.some((task) => task.status === "running") && (
                   <span style={{ display: "block", width: "100%", height: "100%", background: T.cyan, animation: "workforceConnector 1.4s ease-in-out infinite" }} />
                 )}
@@ -780,7 +778,7 @@ function AgenticFlowVisualization({ tasks }: { tasks: TalonAgentTask[] }) {
                 </span>
               ))}
             </div>
-            <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: blockedCount > 0 ? T.amber : activeCount > 0 ? T.cyan : T.textMuted, letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap" }}>
+            <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: blockedCount > 0 ? T.amber : activeCount > 0 ? T.cyan : T.textMuted, letterSpacing: tracking.telemetry, textTransform: "uppercase", whiteSpace: "nowrap" }}>
               {activeCount} run / {blockedCount} gate
             </span>
           </div>
@@ -805,12 +803,12 @@ function ToolCallRow({ task }: { task: TalonAgentTask }) {
                 </span>
               </div>
               {(call.input || call.output) && (
-                <div style={{ marginTop: space.xxs, fontFamily: font.sans, fontSize: typeScale.eyebrow, color: T.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div style={{ marginTop: space.xs, fontFamily: font.sans, fontSize: typeScale.eyebrow, color: T.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {call.output ?? call.input}
                 </div>
               )}
             </div>
-            <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+            <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color, letterSpacing: tracking.telemetry, textTransform: "uppercase" }}>
               {getAgentStatusLabel(call.status)}
             </span>
           </div>
@@ -826,7 +824,7 @@ function AgentWorkforceCard({ task }: { task: TalonAgentTask }) {
   const hasDetails = task.toolCalls.length > 0 || task.dependencies.length > 0 || Boolean(task.description);
 
   return (
-    <div style={{ border: `1px solid ${border.soft}`, background: surface.inset, borderRadius: radius.md, overflow: "hidden" }}>
+    <div style={{ border: `1px solid ${border.soft}`, background: surface.inset, borderRadius: radius.control, overflow: "hidden" }}>
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
@@ -836,8 +834,8 @@ function AgentWorkforceCard({ task }: { task: TalonAgentTask }) {
           display: "grid",
           gridTemplateColumns: "1fr auto",
           alignItems: "start",
-          gap: space.md,
-          padding: `${space.md}px ${space.lg}px`,
+          gap: space.sm,
+          padding: `${space.sm}px ${space.md}px`,
           border: "none",
           background: "transparent",
           color: T.textPrimary,
@@ -868,8 +866,8 @@ function AgentWorkforceCard({ task }: { task: TalonAgentTask }) {
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: space.sm }}>
           <div style={{ display: "flex", alignItems: "center", gap: space.xs }}>
             {task.requiresHumanGate && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: space.xxs, fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.amber, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                <LockKeyhole size={space.lg} color={T.amber} strokeWidth={space.xxs} />
+              <span style={{ display: "inline-flex", alignItems: "center", gap: space.xs, fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.amber, letterSpacing: tracking.telemetry, textTransform: "uppercase" }}>
+                <LockKeyhole size={space.md} color={T.amber} strokeWidth={space.xs} />
                 Gate
               </span>
             )}
@@ -882,16 +880,16 @@ function AgentWorkforceCard({ task }: { task: TalonAgentTask }) {
           )}
           {hasDetails && (
             expanded ? (
-              <ChevronDown size={space["3xl"]} color={T.textMuted} strokeWidth={space.xxs} />
+              <ChevronDown size={space.lg} color={T.textMuted} strokeWidth={space.xs} />
             ) : (
-              <ChevronRight size={space["3xl"]} color={T.textMuted} strokeWidth={space.xxs} />
+              <ChevronRight size={space.lg} color={T.textMuted} strokeWidth={space.xs} />
             )
           )}
         </div>
       </button>
 
       {expanded && (
-        <div style={{ borderTop: `1px solid ${border.soft}`, padding: `${space.sm}px ${space.lg}px ${space.md}px`, display: "flex", flexDirection: "column", gap: space.sm, animation: "slideInUp 140ms ease" }}>
+        <div style={{ borderTop: `1px solid ${border.soft}`, padding: `${space.sm}px ${space.md}px ${space.sm}px`, display: "flex", flexDirection: "column", gap: space.sm, animation: "slideInUp 140ms ease" }}>
           <ToolCallRow task={task} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: space.sm }}>
             <div style={{ fontFamily: font.sans, fontSize: typeScale.caption, color: T.textMuted, lineHeight: 1.4 }}>
@@ -904,8 +902,8 @@ function AgentWorkforceCard({ task }: { task: TalonAgentTask }) {
             </div>
           </div>
           {task.auditId && (
-            <div style={{ display: "inline-flex", alignItems: "center", gap: space.xs, fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.teal, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-              <ShieldCheck size={space.xl} color={T.teal} strokeWidth={space.xxs} />
+            <div style={{ display: "inline-flex", alignItems: "center", gap: space.xs, fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.teal, letterSpacing: tracking.telemetry, textTransform: "uppercase" }}>
+              <ShieldCheck size={space.md} color={T.teal} strokeWidth={space.xs} />
               Audit {task.auditId}
             </div>
           )}
@@ -929,7 +927,7 @@ function getDeltaChartValues(scene: SceneId): { thermal: number[]; structures: n
 function WorkforceDataModules({ evidenceSources, agentTasks, scene }: { evidenceSources: EvidenceSource[]; agentTasks: TalonAgentTask[]; scene: SceneId }) {
   const deltaValues = getDeltaChartValues(scene);
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: space.md }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: space.sm }}>
       <SourceFreshnessTracker sources={evidenceSources} />
       <ConfidenceContributionBars sources={evidenceSources} />
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: space.sm }}>
@@ -959,8 +957,8 @@ function TalonWorkforceView({
       <div
         role="note"
         style={{
-          padding: `${space.md}px ${space.lg}px`,
-          borderRadius: radius.md,
+          padding: `${space.sm}px ${space.md}px`,
+          borderRadius: radius.control,
           border: `1px solid ${tint(T.cyan, 0.24)}`,
           background: tint(T.cyan, 0.06),
           color: T.textSecondary,
@@ -974,7 +972,7 @@ function TalonWorkforceView({
       <AgentThroughputStrip tasks={agentTasks} />
       {orchestrator && <OrchestratorCard task={orchestrator} />}
       <AgenticFlowVisualization tasks={workforceTasks} />
-      <div style={{ display: "flex", flexDirection: "column", gap: space.md }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: space.sm }}>
         {orderedCategories.map((category) => {
           const categoryTasks = workforceTasks.filter((task) => task.category === category);
           if (categoryTasks.length === 0) return null;
@@ -982,10 +980,10 @@ function TalonWorkforceView({
           return (
             <section key={category} style={{ display: "flex", flexDirection: "column", gap: space.sm }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: space.sm }}>
-                <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: meta.color, letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: typeWeight.bold }}>
+                <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: meta.color, letterSpacing: tracking.telemetry, textTransform: "uppercase", fontWeight: typeWeight.bold }}>
                   {meta.label}
                 </span>
-                <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: tracking.telemetry, textTransform: "uppercase" }}>
                   {categoryTasks.length} agents
                 </span>
               </div>
@@ -1012,8 +1010,8 @@ function TalonRecommendation({ state }: { state: ShellState }) {
   return (
     <div
       style={{
-        padding: `${space.lg}px ${space.xl}px`,
-        borderRadius: radius.lg,
+        padding: `${space.md}px ${space.md}px`,
+        borderRadius: radius.tile,
         background: tint(rec.tone, 0.04),
         border: `1px solid ${tint(rec.tone, 0.16)}`,
       }}
@@ -1025,7 +1023,6 @@ function TalonRecommendation({ state }: { state: ShellState }) {
             height: space.xs,
             borderRadius: radius.pill,
             background: rec.tone,
-            animation: "pulse 1.8s infinite",
           }}
           aria-hidden="true"
         />
@@ -1034,9 +1031,9 @@ function TalonRecommendation({ state }: { state: ShellState }) {
             fontFamily: font.mono,
             fontSize: typeScale.eyebrow,
             color: rec.tone,
-            letterSpacing: "0.1em",
+            letterSpacing: tracking.eyebrow,
             textTransform: "uppercase",
-            fontWeight: 700,
+            fontWeight: typeWeight.bold,
           }}
         >
           TALON Recommendation
@@ -1055,11 +1052,11 @@ function TalonRecommendation({ state }: { state: ShellState }) {
       </p>
       <div
         style={{
-          marginTop: space.md,
+          marginTop: space.sm,
           fontFamily: font.mono,
           fontSize: typeScale.metadata,
           color: rec.tone,
-          letterSpacing: "0.06em",
+          letterSpacing: tracking.telemetry,
           textTransform: "uppercase",
         }}
       >
@@ -1068,8 +1065,8 @@ function TalonRecommendation({ state }: { state: ShellState }) {
       {interaction.exception ? (
         <div
           style={{
-            marginTop: space.md,
-            paddingTop: space.md,
+            marginTop: space.sm,
+            paddingTop: space.sm,
             borderTop: `1px solid ${tint(interaction.exception.severity === "critical" ? T.red : T.amber, 0.18)}`,
             fontFamily: font.sans,
             fontSize: typeScale.caption,
@@ -1099,25 +1096,25 @@ function CopilotDataSnapshot({
   return (
     <div
       style={{
-        padding: `${space.lg}px ${space.xl}px`,
-        borderRadius: radius.lg,
+        padding: `${space.md}px ${space.md}px`,
+        borderRadius: radius.tile,
         background: surface.inset,
         border: `1px solid ${border.default}`,
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: space.md }}>
-        <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: space.sm }}>
+        <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: tracking.eyebrow, textTransform: "uppercase" }}>
           Evidence Snapshot
         </span>
         <span style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: blocked > 0 ? T.amber : T.teal }}>
           {complete} done / {running} running / {blocked} gated
         </span>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: space.md }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: space.sm }}>
         {sourceRows.map((source) => {
           const color = getStatusColor(source.status);
           return (
-            <div key={source.id} style={{ display: "grid", gridTemplateColumns: "78px 1fr 34px", alignItems: "center", gap: space.md }}>
+            <div key={source.id} style={{ display: "grid", gridTemplateColumns: "78px 1fr 34px", alignItems: "center", gap: space.sm }}>
               <span style={{ fontFamily: font.sans, fontSize: typeScale.caption, color: T.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {source.label}
               </span>
@@ -1151,21 +1148,21 @@ function AuthorityPacketPreview({ state }: { state: ShellState }) {
   return (
     <div
       style={{
-        padding: `${space.lg}px ${space.xl}px`,
-        borderRadius: radius.lg,
+        padding: `${space.md}px ${space.md}px`,
+        borderRadius: radius.tile,
         background: tint(tone, 0.05),
         border: `1px solid ${tint(tone, 0.18)}`,
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", gap: space.md, marginBottom: space.md }}>
-        <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: tone, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 700 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: space.sm, marginBottom: space.sm }}>
+        <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: tone, letterSpacing: tracking.eyebrow, textTransform: "uppercase", fontWeight: typeWeight.bold }}>
           Authority Packet
         </span>
         <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted }}>
           {packet.id}
         </span>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: space.md, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: space.sm, alignItems: "start" }}>
         <div>
           <div style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textPrimary, fontWeight: typeWeight.bold, marginBottom: space.xs }}>
             {packet.escalationLevel}
@@ -1190,12 +1187,12 @@ function AuthorityPacketPreview({ state }: { state: ShellState }) {
               {packet.confidence}%
             </text>
           </svg>
-          <div style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          <div style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, textTransform: "uppercase", letterSpacing: tracking.telemetry }}>
             conf.
           </div>
         </div>
       </div>
-      <div style={{ marginTop: space.lg, display: "flex", flexDirection: "column", gap: space.xs }}>
+      <div style={{ marginTop: space.md, display: "flex", flexDirection: "column", gap: space.xs }}>
         {packet.missingData.slice(0, 2).map((item) => (
           <div key={item} style={{ fontFamily: font.sans, fontSize: typeScale.caption, color: T.textMuted }}>
             Missing: {item}
@@ -1212,16 +1209,16 @@ function AuthorityPacketPreview({ state }: { state: ShellState }) {
       {dissentNote && (
         <div
           style={{
-            marginTop: space.md,
-            padding: `${space.sm}px ${space.md}px`,
+            marginTop: space.sm,
+            padding: `${space.sm}px ${space.sm}px`,
             background: tint(T.amber, 0.07),
             border: `1px solid ${tint(T.amber, 0.22)}`,
-            borderRadius: radius.md,
+            borderRadius: radius.control,
             display: "grid",
             gap: 3,
           }}
         >
-          <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, letterSpacing: "0.08em", textTransform: "uppercase", color: T.amber }}>
+          <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, letterSpacing: tracking.telemetry, textTransform: "uppercase", color: T.amber }}>
             TALON dissent attached
           </span>
           <span style={{ fontFamily: font.sans, fontSize: typeScale.caption, color: T.textSecondary, lineHeight: 1.5 }}>
@@ -1230,7 +1227,7 @@ function AuthorityPacketPreview({ state }: { state: ShellState }) {
         </div>
       )}
 
-      <div style={{ marginTop: space.md, fontFamily: font.mono, fontSize: typeScale.eyebrow, color: tone, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+      <div style={{ marginTop: space.sm, fontFamily: font.mono, fontSize: typeScale.eyebrow, color: tone, letterSpacing: tracking.telemetry, textTransform: "uppercase" }}>
         {packet.humanGate}
       </div>
     </div>
@@ -1248,8 +1245,8 @@ function ChipResponsePanel({ state }: { state: ShellState }) {
   return (
     <div
       style={{
-        padding: `${space.lg}px ${space.xl}px`,
-        borderRadius: radius.lg,
+        padding: `${space.md}px ${space.md}px`,
+        borderRadius: radius.tile,
         background: tint(tone, 0.05),
         border: `1px solid ${tint(tone, 0.2)}`,
         animation: "slideInUp 150ms ease",
@@ -1262,7 +1259,7 @@ function ChipResponsePanel({ state }: { state: ShellState }) {
           fontFamily: font.mono,
           fontSize: typeScale.eyebrow,
           color: tone,
-          letterSpacing: "0.1em",
+          letterSpacing: tracking.eyebrow,
           textTransform: "uppercase",
           marginBottom: space.sm,
         }}
@@ -1273,7 +1270,7 @@ function ChipResponsePanel({ state }: { state: ShellState }) {
         style={{
           fontFamily: font.sans,
           fontSize: typeScale.label,
-          fontWeight: 600,
+          fontWeight: typeWeight.semibold,
           color: T.textPrimary,
           marginBottom: space.xs,
           lineHeight: 1.3,
@@ -1328,11 +1325,10 @@ function IntelligenceBrief({
     <div
       style={{
         overflow: "visible",
-        padding: space.lg,
+        padding: space.md,
         border: `1px solid ${border.default}`,
-        borderRadius: radius.lg,
+        borderRadius: radius.tile,
         background: surface.inset,
-        boxShadow: shadow.quiet,
       }}
       role="region"
       aria-label="TALON intelligence brief"
@@ -1340,12 +1336,12 @@ function IntelligenceBrief({
       {/* ── Section 1: Assessment ── */}
       <div
         style={{
-          padding: `${space.md}px 0 ${space.lg}px`,
+          padding: `${space.sm}px 0 ${space.md}px`,
           position: "relative",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: space.sm, marginBottom: space.sm }}>
-          <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+          <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: tracking.telemetry, textTransform: "uppercase" }}>
             TALON decision brief
           </span>
           <span
@@ -1394,10 +1390,10 @@ function IntelligenceBrief({
       {/* ── Section 2: Evidence State ── */}
       <div
         style={{
-          padding: `${space.lg}px 0`,
+          padding: `${space.md}px 0`,
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: space.md }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: space.sm }}>
           <span style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.semibold, color: T.textSecondary }}>
             Source freshness
           </span>
@@ -1418,10 +1414,10 @@ function IntelligenceBrief({
       {/* ── Section 3: Agent Relay ── */}
       <div
         style={{
-          padding: `${space.lg}px 0`,
+          padding: `${space.md}px 0`,
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: space.md }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: space.sm }}>
           <span style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.semibold, color: T.textSecondary }}>
             Agent relay
           </span>
@@ -1438,7 +1434,7 @@ function IntelligenceBrief({
       {showDecisionGate && (
         <div
           style={{
-            padding: `${space.lg}px 0 0`,
+            padding: `${space.md}px 0 0`,
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: space.xs }}>
@@ -1457,7 +1453,7 @@ function IntelligenceBrief({
             </span>
           </div>
 
-          <div style={{ display: "flex", alignItems: "baseline", gap: space.md, marginBottom: space.xs }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: space.sm, marginBottom: space.xs }}>
             <span style={{ fontFamily: font.mono, fontSize: typeScale.subhead, fontWeight: typeWeight.heavy, color: packetTone, lineHeight: 1 }}>
               {packet.confidence}%
             </span>
@@ -1480,7 +1476,7 @@ function IntelligenceBrief({
           {/* CTA nudge: when packet is ready, point the operator to the action */}
           {packet.status === "ready" && (
             <div style={{
-              marginTop: space.md,
+              marginTop: space.sm,
               display: "flex",
               alignItems: "center",
               gap: space.xs,
@@ -1498,10 +1494,60 @@ function IntelligenceBrief({
   );
 }
 
+// ─── Progressive rail sections (single navigation layer — no nested tabs) ─────
+
+function RailSection({
+  title,
+  summary,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  summary?: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <section style={{ borderTop: `1px solid ${border.soft}`, paddingTop: space.md }}>
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        style={{
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: space.sm,
+          padding: 0,
+          border: "none",
+          background: "transparent",
+          cursor: "pointer",
+          textAlign: "left",
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.semibold, color: T.textMuted }}>
+            {title}
+          </div>
+          {summary ? (
+            <div style={{ fontFamily: font.sans, fontSize: typeScale.caption, color: T.textMuted, marginTop: space.xs }}>
+              {summary}
+            </div>
+          ) : null}
+        </div>
+        {open ? <ChevronDown size={14} color={T.textMuted} aria-hidden /> : <ChevronRight size={14} color={T.textMuted} aria-hidden />}
+      </button>
+      {open ? <div style={{ marginTop: space.md, display: "flex", flexDirection: "column", gap: space.md }}>{children}</div> : null}
+    </section>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function TalonCopilotPanel({ state }: TalonCopilotPanelProps) {
-  const [activeTab, setActiveTab] = useState<"copilot" | "evidence" | "workforce">("copilot");
   const { chromeless } = useContext(RailChromeContext);
   const interaction = getTalonInteractionModel(state);
   const evidenceSources = getEvidenceSources(state.scene);
@@ -1511,21 +1557,8 @@ export function TalonCopilotPanel({ state }: TalonCopilotPanelProps) {
   const runningAgents = agentTasks.filter((t) => t.status === "running").length;
   const blockedAgents = agentTasks.filter((t) => t.status === "blocked").length;
   const humanGatedTasks = agentTasks.filter((t) => t.requiresHumanGate || t.status === "blocked").length;
-  const tabs = ["copilot", "evidence", "workforce"] as const;
-
-  const handleTabKeyDown = (
-    event: KeyboardEvent<HTMLButtonElement>,
-    tab: (typeof tabs)[number],
-  ) => {
-    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-    event.preventDefault();
-    const currentIndex = tabs.indexOf(tab);
-    const delta = event.key === "ArrowRight" ? 1 : -1;
-    const nextTab = tabs[(currentIndex + delta + tabs.length) % tabs.length];
-    setActiveTab(nextTab);
-    const tabButtons = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]');
-    tabButtons?.[tabs.indexOf(nextTab)]?.focus();
-  };
+  const evidenceSummary = `${evidenceSources.filter((s) => s.status === "active").length} active · ${pendingSources.length} aligning`;
+  const workforceSummary = `${runningAgents} active${blockedAgents ? ` · ${blockedAgents} gated` : ""}`;
 
   return (
     <div
@@ -1537,44 +1570,23 @@ export function TalonCopilotPanel({ state }: TalonCopilotPanelProps) {
       role="region"
       aria-label="TALON copilot panel"
     >
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
-            @keyframes spin { to { transform: rotate(360deg); } }
-            @keyframes workforcePulse { 0%, 100% { transform: scale(1); opacity: .72; } 50% { transform: scale(1.22); opacity: 1; } }
-            @keyframes workforceConnector { 0% { transform: translateX(-100%); opacity: .2; } 50% { opacity: 1; } 100% { transform: translateX(100%); opacity: .2; } }
-          `,
-        }}
-      />
-      {/* Header */}
       <div
         style={{
-          padding: chromeless ? `${space.md}px ${space["2xl"]}px 0` : `${space.xl}px ${space["2xl"]}px 0`,
+          padding: chromeless ? `${space.sm}px ${space.lg}px 0` : `${space.md}px ${space.lg}px 0`,
           flexShrink: 0,
         }}
       >
-        {!chromeless && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: space.lg }}>
-            <div style={{ display: "flex", alignItems: "center", gap: space.sm, minWidth: 0 }}>
-              <span
-                style={{
-                  fontFamily: font.sans,
-                  fontSize: typeScale.body,
-                  fontWeight: typeWeight.bold,
-                  color: T.teal,
-                  whiteSpace: "nowrap",
-                }}
-              >
-                TALON decision support
-              </span>
-            </div>
-
+        {!chromeless ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: space.md }}>
+            <span style={{ fontFamily: font.sans, fontSize: typeScale.body, fontWeight: typeWeight.bold, color: T.teal, whiteSpace: "nowrap" }}>
+              TALON decision support
+            </span>
             <div style={{ display: "flex", alignItems: "center", gap: space.sm }}>
               <div style={{ textAlign: "right" }}>
                 <div style={{ fontFamily: font.mono, fontSize: typeScale.title, fontWeight: typeWeight.heavy, color: T.cyan, lineHeight: 1 }}>
                   {runningAgents}
                 </div>
-                <div style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                <div style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: T.textMuted, letterSpacing: tracking.telemetry, textTransform: "uppercase" }}>
                   Active
                 </div>
               </div>
@@ -1582,139 +1594,61 @@ export function TalonCopilotPanel({ state }: TalonCopilotPanelProps) {
                 <div style={{ fontFamily: font.mono, fontSize: typeScale.title, fontWeight: typeWeight.heavy, color: humanGatedTasks > 0 ? T.amber : T.teal, lineHeight: 1 }}>
                   {humanGatedTasks}
                 </div>
-                <div style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                <div style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: T.textMuted, letterSpacing: tracking.telemetry, textTransform: "uppercase" }}>
                   Gated
                 </div>
               </div>
             </div>
           </div>
-        )}
-
-        {/* Tab bar */}
-        <div
-          style={{
-            display: "flex",
-            gap: space.xxs,
-            padding: space.xs,
-            background: surface.control,
-            borderRadius: radius.lg,
-          }}
-          role="tablist"
-          aria-label="TALON copilot tabs"
-        >
-          {tabs.map((tab) => {
-            const isActive = activeTab === tab;
-            const labels: Record<string, string> = {
-              copilot: "Brief",
-              evidence: "Evidence",
-              workforce: `Workforce${runningAgents > 0 || blockedAgents > 0 ? ` (${runningAgents} active${blockedAgents ? `, ${blockedAgents} gated` : ""})` : ""}`,
-            };
-            return (
-              <button
-                key={tab}
-                type="button"
-                role="tab"
-                id={`talon-tab-${tab}`}
-                aria-controls={`talon-panel-${tab}`}
-                aria-selected={isActive}
-                aria-label={labels[tab]}
-                onClick={() => setActiveTab(tab)}
-                onKeyDown={(event) => handleTabKeyDown(event, tab)}
-                tabIndex={isActive ? 0 : -1}
-                style={{
-                  flex: 1,
-                  padding: `${space.sm}px ${space.xs}px`,
-                  borderRadius: radius.md,
-                  border: "none",
-                  background: isActive ? surface.controlActive : "transparent",
-                  color: isActive ? T.textPrimary : T.textMuted,
-                  fontFamily: font.sans,
-                  fontSize: typeScale.caption,
-                  fontWeight: typeWeight.semibold,
-                  cursor: "pointer",
-                  transition: "background 120ms ease, color 120ms ease",
-                  position: "relative",
-                }}
-              >
-                {labels[tab]}
-              </button>
-            );
-          })}
-        </div>
+        ) : null}
       </div>
 
-      {/* Content — flows with the rail's single scroll (no per-panel scroll) */}
       <div
         style={{
           overflowY: "visible",
-          padding: `${space.lg}px ${space["2xl"]}px ${space["2xl"]}px`,
+          padding: `${space.md}px ${space.lg}px ${space.lg}px`,
           display: "flex",
           flexDirection: "column",
-          gap: space.lg,
+          gap: space.md,
         }}
-        role="tabpanel"
-        id={`talon-panel-${activeTab}`}
-        aria-labelledby={`talon-tab-${activeTab}`}
-        aria-label={`TALON ${activeTab} content`}
       >
-        {/* ── Copilot Tab ── */}
-        {activeTab === "copilot" && (
-          <>
-            {/* Voice / chip response — shown when TALON has responded */}
-            {state.talonConversation.response && (
-              <ChipResponsePanel state={state} />
-            )}
+        {state.talonConversation.response ? <ChipResponsePanel state={state} /> : null}
+        <IntelligenceBrief state={state} evidenceSources={evidenceSources} agentTasks={agentTasks} />
 
-            {/* Connected intelligence brief — one card, three linked sections with visual spine */}
-            <IntelligenceBrief state={state} evidenceSources={evidenceSources} agentTasks={agentTasks} />
-          </>
-        )}
-
-        {/* ── Evidence Tab ── */}
-        {activeTab === "evidence" && (
-          <>
-            <div style={{
-              display: "flex", alignItems: "center", gap: space.sm,
-              fontFamily: font.sans, fontSize: typeScale.caption,
-              color: T.textSecondary, lineHeight: 1.5,
-            }}>
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
-                <path d="M2 3.5L5 6.5L8 3.5" stroke={T.cyan} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              Sources contributing to confidence. Expand any row for details.
-            </div>
-            
-            <HighFidelityTelemetryChart scene={state.scene} />
-
-             {/* Pending / Aligning shimmers */}
-            {pendingSources.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: space.sm, marginBottom: space.xs }}>
-                <div style={{ display: "flex", alignItems: "center", gap: space.sm }}>
-                  <ScanningRing />
-                  <span style={{ fontFamily: font.sans, fontSize: typeScale.caption, color: T.cyan, fontWeight: 600 }}>
-                    Resolving telemetry feeds...
-                  </span>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: space.sm }}>
-                  {pendingSources.map((s) => (
-                    <TelemetryShimmerCard key={s.id} label={s.label} />
-                  ))}
-                </div>
+        <RailSection title="Evidence" summary={evidenceSummary} defaultOpen={state.mode === "verify"}>
+          <div style={{
+            display: "flex", alignItems: "center", gap: space.sm,
+            fontFamily: font.sans, fontSize: typeScale.caption,
+            color: T.textSecondary, lineHeight: 1.5,
+          }}>
+            Sources contributing to confidence. Expand any row for details.
+          </div>
+          <HighFidelityTelemetryChart scene={state.scene} />
+          {pendingSources.length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: space.sm }}>
+              <div style={{ display: "flex", alignItems: "center", gap: space.sm }}>
+                <ScanningRing />
+                <span style={{ fontFamily: font.sans, fontSize: typeScale.caption, color: T.cyan, fontWeight: typeWeight.semibold }}>
+                  Resolving telemetry feeds…
+                </span>
               </div>
-            )}
-
-            <div style={{ display: "flex", flexDirection: "column", gap: space.xs }}>
-              {evidenceSources.filter((s) => s.status !== "pending").map((source) => (
-                <EvidenceChip key={source.id} source={source} />
-              ))}
+              <div style={{ display: "flex", flexDirection: "column", gap: space.sm }}>
+                {pendingSources.map((s) => (
+                  <TelemetryShimmerCard key={s.id} label={s.label} />
+                ))}
+              </div>
             </div>
-          </>
-        )}
+          ) : null}
+          <div style={{ display: "flex", flexDirection: "column", gap: space.xs }}>
+            {evidenceSources.filter((s) => s.status !== "pending").map((source) => (
+              <EvidenceChip key={source.id} source={source} />
+            ))}
+          </div>
+        </RailSection>
 
-        {/* ── Workforce Tab ── */}
-        {activeTab === "workforce" && (
+        <RailSection title="Workforce" summary={workforceSummary} defaultOpen={humanGatedTasks > 0}>
           <TalonWorkforceView evidenceSources={evidenceSources} agentTasks={agentTasks} scene={state.scene} />
-        )}
+        </RailSection>
       </div>
     </div>
   );

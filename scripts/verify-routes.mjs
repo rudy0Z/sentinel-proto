@@ -1,13 +1,14 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
 
 const require = createRequire(import.meta.url);
 const axePath = require.resolve("axe-core/axe.min.js");
+const projectRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const baseUrl = process.env.SENTINEL_VERIFY_URL ?? "http://127.0.0.1:4190/embed/sentinel/";
-const outputDir = process.env.SENTINEL_VERIFY_OUTPUT ?? join(tmpdir(), "sentinel-route-matrix");
+const outputDir = process.env.SENTINEL_VERIFY_OUTPUT ?? join(projectRoot, "verification-artifacts", "routes");
 const headquartersViewport = { width: 1920, height: 1080 };
 const executableCandidates = [
   process.env.CHROME_PATH,

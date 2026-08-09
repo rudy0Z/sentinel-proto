@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { DISABLED_OPACITY, GLASS, GLASS_SUBTLE, GI, TILE_H, TILE_W, T, font } from "../tokens";
+import { DISABLED_OPACITY, GI, TILE_H, TILE_W, T, border, font, material, radius, surface, typeScale } from "../tokens";
 import { StatusPill } from "../components/shared/StatusPill";
 import { TinyMetric } from "../components/shared/TinyMetric";
 
@@ -154,7 +154,7 @@ export default function ComponentsPage() {
                   <DemoInput value="15" />
                 </ModalField>
                 <div style={{ background: "rgba(229,83,60,0.10)", border: `1px solid ${T.red}30`, borderRadius: 12, padding: "12px 14px", marginTop: 4 }}>
-                  <div style={{ fontFamily: font.mono, fontSize: 9, color: T.fire, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>Evacuation Summary</div>
+                  <div style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: T.fire, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>Evacuation Summary</div>
                   {["Zones: Zone C", "Route: Route 1 – North Exit", "Personnel: 15 people", "ETA to Safety: ~12 minutes"].map((l) => (
                     <div key={l} style={{ fontFamily: font.sans, fontSize: 12, color: T.textSecondary, lineHeight: 1.7 }}>• {l}</div>
                   ))}
@@ -167,7 +167,7 @@ export default function ComponentsPage() {
               <SubLabel>2. Abort Drone Mission</SubLabel>
               <InlineModal title="Abort Drone Mission" subtitle="Confirm your decision" accentColor={T.amber} confirmLabel="Confirm Abort Drone Mission" icon="⚠" narrowWidth>
                 <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "14px", marginBottom: 12 }}>
-                  <div style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>Situation Summary</div>
+                  <div style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: T.textMuted, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>Situation Summary</div>
                   <div style={{ fontFamily: font.sans, fontSize: 14, fontWeight: 600, color: T.textPrimary, marginBottom: 8 }}>Active incident is under operational watch</div>
                   <div style={{ fontFamily: font.sans, fontSize: 12, color: T.textSecondary, display: "flex", gap: 6 }}>
                     <span style={{ color: T.amber }}>⚡</span> Aborting will recall all active drones and clear the current mission state
@@ -363,21 +363,25 @@ export default function ComponentsPage() {
         </Section>
 
         {/* ════════════════════════════════════════════════════
-            9. GLASS SURFACES
+            9. MATERIALS
         ════════════════════════════════════════════════════ */}
-        <Section title="Glass Surfaces" description="Panel containers, modal overlays, and floating components all use glass tokens.">
+        <Section title="Materials" description="Three materials and one backdrop, all from material.* in tokens. A surface picks one — it never mixes its own blur, radius, or shadow.">
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-            <div style={{ ...GLASS, width: 260, padding: "20px", borderRadius: 20 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Panel Glass (GLASS)</div>
-              <div style={{ fontSize: 11, color: T.textSecondary, lineHeight: 1.5 }}>rgba(8,16,28,0.45) · blur(24px) · Used for side panels and the action bar.</div>
+            <div style={{ ...material.rail, width: 260, padding: "20px" }}>
+              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>material.rail</div>
+              <div style={{ fontSize: 11, color: T.textSecondary, lineHeight: 1.5 }}>Light 10px frost · edge light · soft drop. Left and right rails and floating map chrome.</div>
             </div>
-            <div style={{ background: "rgba(8,16,28,0.96)", backdropFilter: "blur(32px) saturate(1.4)", WebkitBackdropFilter: "blur(32px) saturate(1.4)", borderRadius: 20, border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 32px 80px rgba(0,0,0,0.65)", width: 260, padding: "20px" }}>
-              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Modal Glass</div>
-              <div style={{ fontSize: 11, color: T.textSecondary, lineHeight: 1.5 }}>rgba(8,16,28,0.96) · blur(32px) · Used for confirmation modal surfaces.</div>
+            <div style={{ ...material.overlay, width: 260, padding: "20px" }}>
+              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>material.overlay</div>
+              <div style={{ fontSize: 11, color: T.textSecondary, lineHeight: 1.5 }}>Opaque, no frost · deeper drop. Modals, TALON session, dissent and exception surfaces.</div>
             </div>
-            <div style={{ ...GLASS_SUBTLE, width: 260, padding: "20px", borderRadius: 14 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Inner Card (GLASS_SUBTLE)</div>
-              <div style={{ fontSize: 11, color: T.textSecondary, lineHeight: 1.5 }}>rgba(255,255,255,0.04) · Used for inner content cards within panels.</div>
+            <div style={{ ...material.popover, width: 260, padding: "20px" }}>
+              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>material.popover</div>
+              <div style={{ fontSize: 11, color: T.textSecondary, lineHeight: 1.5 }}>Overlay material with a quiet drop. Danger menu, review dock, timeline popovers.</div>
+            </div>
+            <div style={{ ...material.scrim, width: 260, padding: "20px", borderRadius: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>material.scrim</div>
+              <div style={{ fontSize: 11, color: T.textSecondary, lineHeight: 1.5 }}>Backdrop behind takeovers. One dim value, one frost value, no edge of its own.</div>
             </div>
           </div>
         </Section>
@@ -401,7 +405,7 @@ export default function ComponentsPage() {
               { name: "Bg Panel",      value: T.bgPanel,       usage: "Panel and card surfaces" },
               { name: "Bg Raised",     value: T.bgRaised,      usage: "Elevated / active surfaces" },
             ].map((tok) => (
-              <div key={tok.name} style={{ padding: "14px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}>
+              <div key={tok.name} style={{ padding: "14px", borderRadius: radius.panel, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}>
                 <div style={{ width: "100%", height: 32, borderRadius: 8, background: tok.value, marginBottom: 10, border: "1px solid rgba(255,255,255,0.10)" }} />
                 <div style={{ fontSize: 11, fontWeight: 600, color: T.textPrimary }}>{tok.name}</div>
                 <div style={{ fontFamily: font.mono, fontSize: 10, color: T.textMuted, marginTop: 2 }}>{tok.value}</div>
@@ -468,7 +472,7 @@ function Section({ title, description, children }: { title: string; description:
   return (
     <div style={{ marginBottom: 56 }}>
       <div style={{ marginBottom: 22, paddingBottom: 14, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700, color: T.textPrimary, margin: 0, letterSpacing: "-0.01em" }}>{title}</h2>
+        <h2 style={{ fontSize: typeScale.heading, fontWeight: 700, color: T.textPrimary, margin: 0, letterSpacing: "-0.01em" }}>{title}</h2>
         <p style={{ fontSize: 12, color: T.textSecondary, marginTop: 6, lineHeight: 1.5, maxWidth: 680 }}>{description}</p>
       </div>
       {children}
@@ -478,7 +482,7 @@ function Section({ title, description, children }: { title: string; description:
 
 function SubLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
+    <div style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: T.textMuted, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
       {children}
     </div>
   );
@@ -501,7 +505,7 @@ function ActionTile({ label, status, tone, stateNote, note }: {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center" }}>
-      {note && <div style={{ fontFamily: font.mono, fontSize: 8, color: T.textMuted, letterSpacing: "0.06em", textTransform: "uppercase" }}>{note}</div>}
+      {note && <div style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: T.textMuted, letterSpacing: "0.06em", textTransform: "uppercase" }}>{note}</div>}
       <button
         type="button"
         disabled={isDisabled || isComplete}
@@ -509,7 +513,7 @@ function ActionTile({ label, status, tone, stateNote, note }: {
           width: TILE_W,
           height: TILE_H,
           flexShrink: 0,
-          borderRadius: 14,
+          borderRadius: radius.panel,
           border: `1px solid ${isDisabled ? "rgba(255,255,255,0.06)" : isComplete ? `${T.teal}50` : isRec ? `${tone}80` : `${tone}35`}`,
           background: isDisabled ? "rgba(255,255,255,0.02)" : isComplete ? "rgba(45,212,160,0.10)" : isRec ? `${tone}1A` : `${tone}0D`,
           cursor: isDisabled || isComplete ? "default" : "pointer",
@@ -537,7 +541,7 @@ function ActionTile({ label, status, tone, stateNote, note }: {
           </span>
         )}
       </button>
-      {stateNote && <div style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>{stateNote}</div>}
+      {stateNote && <div style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>{stateNote}</div>}
     </div>
   );
 }
@@ -578,7 +582,7 @@ function HoldTile({ disabled = false }: { disabled?: boolean }) {
         width: TILE_W,
         height: TILE_H,
         flexShrink: 0,
-        borderRadius: 14,
+        borderRadius: radius.panel,
         border: `1px solid ${disabled ? "rgba(255,255,255,0.08)" : holding ? T.red : `${T.red}66`}`,
         background: disabled ? "rgba(255,255,255,0.03)" : "rgba(229,83,60,0.14)",
         cursor: disabled ? "default" : "pointer",
@@ -613,12 +617,7 @@ function InlineModal({ title, subtitle, accentColor, confirmLabel, icon, childre
 }) {
   return (
     <div style={{
-      background: "rgba(8,16,28,0.96)",
-      backdropFilter: "blur(32px) saturate(1.4)",
-      WebkitBackdropFilter: "blur(32px) saturate(1.4)",
-      borderRadius: 18,
-      border: "1px solid rgba(255,255,255,0.12)",
-      boxShadow: "0 24px 60px rgba(0,0,0,0.55)",
+      ...material.overlay,
       width: narrowWidth ? 460 : 520,
       maxWidth: "100%",
       overflow: "hidden",
@@ -626,7 +625,7 @@ function InlineModal({ title, subtitle, accentColor, confirmLabel, icon, childre
       {/* Header */}
       <div style={{ padding: "20px 22px 0", display: "flex", alignItems: "flex-start", gap: icon ? 12 : 0 }}>
         {icon && (
-          <div style={{ width: 36, height: 36, borderRadius: 9, background: `${accentColor}18`, border: `1px solid ${accentColor}40`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 16 }}>
+          <div style={{ width: 36, height: 36, borderRadius: radius.tile, background: `${accentColor}18`, border: `1px solid ${accentColor}40`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: typeScale.heading }}>
             {icon}
           </div>
         )}
@@ -660,7 +659,7 @@ function InlineModal({ title, subtitle, accentColor, confirmLabel, icon, childre
 function ModalField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 7 }}>{label}</div>
+      <div style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: T.textMuted, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 7 }}>{label}</div>
       {children}
     </div>
   );
@@ -699,7 +698,7 @@ function DemoChip({ label, selected, color }: { label: string; selected: boolean
 
 function AlertPopupDemo() {
   return (
-    <div style={{ ...GLASS, padding: "18px 20px", borderRadius: 18, border: `1px solid ${T.red}44`, maxWidth: 420, boxShadow: `0 0 0 1px ${T.red}22, 0 20px 48px rgba(0,0,0,0.42)` }}>
+    <div style={{ ...material.overlay, padding: "18px 20px", border: `1px solid ${T.red}44`, maxWidth: 420 }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
         <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.red, marginTop: 5, animation: "pulse 1.2s infinite", flexShrink: 0 }} />
@@ -710,7 +709,7 @@ function AlertPopupDemo() {
       </div>
 
       {/* Intel */}
-      <div style={{ ...GLASS_SUBTLE, padding: "10px 12px", marginBottom: 14 }}>
+      <div style={{ background: surface.raised, border: `1px solid ${border.soft}`, borderRadius: radius.panel, padding: "10px 12px", marginBottom: 14 }}>
         {[{ l: "Location", v: "Grid 4C — Forest North" }, { l: "Temp spike", v: "+340°C above baseline" }, { l: "Wind", v: "NE 22 km/h" }, { l: "Zone history", v: "High fire-prone · 3 prior incidents" }].map(({ l, v }) => (
           <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
             <span style={{ fontFamily: font.sans, fontSize: 11, color: T.textMuted }}>{l}</span>
@@ -749,7 +748,7 @@ function DemoPriorityCard({ severity, areaLabel, title, rationale, nextStep, sta
     <div style={{ borderRadius: 16, border: `1px solid ${tone}33`, background: `${tone}0D`, padding: "12px 14px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
         <div>
-        <div style={{ fontFamily: font.mono, fontSize: 9, color: tone, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 5 }}>{areaLabel}</div>
+        <div style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: tone, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 5 }}>{areaLabel}</div>
           <div style={{ fontFamily: font.sans, fontSize: 12, fontWeight: 600, color: T.textPrimary }}>{title}</div>
         </div>
         <StatusPill
@@ -772,7 +771,7 @@ function DemoPriorityCard({ severity, areaLabel, title, rationale, nextStep, sta
           <div style={{ fontFamily: font.sans, fontSize: 11, color: T.textPrimary, lineHeight: 1.45 }}>{nextStep}</div>
         </div>
       </div>
-      {action && <div style={{ fontFamily: font.mono, fontSize: 9, color: T.textMuted, marginTop: 10, letterSpacing: "0.06em" }}>Action → {action}</div>}
+      {action && <div style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: T.textMuted, marginTop: 10, letterSpacing: "0.06em" }}>Action → {action}</div>}
     </div>
   );
 }
@@ -781,7 +780,7 @@ function DemoDroneCard({ name, capability, mission, zone, status, color, battery
   name: string; capability: string; mission: string; zone: string; status: string; color: string; battery: number; signal: number; eta: string; selected: boolean;
 }) {
   return (
-    <div style={{ borderRadius: 14, border: `1px solid ${selected ? `${color}66` : GI.border}`, background: selected ? `${color}14` : GI.surface, padding: "10px 12px" }}>
+    <div style={{ borderRadius: radius.panel, border: `1px solid ${selected ? `${color}66` : GI.border}`, background: selected ? `${color}14` : GI.surface, padding: "10px 12px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
         <div>
           <div style={{ fontFamily: font.sans, fontSize: 11, fontWeight: 600, color: T.textPrimary }}>{name}</div>
@@ -802,7 +801,7 @@ function DemoTeamCard({ name, type, assignment, availability, color, readiness, 
   name: string; type: string; assignment: string; availability: string; color: string; readiness: string; eta: string; zone: string;
 }) {
   return (
-    <div style={{ borderRadius: 14, border: `1px solid ${GI.border}`, background: GI.surface, padding: "10px 12px" }}>
+    <div style={{ borderRadius: radius.panel, border: `1px solid ${GI.border}`, background: GI.surface, padding: "10px 12px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
         <div>
           <div style={{ fontFamily: font.sans, fontSize: 11, fontWeight: 600, color: T.textPrimary }}>{name}</div>

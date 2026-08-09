@@ -84,37 +84,43 @@ Only one operational colour leads a component. State always includes text or an 
 
 ### Scale
 
-- Display: 26px / 32px, 650.
-- Workspace heading: 18px / 24px, 650.
-- Panel title: 15px / 21px, 650.
+- Display: 26px / 32px, 700.
+- Workspace heading: 18px / 24px, 600.
+- Panel title: 15px / 21px, 600.
+- Brand: 14px / 20px, 700.
 - Body: 12px / 18px, 400.
 - Body strong: 12px / 18px, 600.
 - Control: 12px / 16px, 600.
 - Label: 11px / 15px, 600.
 - Metadata: 10px / 14px, 500 mono.
-- Map label: 10.5px minimum at 1280px.
+- Map label: 10px minimum at 1280px.
 
-Essential information is never 9px. Uppercase and tracked text are reserved for short telemetry codes, alert classes, and audit identifiers.
+Essential information is never 9px. Uppercase and tracked text are reserved for short telemetry codes, alert classes, and audit identifiers. Use `tracking.telemetry` (0.06em), `tracking.eyebrow` (0.1em), or `tracking.tight` (−0.01em) — free-form letter-spacing is a review failure.
 
 ## 6. Spacing and geometry
 
-The base unit is 4px.
+The base unit is 4px. Legal steps only: **4 | 8 | 12 | 16 | 20 | 24 | 32**.
 
-- Micro: 4px.
-- Control gap: 8px.
-- Component gap: 12px.
-- Group gap: 16px.
-- Panel gap: 20px.
-- Major transition: 24px.
+- Micro: 4px (`space.xs`).
+- Control gap: 8px (`space.sm`).
+- Component gap: 12px (`space.md`).
+- Group gap: 16px (`space.lg`).
+- Panel gap: 20px (`space.xl`).
+- Major transition: 24px (`space["2xl"]`).
+- Section break: 32px (`space["3xl"]`).
 
 ### Radius
 
-- Dense telemetry: 4px.
-- Controls: 8px.
-- Tiles and cards: 10px.
-- Panels: 12px.
-- Overlays: 16px.
-- Full pill: compact state or segmented selection only.
+Legal steps only: **4 | 8 | 10 | 12 | 16 | 999**.
+
+- Dense telemetry: 4px (`radius.dense`).
+- Controls: 8px (`radius.control`).
+- Tiles and cards: 10px (`radius.tile`).
+- Panels: 12px (`radius.panel`).
+- Overlays: 16px (`radius.overlay`).
+- Full pill: compact state or segmented selection only (`radius.pill`).
+
+Elevation is carried only by `material.*`. Component-local `boxShadow` recipes and coloured glow for state are review failures.
 
 ### Laptop layouts
 
@@ -122,6 +128,32 @@ The base unit is 4px.
 - 1366x768: 280px rails, secondary navbar metrics hidden.
 - 1440x900: 300px rails.
 - 1920x1080: rails may grow modestly; map remains dominant.
+
+### Materials
+
+Sentinel has three shell materials and one backdrop. They live in `material.*` in
+`tokens.ts` and are the only sanctioned way to make a surface float. A surface picks
+one recipe; it never assembles its own blur, radius, and shadow.
+
+| Recipe | Role | Spec |
+| --- | --- | --- |
+| `material.rail` | Left and right rails, floating map chrome | `surface.panel`, `blur(10px) saturate(1.12)`, `border.subtle`, `shadow.edgeRail` |
+| `material.overlay` | Modals, takeovers, TALON session, dissent and exception surfaces | `surface.overlay`, no frost, `border.strong`, `shadow.edgeOverlay` |
+| `material.popover` | Danger menu, review dock, timeline popovers | Overlay material, `border.default`, `shadow.edgePopover` |
+| `material.scrim` | Backdrop behind a takeover | `surface.takeoverScrim`, `blur(8px)`, no edge, no radius |
+
+Rules:
+
+- Elevation is an edge, not a glow: one light top edge, one dark bottom edge, one soft
+  drop (`shadow.edge*`). No stacked blooms, no coloured outer glow.
+- Frost is a material, never a state. Severity arrives through the border tone, the
+  words, and the icon — never through more blur.
+- Frost ceiling: 12px on product chrome. Rails frost so the map still reads underneath;
+  authorization surfaces stay opaque so they never compete with the map.
+- Both rails wear the same recipe. A panel inside a rail does not become a second,
+  denser slab; variants change border and semantic wash only.
+- Map markers and drone-feed furniture are not shell chrome and may stay lighter.
+- Adding a fourth glass dialect is a review failure. Extend `material.*` instead.
 
 ## 7. Density modes
 
@@ -249,12 +281,17 @@ No `transition: all`. No UI motion over 300ms unless it represents real progress
 - No repeated tracked-uppercase scaffolding.
 - No decorative status dots.
 - No glow as the only selected or active state.
+- No component-local elevation recipes — floating chrome uses `material.*` only.
 - No always-running decorative scan, ember, rotor, shimmer, or pulse.
 - No duplicated TALON mic or session state.
 - No raw emoji in operational UI.
 - No map object that responds visually without updating shared state.
 - No developer controls in portfolio embeds.
 - No more than one dominant command in core mode.
+
+Run `npm run audit:tokens` before release. Off-scale `fontSize` / `borderRadius`, 9px type, and coloured glow shadows fail the gate.
+
+The archived `src/app/components/ui/` shadcn tree is unused compatibility only — do not import it into product surfaces.
 
 ## 14. Data experience model
 
@@ -290,6 +327,18 @@ The two plans represent real tactical tradeoffs. They must not differ only by ti
 - Operational exceptions may add a structured spatial margin, affected zone IDs, basis, and observation timestamp.
 - A margin is a safety envelope caused by degraded evidence, not a claim that the underlying fire perimeter physically expanded.
 - Total infrastructure loss may remain unquantified rather than inventing a defensible spatial value.
+
+### Trend primitives
+
+- `MiniTrend` is an SVG sparkline: one series, one stroke at the semantic tone, one quiet
+  area wash. Hover or keyboard focus reports the exact sample as a mono readout in the
+  label row; there is no floating card, no crosshair spring, no second axis.
+- The sparkline owns the interactive number for its series. Do not repeat that number in
+  an adjacent `MetricTile`; `MetricTile` stays typographic and never fakes a chart.
+- `SignalBar` eases with `motion.deliberate` and carries one trailing wash so a moving
+  value reads as motion. It never pulses or glows.
+- Reduced motion removes the draw-in and the trailing layer; values snap.
+- No chart library. Trend craft stays in Sentinel SVG so it obeys these tokens.
 
 ### Closed-loop action verification
 

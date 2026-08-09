@@ -67,6 +67,6 @@ Target WCAG 2.2 AA for the desktop prototype.
 - Focus is trapped and restored for true modal dialogs.
 - Status is never communicated by colour, glow, or motion alone.
 - Reduced motion removes scanning sweeps, pulse rings, embers, rotor loops, and positional entrances while retaining useful state changes.
-- The interface remains usable at 1280x800, 1366x768, 1440x900, and 1920x1080.
+- The headquarters command canvas is authored and verified at **1920×1080**. Smaller laptop breakpoints remain readable in free mode but are not the portfolio acceptance target.
 - Consequential actions include explicit names and outcomes rather than icon-only or gesture-only authorization.
 - Time-based simulation never prevents a user from pausing, reviewing, or recovering.

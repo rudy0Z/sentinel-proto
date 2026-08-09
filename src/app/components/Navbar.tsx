@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { FOCUSED_INCIDENT_QUEUE, INCIDENT, getIncidentQueueItem } from "../mockData";
-import { MODE_META, WORKFLOW_META, ShellState, T, border, font, radius, space, surface, tint, typeScale, typeWeight } from "../tokens";
+import { MODE_META, WORKFLOW_META, ShellState, T, border, font, radius, space, surface, tint, tracking, typeScale, typeStyle, typeWeight } from "../tokens";
 import { OperationalIcon } from "./OperationalIcon";
 import { PopoverSurface, usePopoverDismissal } from "./shared/PopoverSurface";
 
@@ -85,20 +85,21 @@ export function Navbar({
 
 function BrandBlock({ compact }: { compact: boolean }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: space.md, minWidth: compact ? 118 : 150, flexShrink: 0 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: space.sm, minWidth: compact ? 118 : 150, flexShrink: 0 }}>
       <FlytBaseLogo />
       <span
         style={{
           fontFamily: font.sans,
-          fontSize: 14,
-          fontWeight: 700,
+          fontSize: typeStyle.brand.size,
+          fontWeight: typeStyle.brand.weight,
+          lineHeight: `${typeStyle.brand.lineHeight}px`,
           color: T.textPrimary,
-          letterSpacing: "-0.01em",
+          letterSpacing: tracking.tight,
           whiteSpace: "nowrap",
         }}
       >
         FlytBase
-        {!compact ? <span style={{ color: T.textMuted, fontWeight: 400, marginLeft: 6, fontSize: 12 }}>Sentinel</span> : null}
+        {!compact ? <span style={{ color: T.textMuted, fontWeight: typeWeight.regular, marginLeft: space.sm, fontSize: typeScale.body }}>Sentinel</span> : null}
       </span>
     </div>
   );
@@ -136,9 +137,9 @@ function IncidentQueueControl({ state }: { state: ShellState }) {
           display: "inline-flex",
           alignItems: "center",
           gap: space.sm,
-          padding: `0 ${space.md}px`,
+          padding: `0 ${space.sm}px`,
           border: `1px solid ${open ? tint(T.cyan, 0.46) : border.default}`,
-          borderRadius: radius.md,
+          borderRadius: radius.control,
           background: open ? tint(T.cyan, 0.1) : surface.control,
           color: open ? T.cyan : T.textSecondary,
           cursor: "pointer",
@@ -153,7 +154,7 @@ function IncidentQueueControl({ state }: { state: ShellState }) {
 
       {open ? (
         <PopoverSurface ref={surfaceRef} ariaLabel="Incident queue" width={328} style={{ top: 38, right: 0 }}>
-          <div style={{ padding: `${space.lg}px ${space.xl}px`, borderBottom: `1px solid ${border.soft}` }}>
+          <div style={{ padding: `${space.md}px ${space.md}px`, borderBottom: `1px solid ${border.soft}` }}>
             <div style={{ color: T.textPrimary, fontFamily: font.sans, fontSize: typeScale.body, fontWeight: typeWeight.bold }}>
               Incident queue
             </div>
@@ -161,7 +162,7 @@ function IncidentQueueControl({ state }: { state: ShellState }) {
               Grid 4C is the only fully simulated incident. Other entries expose summary data without implying a live operational model.
             </div>
           </div>
-          <div style={{ padding: space.md, display: "flex", flexDirection: "column", gap: space.xs }}>
+          <div style={{ padding: space.sm, display: "flex", flexDirection: "column", gap: space.xs }}>
             {FOCUSED_INCIDENT_QUEUE.map((incident) => {
               const selected = inspectedId === incident.id;
               const active = incident.id === activeId;
@@ -176,9 +177,9 @@ function IncidentQueueControl({ state }: { state: ShellState }) {
                     width: "100%",
                     textAlign: "left",
                     border: `1px solid ${selected ? tint(color, 0.46) : border.soft}`,
-                    borderRadius: radius.md,
+                    borderRadius: radius.control,
                     background: selected ? tint(color, 0.08) : "transparent",
-                    padding: `${space.md}px`,
+                    padding: `${space.sm}px`,
                     color: T.textPrimary,
                     cursor: "pointer",
                   }}
@@ -195,7 +196,7 @@ function IncidentQueueControl({ state }: { state: ShellState }) {
             })}
           </div>
           {inspected && inspected.kind === "summary" ? (
-            <div style={{ margin: `0 ${space.md}px ${space.md}px`, borderTop: `1px solid ${border.soft}`, padding: `${space.md}px ${space.sm}px 0` }}>
+            <div style={{ margin: `0 ${space.sm}px ${space.sm}px`, borderTop: `1px solid ${border.soft}`, padding: `${space.sm}px ${space.sm}px 0` }}>
               <div style={{ color: T.textSecondary, fontFamily: font.sans, fontSize: typeScale.caption, lineHeight: 1.45 }}>
                 {inspected.summary}
               </div>
@@ -284,13 +285,13 @@ function IncidentStatusBlock({ state, compact }: { state: ShellState; compact: b
           alignItems: "center",
           gap: 6,
           padding: "5px 9px",
-          borderRadius: 8,
+          borderRadius: radius.control,
           background: `${meta.color}14`,
           border: `1px solid ${meta.color}30`,
           flexShrink: 0,
         }}
       >
-        <span style={{ fontFamily: font.sans, fontSize: 11, fontWeight: 700, color: meta.color, whiteSpace: "nowrap" }}>
+        <span style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.bold, color: meta.color, whiteSpace: "nowrap" }}>
           {meta.label}
         </span>
       </div>
@@ -355,7 +356,7 @@ function WorkflowPhaseBlock({
           alignItems: "center",
           gap: 8,
           padding: "6px 12px",
-          borderRadius: 999,
+          borderRadius: radius.pill,
           background: `${meta.color}1A`,
           border: `1px solid ${meta.color}44`,
         }}
@@ -365,7 +366,7 @@ function WorkflowPhaseBlock({
             {meta.label}
           </span>
           {!compact ? (
-            <span style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textMuted, whiteSpace: "nowrap", marginTop: space.xxs }}>
+            <span style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textMuted, whiteSpace: "nowrap", marginTop: space.xs }}>
               {meta.description}
             </span>
           ) : null}
@@ -397,11 +398,11 @@ function WorkflowPhaseBlock({
             </svg>
           </div>
           <div style={{ lineHeight: 1 }}>
-            <div style={{ fontFamily: font.mono, fontSize: 12, fontWeight: 700, color: arcColor, letterSpacing: "0.02em" }}>
+            <div style={{ fontFamily: font.mono, fontSize: typeScale.body, fontWeight: typeWeight.bold, color: arcColor, letterSpacing: "0.02em" }}>
               {isNotified ? "Escalated" : elapsedStr}
             </div>
             {!minimal ? (
-              <div style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textMuted, marginTop: space.xxs, whiteSpace: "nowrap" }}>
+              <div style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textMuted, marginTop: space.xs, whiteSpace: "nowrap" }}>
                 {isNotified ? "Authority notified" : compact ? "90s benchmark" : "Clock stops at authority notify"}
               </div>
             ) : null}
@@ -417,7 +418,7 @@ function WorkflowPhaseBlock({
             alignItems: "center",
             gap: 6,
             padding: "5px 10px",
-            borderRadius: 8,
+            borderRadius: radius.control,
             background: "rgba(45,212,160,0.08)",
             border: "1px solid rgba(45,212,160,0.2)",
           }}
@@ -524,11 +525,11 @@ function HandoverButton({ state, onShiftHandover }: { state: ShellState; onShift
       style={{
         background: bgAlpha,
         border: `1px solid ${borderColor}`,
-        borderRadius: 8,
+        borderRadius: radius.control,
         padding: "6px 9px",
         fontFamily: font.sans,
-        fontSize: 11,
-        fontWeight: 600,
+        fontSize: typeScale.label,
+        fontWeight: typeWeight.semibold,
         color: btnColor,
         cursor: "pointer",
         display: "flex",
@@ -585,8 +586,8 @@ function EnvironmentMetrics({ state }: { state: ShellState }) {
     <div style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
       {metrics.map((m) => (
         <div key={m.label} style={{ display: "flex", flexDirection: "column", lineHeight: 1, alignItems: "flex-end" }}>
-          <span style={{ fontFamily: font.mono, fontSize: 12, fontWeight: 700, color: T.textPrimary }}>{m.value}</span>
-          <span style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textMuted, marginTop: space.xxs }}>{m.label}</span>
+          <span style={{ fontFamily: font.mono, fontSize: typeScale.body, fontWeight: typeWeight.bold, color: T.textPrimary }}>{m.value}</span>
+          <span style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textMuted, marginTop: space.xs }}>{m.label}</span>
         </div>
       ))}
     </div>
@@ -604,19 +605,19 @@ function OperatorClock({
 }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-      <span style={{ fontFamily: font.mono, fontSize: 13, fontWeight: 700, color: T.textPrimary, letterSpacing: "0.04em" }}>{timeString} UTC</span>
+      <span style={{ fontFamily: font.mono, fontSize: typeScale.title, fontWeight: typeWeight.bold, color: T.textPrimary, letterSpacing: "0.04em" }}>{timeString} UTC</span>
       {!hideOperator ? <span
         style={{
           display: "inline-flex",
           alignItems: "center",
           gap: 5,
           fontFamily: font.sans,
-          fontSize: 11,
+          fontSize: typeScale.label,
           color: T.cyan,
           padding: "3px 8px",
           background: "rgba(0,200,255,0.1)",
           border: "1px solid rgba(0,200,255,0.2)",
-          borderRadius: 6,
+          borderRadius: radius.control,
         }}
         title="Operator on authority"
       >
@@ -684,8 +685,8 @@ function SystemControls({
           style={{
             background: tint(latestColor, 0.18),
             color: latestColor,
-            borderRadius: radius.xs,
-            padding: `${space.xxs}px ${space.sm}px`,
+            borderRadius: radius.dense,
+            padding: `${space.xs}px ${space.sm}px`,
             fontSize: typeScale.eyebrow,
             fontFamily: font.mono,
             fontWeight: typeWeight.heavy,
@@ -742,7 +743,7 @@ function NotificationButton({ state }: { state: ShellState }) {
           <span style={{
             position: "absolute", top: 1, right: 1, minWidth: 12, height: 12,
             borderRadius: radius.pill, background: T.amber, color: T.bgBase,
-            fontFamily: font.mono, fontSize: 8, fontWeight: typeWeight.heavy,
+            fontFamily: font.mono, fontSize: typeScale.metadata, fontWeight: typeWeight.heavy,
             display: "grid", placeItems: "center",
           }} aria-hidden="true">{Math.min(unread, 9)}</span>
         ) : null}
@@ -750,14 +751,14 @@ function NotificationButton({ state }: { state: ShellState }) {
 
       {open && (
           <PopoverSurface ref={surfaceRef} ariaLabel="System notifications">
-            <div style={{ padding: `${space.lg}px ${space["2xl"]}px`, borderBottom: `1px solid ${border.subtle}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ padding: `${space.md}px ${space.lg}px`, borderBottom: `1px solid ${border.subtle}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ fontFamily: font.sans, fontSize: typeScale.body, fontWeight: typeWeight.semibold, color: T.textPrimary }}>System notifications</span>
               <span style={{ fontFamily: font.sans, fontSize: typeScale.label, color: unread > 0 ? T.amber : T.teal }}>
                 {unread > 0 ? `${unread} active` : "All clear"}
               </span>
             </div>
             {recent.length === 0 ? (
-              <div style={{ padding: `${space["3xl"]}px ${space["2xl"]}px`, fontFamily: font.sans, fontSize: typeScale.label, color: T.textMuted, textAlign: "center" }}>
+              <div style={{ padding: `${space.lg}px ${space.lg}px`, fontFamily: font.sans, fontSize: typeScale.label, color: T.textMuted, textAlign: "center" }}>
                 No notifications yet
               </div>
             ) : (
@@ -766,14 +767,14 @@ function NotificationButton({ state }: { state: ShellState }) {
                   const dotColor = entry.severity === "danger" ? T.red : entry.severity === "caution" ? T.amber : entry.severity === "safe" ? T.teal : T.cyan;
                   return (
                     <div key={entry.id} style={{
-                      padding: `${space.md}px ${space["2xl"]}px`, borderBottom: `1px solid ${border.soft}`,
+                      padding: `${space.sm}px ${space.lg}px`, borderBottom: `1px solid ${border.soft}`,
                     }}>
                       <div>
                         <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
                           <span style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.semibold, color: dotColor }}>{entry.actor} · {entry.type}</span>
                           <span style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: T.textMuted, flexShrink: 0 }}>{entry.ts}</span>
                         </div>
-                        <div style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textSecondary, lineHeight: 1.4, marginTop: space.xxs, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <div style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textSecondary, lineHeight: 1.4, marginTop: space.xs, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {entry.text}
                         </div>
                       </div>
@@ -826,9 +827,9 @@ function SettingsButton({ state }: { state: ShellState }) {
 
       {open && (
           <PopoverSurface ref={surfaceRef} ariaLabel="Operator preferences" width={248}>
-            <div style={{ padding: `${space.lg}px ${space["2xl"]}px`, borderBottom: `1px solid ${border.subtle}` }}>
+            <div style={{ padding: `${space.md}px ${space.lg}px`, borderBottom: `1px solid ${border.subtle}` }}>
               <div style={{ fontFamily: font.sans, fontSize: typeScale.body, fontWeight: typeWeight.semibold, color: T.textPrimary }}>Operator preferences</div>
-              <div style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textMuted, marginTop: space.xxs }}>{state.activeOperator || INCIDENT.operator} · on authority</div>
+              <div style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textMuted, marginTop: space.xs }}>{state.activeOperator || INCIDENT.operator} · on authority</div>
             </div>
             <div style={{ padding: "8px 6px", display: "flex", flexDirection: "column", gap: 2 }}>
               <SettingsRow
@@ -845,7 +846,7 @@ function SettingsButton({ state }: { state: ShellState }) {
               <SettingsRow label="Map labels" value="Operational" />
               <SettingsRow label="Rail layout" value="Fixed" />
             </div>
-            <div style={{ padding: `${space.md}px ${space["2xl"]}px`, borderTop: `1px solid ${border.subtle}` }}>
+            <div style={{ padding: `${space.sm}px ${space.lg}px`, borderTop: `1px solid ${border.subtle}` }}>
               <div style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: T.textMuted }}>
                 FlytBase Sentinel · Build 2024-0847
               </div>
@@ -874,7 +875,7 @@ function SettingsRow({
       disabled={!onToggle}
       style={{
         width: "100%", textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "7px 8px", borderRadius: 7, border: "none",
+        padding: "7px 8px", borderRadius: radius.control, border: "none",
         background: onToggle ? "transparent" : "transparent",
         cursor: onToggle ? "pointer" : "default",
         transition: "background 100ms ease",
@@ -891,10 +892,10 @@ function SettingsRow({
 const navBtnStyle: React.CSSProperties = {
   background: "rgba(255,255,255,0.04)",
   border: "1px solid rgba(255,255,255,0.08)",
-  borderRadius: 8,
+  borderRadius: radius.control,
   padding: "6px 10px",
   fontFamily: font.sans,
-  fontSize: 11,
+  fontSize: typeScale.label,
   color: T.textSecondary,
   cursor: "pointer",
   display: "flex",

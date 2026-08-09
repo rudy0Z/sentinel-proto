@@ -1,9 +1,11 @@
-import type { ReactNode } from "react";
+import { useState, type MouseEvent, type PointerEvent, type ReactNode } from "react";
 import type { EvidenceSource, TalonAgentTask } from "../../tokens";
 import {
   T,
   border,
+  focus,
   font,
+  motion,
   radius,
   space,
   surface,
@@ -84,13 +86,13 @@ export function PanelHeroMetric({
       style={{
         borderBottom: `1px solid ${tint(color, 0.2)}`,
         background: "transparent",
-        padding: `0 0 ${space["2xl"]}px`,
+        padding: `0 0 ${space.lg}px`,
         display: "flex",
         flexDirection: "column",
-        gap: space.lg,
+        gap: space.md,
       }}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: space.lg }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: space.md }}>
         <div style={{ minWidth: 0 }}>
           <div
             style={{
@@ -161,6 +163,15 @@ export function PanelHeroMetric({
   );
 }
 
+const SIGNALBAR_CSS = `
+  .sentinel-signal__fill { transition: width ${motion.deliberate}; }
+  .sentinel-signal__trail { transition: width 420ms cubic-bezier(0.32, 0.72, 0, 1) 60ms; }
+  @media (prefers-reduced-motion: reduce) {
+    .sentinel-signal__fill, .sentinel-signal__trail { transition: none; }
+    .sentinel-signal__trail { display: none; }
+  }
+`;
+
 export function SignalBar({
   label,
   value,
@@ -178,7 +189,8 @@ export function SignalBar({
   const width = `${Math.max(0, Math.min(100, value))}%`;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: space.xs }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: space.md }}>
+      <style>{SIGNALBAR_CSS}</style>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: space.sm }}>
         <span style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textSecondary }}>{label}</span>
         <span style={{ fontFamily: font.mono, fontSize: typeScale.label, color, fontWeight: typeWeight.bold }}>
           {valueLabel ?? `${Math.round(value)}%`}
@@ -186,6 +198,7 @@ export function SignalBar({
       </div>
       <div
         style={{
+          position: "relative",
           height: space.sm,
           borderRadius: radius.pill,
           background: surface.inset,
@@ -193,13 +206,26 @@ export function SignalBar({
           overflow: "hidden",
         }}
       >
+        {/* Trailing wash settles a beat behind the fill, so a moving value reads as motion rather than a jump. */}
         <div
+          className="sentinel-signal__trail"
           style={{
+            position: "absolute",
+            inset: 0,
+            width,
+            borderRadius: radius.pill,
+            background: tint(color, 0.32),
+          }}
+        />
+        <div
+          className="sentinel-signal__fill"
+          style={{
+            position: "relative",
             width,
             height: "100%",
             borderRadius: radius.pill,
             background: color,
-            transition: "width 260ms ease",
+            boxShadow: `inset 0 1px 0 ${tint(T.textPrimary, 0.16)}`,
             opacity: animated ? 1 : 0.88,
           }}
         />
@@ -270,7 +296,7 @@ export function MetricGrid({
   columns?: 2 | 3;
 }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: space.md }}>
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: space.sm }}>
       {items.map((item) => (
         <MetricTile key={`${item.label}-${item.value}`} {...item} />
       ))}
@@ -291,9 +317,9 @@ export function SourceFreshnessMatrix({ sources, limit = 5 }: { sources: Evidenc
             style={{
               display: "grid",
               gridTemplateColumns: "minmax(0, 1fr) auto",
-              gap: space.md,
+              gap: space.sm,
               alignItems: "center",
-              padding: `${space.md}px 0`,
+              padding: `${space.sm}px 0`,
               borderBottom: `1px solid ${active ? tint(color, 0.16) : border.soft}`,
             }}
           >
@@ -318,7 +344,7 @@ export function SourceFreshnessMatrix({ sources, limit = 5 }: { sources: Evidenc
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  gap: space.md,
+                  gap: space.sm,
                   marginTop: space.xs,
                 }}
               >
@@ -332,7 +358,7 @@ export function SourceFreshnessMatrix({ sources, limit = 5 }: { sources: Evidenc
                 >
                   {source.lastUpdated}
                 </span>
-                <div style={{ flex: 1, minWidth: space["5xl"] }}>
+                <div style={{ flex: 1, minWidth: space["2xl"] }}>
                   <SignalBar
                     label=""
                     value={source.confidence}
@@ -376,9 +402,9 @@ export function CapabilityMatrix({
             style={{
               display: "grid",
               gridTemplateColumns: "minmax(0, 1fr) auto",
-              gap: space.md,
+              gap: space.sm,
               alignItems: "center",
-              padding: `${space.md}px 0`,
+              padding: `${space.sm}px 0`,
               borderBottom: `1px solid ${signalTone === "neutral" ? border.soft : tint(color, 0.16)}`,
             }}
           >
@@ -427,8 +453,8 @@ export function AgentRelayStrip({ agents, limit = 3 }: { agents: TalonAgentTask[
               display: "grid",
               gridTemplateColumns: "minmax(0, 1fr) auto",
               alignItems: "center",
-              gap: space.md,
-              padding: `${space.md}px 0`,
+              gap: space.sm,
+              padding: `${space.sm}px 0`,
               borderBottom: `1px solid ${agent.status === "running" ? tint(color, 0.18) : border.soft}`,
             }}
           >
@@ -477,47 +503,166 @@ export function AgentRelayStrip({ agents, limit = 3 }: { agents: TalonAgentTask[
   );
 }
 
+const SPARK_W = 100;
+const SPARK_H = 28;
+const SPARK_PAD = 3;
+const SPARK_INSET = 1.5;
+
+const SPARKLINE_CSS = `
+  .sentinel-spark { outline: none; }
+  .sentinel-spark:focus-visible { outline: ${focus.outline}; outline-offset: 2px; border-radius: ${radius.dense}px; }
+  .sentinel-spark__path {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+    animation: sentinelSparkDraw 260ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  }
+  .sentinel-spark__area { animation: sentinelSparkFade 260ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+  @keyframes sentinelSparkDraw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+  @keyframes sentinelSparkFade { from { opacity: 0; } to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) {
+    .sentinel-spark__path, .sentinel-spark__area { animation: none; }
+  }
+`;
+
+/**
+ * Compact trend line. One series, one readout: hover or focus reports the exact
+ * sample instead of asking the operator to eyeball a bar height.
+ */
 export function MiniTrend({
   label,
   values,
   signalTone = "info",
+  unit = "",
 }: {
   label: string;
   values: number[];
   signalTone?: SignalTone;
+  /** Appended to the readout, e.g. "%" or "°C". */
+  unit?: string;
 }) {
   const color = toneColor(signalTone);
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const series = values.length > 0 ? values : [0];
+  const min = Math.min(...series);
+  const max = Math.max(...series);
+  const span = max - min || 1;
+
+  // Endpoints keep a small inset so the marker dot never clips at the panel edge.
+  const points = series.map((value, index) => ({
+    value,
+    x:
+      series.length === 1
+        ? SPARK_W / 2
+        : SPARK_INSET + (index / (series.length - 1)) * (SPARK_W - SPARK_INSET * 2),
+    y: SPARK_PAD + (1 - (value - min) / span) * (SPARK_H - SPARK_PAD * 2),
+  }));
+  const line = points.map((point) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(" ");
+  const areaShape = `${points[0].x.toFixed(2)},${SPARK_H} ${line} ${points[points.length - 1].x.toFixed(2)},${SPARK_H}`;
+
+  const latest = points[points.length - 1];
+  const active = hoverIndex === null ? latest : points[hoverIndex];
+  const readout = `${Math.round(active.value)}${unit}${hoverIndex === null ? " · now" : ""}`;
+
+  function trackPointer(event: PointerEvent<HTMLDivElement> | MouseEvent<HTMLDivElement>) {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    if (bounds.width === 0) return;
+    const ratio = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width));
+    setHoverIndex(Math.round(ratio * (series.length - 1)));
+  }
+
   return (
     <div
       style={{
-        padding: `${space.md}px 0 0`,
+        padding: `${space.sm}px 0 0`,
         borderTop: `1px solid ${border.soft}`,
       }}
     >
+      <style>{SPARKLINE_CSS}</style>
       <div
         style={{
-          fontFamily: font.sans,
-          fontSize: typeScale.label,
-          color: T.textMuted,
-          marginBottom: space.md,
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "space-between",
+          gap: space.sm,
+          marginBottom: space.sm,
         }}
       >
-        {label}
+        <span style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textMuted }}>{label}</span>
+        <span
+          style={{
+            fontFamily: font.mono,
+            fontSize: typeScale.label,
+            fontWeight: typeWeight.bold,
+            color,
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {readout}
+        </span>
       </div>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: space.xs, height: space["5xl"] }}>
-        {values.map((value, index) => (
-          <div
-            key={`${label}-${index}`}
+      <div
+        className="sentinel-spark"
+        role="img"
+        tabIndex={0}
+        aria-label={`${label}: latest ${Math.round(latest.value)}${unit}, ${series.length} samples, range ${Math.round(min)}${unit} to ${Math.round(max)}${unit}`}
+        style={{ position: "relative", height: SPARK_H, cursor: "crosshair" }}
+        onPointerMove={trackPointer}
+        onPointerLeave={() => setHoverIndex(null)}
+        onBlur={() => setHoverIndex(null)}
+      >
+        <svg
+          width="100%"
+          height={SPARK_H}
+          viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
+          preserveAspectRatio="none"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <polygon className="sentinel-spark__area" points={areaShape} fill={tint(color, 0.14)} />
+          <polyline
+            className="sentinel-spark__path"
+            points={line}
+            fill="none"
+            stroke={color}
+            strokeWidth={1.25}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+            pathLength={1}
+          />
+        </svg>
+        {/*
+         * The marker and hairline live in HTML, not the SVG: the chart stretches
+         * horizontally, which would smear a circle into an ellipse.
+         */}
+        {hoverIndex !== null ? (
+          <span
+            aria-hidden="true"
             style={{
-              flex: 1,
-              minWidth: space.xs,
-              height: `${Math.max(12, Math.min(100, value))}%`,
-              borderRadius: `${radius.xs}px ${radius.xs}px 0 0`,
-              background: tint(color, index === values.length - 1 ? 0.95 : 0.42),
-              transition: "height 260ms ease",
+              position: "absolute",
+              left: `${active.x}%`,
+              top: active.y,
+              bottom: 0,
+              width: 1,
+              background: tint(color, 0.3),
             }}
           />
-        ))}
+        ) : null}
+        <span
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            left: `${active.x}%`,
+            top: active.y,
+            width: 5,
+            height: 5,
+            marginLeft: -2.5,
+            marginTop: -2.5,
+            borderRadius: "50%",
+            background: color,
+            transition: `left ${motion.fast}, top ${motion.fast}`,
+          }}
+        />
       </div>
     </div>
   );

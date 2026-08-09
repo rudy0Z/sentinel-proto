@@ -10,7 +10,7 @@ export function TinyMetric({ label, value }: TinyMetricProps) {
   return (
     <div>
       <div style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textMuted }}>{label}</div>
-      <div style={{ fontFamily: font.mono, fontSize: typeScale.body, fontWeight: typeWeight.semibold, color: T.textPrimary, marginTop: space.xxs }}>{value}</div>
+      <div style={{ fontFamily: font.mono, fontSize: typeScale.body, fontWeight: typeWeight.semibold, color: T.textPrimary, marginTop: space.xs }}>{value}</div>
     </div>
   );
 }

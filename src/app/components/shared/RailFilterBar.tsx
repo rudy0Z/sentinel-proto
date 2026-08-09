@@ -38,10 +38,10 @@ export function RailFilterBar({
             width: "100%",
             minHeight: 32,
             border: `1px solid ${border.default}`,
-            borderRadius: radius.sm,
+            borderRadius: radius.control,
             background: surface.control,
             color: T.textPrimary,
-            padding: `0 ${space.md}px`,
+            padding: `0 ${space.sm}px`,
             fontFamily: font.sans,
             fontSize: typeScale.label,
           }}
@@ -59,7 +59,7 @@ export function RailFilterBar({
               style={{
                 minHeight: 26,
                 border: `1px solid ${selected ? tint(T.cyan, 0.48) : border.soft}`,
-                borderRadius: radius.sm,
+                borderRadius: radius.control,
                 background: selected ? tint(T.cyan, 0.13) : "transparent",
                 color: selected ? T.cyan : T.textMuted,
                 padding: `0 ${space.sm}px`,

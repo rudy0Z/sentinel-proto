@@ -34,13 +34,13 @@ export function ActionOutcomeVerification({
       aria-label="Observed outcome verification"
       data-testid="action-outcome-verification"
       style={{
-        borderRadius: radius.lg,
+        borderRadius: radius.tile,
         border: `1px solid ${tint(color, 0.3)}`,
         background: tint(color, 0.07),
-        padding: `${space.lg}px ${space.xl}px`,
+        padding: `${space.md}px ${space.md}px`,
       }}
     >
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: space.md }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: space.sm }}>
         <div style={{ color, fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.bold }}>
           {status}
         </div>
@@ -52,13 +52,13 @@ export function ActionOutcomeVerification({
         {verification.actionLabel}
       </div>
 
-      <div style={{ display: "grid", gap: space.md, marginTop: space.lg }}>
+      <div style={{ display: "grid", gap: space.sm, marginTop: space.md }}>
         <OutcomeRow label="Expected" value={verification.expectedOutcome} />
         <OutcomeRow label="Observed" value={verification.observedOutcome} />
         <OutcomeRow label="Readout" value={verification.deviationSummary} />
       </div>
 
-      <div style={{ marginTop: space.lg, paddingTop: space.md, borderTop: `1px solid ${tint(color, 0.2)}`, color: T.textMuted, fontFamily: font.mono, fontSize: typeScale.metadata }}>
+      <div style={{ marginTop: space.md, paddingTop: space.sm, borderTop: `1px solid ${tint(color, 0.2)}`, color: T.textMuted, fontFamily: font.mono, fontSize: typeScale.metadata }}>
         Audit receipt · {verification.auditId}
       </div>
     </section>

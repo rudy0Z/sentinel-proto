@@ -14,6 +14,7 @@ import {
   tint,
   typeScale,
   typeWeight,
+  tracking,
 } from "../../tokens";
 import { ACTION_LABELS } from "../ActionBar";
 import { PanelCard } from "../shared/PanelCard";
@@ -317,6 +318,7 @@ function OperationsPriorityPanel({
         {/* Ends on `pct` — the same number the progress readout shows. */}
         <MiniTrend
           label="Cleared structures"
+          unit="%"
           values={[...getSignalHistory(state.scene).structures.slice(0, -1), pct]}
           signalTone={remaining > 30 ? "danger" : "safe"}
         />
@@ -486,18 +488,18 @@ function PriorityMatrixRow({
       onBlur={item.zoneId ? () => onSpatialHoverChange?.(null) : undefined}
       style={{
         borderTop: `1px solid ${tint(color, 0.18)}`,
-        borderRadius: radius.sm,
+        borderRadius: radius.control,
         outlineOffset: 2,
         background: selected ? tint(color, 0.08) : spatiallyLinked ? tint(T.cyan, 0.07) : "transparent",
-        padding: `${space.lg}px 0`,
+        padding: `${space.md}px 0`,
         display: "flex",
         flexDirection: "column",
-        gap: space.md,
+        gap: space.sm,
         cursor: interactive ? "pointer" : "default",
         transition: `background ${motion.fast}`,
       }}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: space.md }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: space.sm }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontFamily: font.sans, fontSize: typeScale.label, color, fontWeight: typeWeight.semibold }}>
             {item.areaLabel}
@@ -516,7 +518,7 @@ function PriorityMatrixRow({
         <ScoreTile label="Time" value={score.time} tone={signalTone} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: space.md, alignItems: "center", borderTop: `1px solid ${border.soft}`, paddingTop: space.md }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: space.sm, alignItems: "center", borderTop: `1px solid ${border.soft}`, paddingTop: space.sm }}>
         <div style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textSecondary, lineHeight: 1.4 }}>
           {item.nextStep}
         </div>
@@ -572,19 +574,19 @@ function FieldUnitRow({
       style={{
         width: "100%",
         textAlign: "left",
-        borderRadius: radius.md,
+        borderRadius: radius.control,
         border: `1px solid ${selected || isDistress || isActive ? tint(color, 0.26) : spatiallyLinked ? tint(T.cyan, 0.34) : "transparent"}`,
         borderBottomColor: selected || isDistress || isActive ? tint(color, 0.26) : spatiallyLinked ? tint(T.cyan, 0.34) : border.soft,
         background: selected || isDistress ? tint(color, 0.06) : spatiallyLinked ? tint(T.cyan, 0.07) : "transparent",
-        padding: `${space.md}px ${space.lg}px`,
+        padding: `${space.sm}px ${space.md}px`,
         cursor: "pointer",
         display: "flex",
         flexDirection: "column",
-        gap: space.md,
+        gap: space.sm,
         transition: `background ${motion.fast}, border-color ${motion.fast}`,
       }}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: space.md }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: space.sm }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: space.sm, minWidth: 0 }}>
             <span style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.bold, color: T.textPrimary }}>
@@ -607,9 +609,9 @@ function FieldUnitRow({
           <VitalsBar label="VIS" value={visPct} displayValue={`${vitals.visibility}m`} signalTone={visTone} />
         </div>
       ) : isActive ? (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: space.md }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: space.sm }}>
           <span style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textSecondary }}>{team.unitType}</span>
-          <div style={{ display: "flex", gap: space.md }}>
+          <div style={{ display: "flex", gap: space.sm }}>
             <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted }}>
               HR {vitals.hr}
             </span>
@@ -619,7 +621,7 @@ function FieldUnitRow({
           </div>
         </div>
       ) : (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: space.md }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: space.sm }}>
           <span style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textMuted }}>
             {team.unitType}
           </span>
@@ -636,7 +638,7 @@ function VitalsBar({ label, value, displayValue, signalTone }: { label: string; 
   const color = toneColor(signalTone);
   return (
     <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 44px", alignItems: "center", gap: space.sm }}>
-      <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: "0.06em", textTransform: "uppercase" }}>{label}</span>
+      <span style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: tracking.telemetry, textTransform: "uppercase" }}>{label}</span>
       <div style={{ height: space.xs, borderRadius: radius.pill, background: border.subtle, overflow: "hidden" }}>
         <div style={{
           width: `${value}%`, height: "100%", background: color, borderRadius: radius.pill,
@@ -652,7 +654,7 @@ function ScoreTile({ label, value, tone }: { label: string; value: number; tone:
   const color = toneColor(tone);
   return (
     <div style={{ minWidth: 0 }}>
-      <div style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: space.xs }}>
+      <div style={{ fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: tracking.telemetry, textTransform: "uppercase", marginBottom: space.xs }}>
         {label}
       </div>
       <div style={{ height: space.sm, borderRadius: radius.pill, background: surface.inset, overflow: "hidden", border: `1px solid ${border.soft}` }}>

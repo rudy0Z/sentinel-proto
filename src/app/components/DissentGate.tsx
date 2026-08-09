@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { DissentDirection, OverrideReason } from "../tokens";
-import { T, font, layer, motion, radius, shadow, space, surface, tint, typeScale, typeWeight } from "../tokens";
+import { T, font, layer, material, motion, radius, space, surface, tint, tracking, typeScale, typeWeight } from "../tokens";
 import { OVERRIDE_REASONS } from "../mockData";
 
 /*
@@ -126,7 +126,7 @@ export function DissentGate({
         position: "absolute",
         inset: 0,
         zIndex: layer.entry,
-        background: "rgba(4,8,14,0.72)",
+        ...material.scrim,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -141,18 +141,16 @@ export function DissentGate({
       <div
         style={{
           width: 560,
-          background: surface.overlay,
+          ...material.overlay,
           border: `1px solid ${tint(accent, 0.3)}`,
-          borderRadius: radius.overlay,
-          boxShadow: shadow.quiet,
-          padding: `${space["2xl"]}px ${space["3xl"]}px`,
+          padding: `${space.lg}px ${space.lg}px`,
         }}
       >
         <div
           style={{
             fontFamily: font.mono,
-            fontSize: 9,
-            letterSpacing: "0.12em",
+            fontSize: typeScale.label,
+            letterSpacing: tracking.eyebrow,
             textTransform: "uppercase",
             color: accent,
             marginBottom: space.sm,
@@ -168,7 +166,7 @@ export function DissentGate({
             color: T.textPrimary,
             lineHeight: 1.35,
             margin: 0,
-            marginBottom: space.lg,
+            marginBottom: space.md,
           }}
         >
           {copy.title}
@@ -177,11 +175,11 @@ export function DissentGate({
         {/* TALON's position, restated verbatim before the operator commits. */}
         <div
           style={{
-            padding: `${space.lg}px ${space.xl}px`,
+            padding: `${space.md}px ${space.md}px`,
             background: tint(T.cyan, 0.06),
             border: `1px solid ${tint(T.cyan, 0.18)}`,
-            borderRadius: radius.card,
-            marginBottom: space.xl,
+            borderRadius: radius.panel,
+            marginBottom: space.md,
           }}
         >
           <div
@@ -195,8 +193,8 @@ export function DissentGate({
             <span
               style={{
                 fontFamily: font.mono,
-                fontSize: 9,
-                letterSpacing: "0.1em",
+                fontSize: typeScale.label,
+                letterSpacing: tracking.eyebrow,
                 textTransform: "uppercase",
                 color: T.cyan,
               }}
@@ -231,7 +229,7 @@ export function DissentGate({
         >
           Your reason <span style={{ color: accent }}>*</span>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: space.sm, marginBottom: space.lg }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: space.sm, marginBottom: space.md }}>
           {OVERRIDE_REASONS.map((option) => {
             const selected = option === reason;
             return (
@@ -247,7 +245,7 @@ export function DissentGate({
                   color: selected ? accent : T.textSecondary,
                   background: selected ? tint(accent, 0.16) : "rgba(255,255,255,0.04)",
                   border: `1px solid ${selected ? tint(accent, 0.55) : "rgba(255,255,255,0.10)"}`,
-                  borderRadius: radius.lg,
+                  borderRadius: radius.tile,
                   padding: "7px 14px",
                   cursor: "pointer",
                   transition: `background ${motion.fast}, border-color ${motion.fast}, color ${motion.fast}`,
@@ -285,9 +283,9 @@ export function DissentGate({
             color: T.textPrimary,
             background: "rgba(255,255,255,0.03)",
             border: "1px solid rgba(255,255,255,0.10)",
-            borderRadius: radius.lg,
-            padding: `${space.sm}px ${space.md}px`,
-            marginBottom: space.xl,
+            borderRadius: radius.tile,
+            padding: `${space.sm}px ${space.sm}px`,
+            marginBottom: space.md,
             outlineColor: accent,
           }}
         />
@@ -295,18 +293,18 @@ export function DissentGate({
         {/* What follows from this — stated before the operator commits, not after. */}
         <div
           style={{
-            padding: `${space.lg}px ${space.xl}px`,
+            padding: `${space.md}px ${space.md}px`,
             background: "rgba(255,255,255,0.03)",
             border: "1px solid rgba(255,255,255,0.07)",
-            borderRadius: radius.card,
-            marginBottom: space.xl,
+            borderRadius: radius.panel,
+            marginBottom: space.md,
           }}
         >
           <div
             style={{
               fontFamily: font.mono,
-              fontSize: 9,
-              letterSpacing: "0.1em",
+              fontSize: typeScale.label,
+              letterSpacing: tracking.eyebrow,
               textTransform: "uppercase",
               color: T.textMuted,
               marginBottom: space.sm,
@@ -331,7 +329,7 @@ export function DissentGate({
           </ul>
         </div>
 
-        <div style={{ display: "flex", gap: space.md, justifyContent: "flex-end" }}>
+        <div style={{ display: "flex", gap: space.sm, justifyContent: "flex-end" }}>
           <button
             type="button"
             onClick={onCancel}
@@ -342,7 +340,7 @@ export function DissentGate({
               color: T.textSecondary,
               background: "transparent",
               border: "1px solid rgba(255,255,255,0.12)",
-              borderRadius: radius.lg,
+              borderRadius: radius.tile,
               padding: "10px 20px",
               cursor: "pointer",
             }}
@@ -360,7 +358,7 @@ export function DissentGate({
               color: reason ? accent : T.textMuted,
               background: reason ? tint(accent, 0.16) : "rgba(255,255,255,0.04)",
               border: `1px solid ${reason ? accent : "rgba(255,255,255,0.10)"}`,
-              borderRadius: radius.lg,
+              borderRadius: radius.tile,
               padding: "10px 20px",
               cursor: reason ? "pointer" : "not-allowed",
               transition: `background ${motion.fast}, border-color ${motion.fast}, color ${motion.fast}`,

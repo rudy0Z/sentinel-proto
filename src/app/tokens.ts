@@ -15,6 +15,8 @@ export const T = {
   textPrimary: "#E8EDF4",
   textSecondary: "#9AACBE",
   textMuted: "#7A8BA0",
+  /** Legible label color on bright semantic action fills (WCAG AA). */
+  onAction: "#071019",
   // TALON convergence-gate perimeter states.
   talonIdle: "#00C8FF",
   talonListening: "#E5533C",
@@ -42,44 +44,31 @@ export const font = {
   mono: "'JetBrains Mono', 'Courier New', monospace",
 } as const;
 
+/*
+ * Strict 4px spacing: 4 | 8 | 12 | 16 | 20 | 24 | 32.
+ * Off-grid steps (2/6/10/14) are retired.
+ */
 export const space = {
   none: 0,
-  xxs: 2,
   xs: 4,
-  sm: 6,
-  md: 8,
-  lg: 10,
-  xl: 12,
-  "2xl": 14,
-  "3xl": 16,
-  "4xl": 20,
-  "5xl": 24,
-  "6xl": 32,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  "2xl": 24,
+  "3xl": 32,
 } as const;
 
+/*
+ * Locked radius scale. Dense telemetry → controls → tiles → panels → overlays.
+ */
 export const radius = {
-  xs: 3,
-  sm: 5,
-  md: 8,
-  lg: 10,
-  xl: 12,
-  card: 14,
+  dense: 4,
+  control: 8,
+  tile: 10,
+  panel: 12,
   overlay: 16,
-  glass: 14,
   pill: 999,
-} as const;
-
-export const typeScale = {
-  eyebrow: 9,
-  metadata: 10,
-  caption: 10,
-  label: 11,
-  body: 12,
-  title: 13,
-  subhead: 15,
-  heading: 18,
-  display: 26,
-  metric: 32,
 } as const;
 
 export const typeWeight = {
@@ -88,6 +77,43 @@ export const typeWeight = {
   semibold: 600,
   bold: 700,
   heavy: 800,
+} as const;
+
+/** Size + lineHeight + weight + family role. Prefer these over free-form type. */
+export const typeStyle = {
+  display: { size: 26, lineHeight: 32, weight: typeWeight.bold, family: "sans" as const },
+  heading: { size: 18, lineHeight: 24, weight: typeWeight.semibold, family: "sans" as const },
+  panelTitle: { size: 15, lineHeight: 21, weight: typeWeight.semibold, family: "sans" as const },
+  body: { size: 12, lineHeight: 18, weight: typeWeight.regular, family: "sans" as const },
+  bodyStrong: { size: 12, lineHeight: 18, weight: typeWeight.semibold, family: "sans" as const },
+  control: { size: 12, lineHeight: 16, weight: typeWeight.semibold, family: "sans" as const },
+  label: { size: 11, lineHeight: 15, weight: typeWeight.semibold, family: "sans" as const },
+  metadata: { size: 10, lineHeight: 14, weight: typeWeight.medium, family: "mono" as const },
+  metric: { size: 32, lineHeight: 36, weight: typeWeight.bold, family: "sans" as const },
+  brand: { size: 14, lineHeight: 20, weight: typeWeight.bold, family: "sans" as const },
+  title: { size: 13, lineHeight: 18, weight: typeWeight.semibold, family: "sans" as const },
+} as const;
+
+/** Letter-spacing roles. Free-form tracking is a review failure. */
+export const tracking = {
+  telemetry: "0.06em",
+  eyebrow: "0.1em",
+  tight: "-0.01em",
+} as const;
+
+/** Thin size wrappers — prefer typeStyle for new work. */
+export const typeScale = {
+  eyebrow: typeStyle.metadata.size,
+  metadata: typeStyle.metadata.size,
+  caption: typeStyle.label.size,
+  label: typeStyle.label.size,
+  body: typeStyle.body.size,
+  title: typeStyle.title.size,
+  subhead: typeStyle.panelTitle.size,
+  heading: typeStyle.heading.size,
+  display: typeStyle.display.size,
+  metric: typeStyle.metric.size,
+  brand: typeStyle.brand.size,
 } as const;
 
 export function tint(hex: string, alpha: number) {
@@ -102,7 +128,7 @@ export function tint(hex: string, alpha: number) {
 export const surface = {
   base: T.bgBase,
   map: T.bgMap,
-  panel: "rgba(8, 16, 28, 0.78)",
+  panel: "rgba(8, 16, 28, 0.92)",
   panelDense: "rgba(8, 16, 28, 0.90)",
   raised: "rgba(18, 32, 51, 0.76)",
   inset: "rgba(255, 255, 255, 0.025)",
@@ -111,6 +137,8 @@ export const surface = {
   controlActive: "rgba(255, 255, 255, 0.09)",
   overlay: "rgba(8, 16, 28, 0.96)",
   scrim: "rgba(0, 0, 0, 0.60)",
+  /** Behind full-screen takeovers, where map detail must stop competing. */
+  takeoverScrim: "rgba(6, 10, 18, 0.90)",
 } as const;
 
 export const border = {
@@ -121,10 +149,24 @@ export const border = {
   focus: tint(T.cyan, 0.5),
 } as const;
 
+/*
+ * Elevation is carried by an edge, not by a glow. Every recipe below pairs one
+ * light top edge with one dark bottom edge and a single soft drop — the depth
+ * cue reads at headquarters distance without stacking blooms.
+ */
 export const shadow = {
   panel: "inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 10px 28px rgba(0, 0, 0, 0.28)",
   overlay: "0 24px 64px rgba(0, 0, 0, 0.58), inset 0 1px 0 rgba(255, 255, 255, 0.06)",
   quiet: "0 6px 18px rgba(0, 0, 0, 0.20)",
+  /** Rails and floating shells seated over the map. */
+  edgeRail:
+    "inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -1px 0 rgba(0, 0, 0, 0.18), 0 8px 24px rgba(0, 0, 0, 0.28)",
+  /** Modals and takeover surfaces: same edge, deeper drop. */
+  edgeOverlay:
+    "inset 0 1px 0 rgba(255, 255, 255, 0.07), inset 0 -1px 0 rgba(0, 0, 0, 0.22), 0 20px 48px rgba(0, 0, 0, 0.46)",
+  /** Menus and popovers: same edge, quiet drop. */
+  edgePopover:
+    "inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -1px 0 rgba(0, 0, 0, 0.18), 0 10px 26px rgba(0, 0, 0, 0.32)",
 } as const;
 
 export const tone = {
@@ -160,7 +202,7 @@ export const shell = {
   screenInset: 16,
   railWidth: 300,
   railGap: 8,
-  railInnerGap: 18,
+  railInnerGap: 16,
   commandBarHeight: ACTIONBAR_H,
   commandBarExpandedHeight: ACTIONBAR_H_EXPANDED,
   safeAreaPadding: 16,
@@ -180,11 +222,11 @@ export const layer = {
 } as const;
 
 export const panel = {
-  headerHeight: 58,
-  bodyPadding: space["3xl"],
-  bodyPaddingCompact: space["2xl"],
-  sectionGap: space["2xl"],
-  itemGap: space.lg,
+  headerHeight: 56,
+  bodyPadding: space.lg,
+  bodyPaddingCompact: space.md,
+  sectionGap: space.md,
+  itemGap: space.sm,
   minCompactHeight: 72,
   minStandardHeight: 160,
   minFocusHeight: 260,
@@ -217,23 +259,55 @@ export const scrollbar = {
   track: "transparent",
 } as const;
 
-export const GLASS: CSSProperties = {
-  background: surface.panel,
-  backdropFilter: "blur(18px) saturate(1.25)",
-  WebkitBackdropFilter: "blur(18px) saturate(1.25)",
-  borderRadius: radius.glass,
-  border: `1px solid ${border.subtle}`,
-  boxShadow: shadow.panel,
-};
+/*
+ * ─── Material law ───────────────────────────────────────────────────────────
+ * Sentinel has three shell materials plus one backdrop. Every floating surface
+ * picks one; nothing invents its own blur, radius, or shadow stack.
+ *
+ *   rail    — panels seated over the live map. Light frost so the map still
+ *             reads underneath, one edge light, one soft drop.
+ *   overlay — modals, takeovers, and decision surfaces. Opaque, no frost: an
+ *             authorization surface must never compete with the map behind it.
+ *   popover — menus and transient attachments. Overlay material, quiet drop.
+ *   scrim   — the dim behind a takeover. Backdrop only, never a container.
+ *
+ * Frost is a material, never a state. State is carried by semantic colour,
+ * text, and iconography — see DESIGN.md § Materials.
+ */
+const RAIL_FROST = "blur(10px) saturate(1.12)";
 
-/** Subtle glass for inner cards within panels */
-export const GLASS_SUBTLE: CSSProperties = {
-  background: surface.raised,
-  backdropFilter: "blur(12px) saturate(1.12)",
-  WebkitBackdropFilter: "blur(12px) saturate(1.12)",
-  border: `1px solid ${border.soft}`,
-  borderRadius: radius.card,
-  boxShadow: shadow.quiet,
+const SCRIM_FROST = "blur(8px)";
+
+export const material: Record<"rail" | "overlay" | "popover" | "scrim", CSSProperties> = {
+  rail: {
+    background: surface.panel,
+    backdropFilter: RAIL_FROST,
+    WebkitBackdropFilter: RAIL_FROST,
+    borderRadius: radius.panel,
+    border: `1px solid ${border.subtle}`,
+    boxShadow: shadow.edgeRail,
+  },
+  overlay: {
+    background: surface.overlay,
+    borderRadius: radius.overlay,
+    border: `1px solid ${border.strong}`,
+    boxShadow: shadow.edgeOverlay,
+  },
+  popover: {
+    background: surface.overlay,
+    borderRadius: radius.panel,
+    border: `1px solid ${border.default}`,
+    boxShadow: shadow.edgePopover,
+  },
+  /*
+   * Full-bleed backdrop behind a takeover. Not a panel: it carries no edge and
+   * no radius, only one dim value and one frost value for the whole product.
+   */
+  scrim: {
+    background: surface.takeoverScrim,
+    backdropFilter: SCRIM_FROST,
+    WebkitBackdropFilter: SCRIM_FROST,
+  },
 };
 
 export const GI = {

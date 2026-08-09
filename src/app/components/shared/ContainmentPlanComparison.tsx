@@ -36,7 +36,7 @@ function Metric({
         borderTop: `1px solid ${border.soft}`,
         display: "grid",
         gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
-        gap: space.md,
+        gap: space.sm,
       }}
     >
       <div style={{ gridColumn: "1 / -1", color: T.textMuted, fontFamily: font.sans, fontSize: typeScale.caption }}>
@@ -63,8 +63,8 @@ export function ContainmentPlanComparison({ activeVariant }: ContainmentPlanComp
           display: "flex",
           alignItems: "baseline",
           justifyContent: "space-between",
-          gap: space.md,
-          marginBottom: space.md,
+          gap: space.sm,
+          marginBottom: space.sm,
         }}
       >
         <div>
@@ -80,7 +80,7 @@ export function ContainmentPlanComparison({ activeVariant }: ContainmentPlanComp
         </span>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: space.md }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: space.sm }}>
         {variants.map((variant) => {
           const plan = variant === "recommended" ? recommended : alternate;
           const selected = variant === activeVariant;
@@ -88,10 +88,10 @@ export function ContainmentPlanComparison({ activeVariant }: ContainmentPlanComp
             <article
               key={variant}
               style={{
-                borderRadius: radius.md,
+                borderRadius: radius.control,
                 border: `1px solid ${selected ? tint(T.cyan, 0.46) : border.soft}`,
                 background: selected ? tint(T.cyan, 0.07) : "transparent",
-                padding: space.lg,
+                padding: space.md,
                 minWidth: 0,
               }}
             >
@@ -101,7 +101,7 @@ export function ContainmentPlanComparison({ activeVariant }: ContainmentPlanComp
               <div style={{ marginTop: space.xs, color: T.textMuted, fontFamily: font.sans, fontSize: typeScale.caption, lineHeight: 1.4 }}>
                 {plan.sentence}
               </div>
-              <div style={{ marginTop: space.md, color: T.textSecondary, fontFamily: font.sans, fontSize: typeScale.caption, lineHeight: 1.45 }}>
+              <div style={{ marginTop: space.sm, color: T.textSecondary, fontFamily: font.sans, fontSize: typeScale.caption, lineHeight: 1.45 }}>
                 {plan.reasoning}
               </div>
             </article>
@@ -109,7 +109,7 @@ export function ContainmentPlanComparison({ activeVariant }: ContainmentPlanComp
         })}
       </div>
 
-      <div style={{ marginTop: space.md, display: "flex", flexDirection: "column", gap: space.md }}>
+      <div style={{ marginTop: space.sm, display: "flex", flexDirection: "column", gap: space.sm }}>
         <Metric
           label="Protection ready"
           primary={`${active.eta.protectionReadyMinutes} min`}

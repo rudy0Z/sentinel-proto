@@ -209,6 +209,38 @@ try {
     await page.getByText("Operator approval unavailable").waitFor();
     await page.getByText("TALON has not dispatched any drones", { exact: false }).waitFor();
   });
+
+  await run("illegal authority send is not offered after operations begin", async (page) => {
+    await page.goto(`${baseUrl}#/?scene=contain-recommended&core=1`, { waitUntil: "domcontentloaded" });
+    const sendPacket = page.getByRole("button", { name: /Send Authority Packet/i });
+    if (await sendPacket.count()) {
+      throw new Error("Authority send should not be exposed once operations planning has begun.");
+    }
+  });
+
+  await run("re-raise preserves original dissent record", async (page) => {
+    await page.goto(`${baseUrl}#/?scene=monitoring-contested&core=1`, { waitUntil: "domcontentloaded" });
+    const audit = await page.getByLabel("Contested watch").getByText(/AUD-DIS-0847-FP/).textContent();
+    if (!audit) throw new Error("Missing dissent audit id on contested watch.");
+    await page.waitForTimeout(17000);
+    await page.getByText(/Something changed since the override/i).waitFor({ timeout: 8000 });
+    const auditAfter = await page.getByLabel("TALON re-raise brief").getByText(/AUD-DIS-0847-FP/).textContent();
+    if (auditAfter !== audit) {
+      throw new Error(`Dissent audit changed after re-raise: ${audit} -> ${auditAfter}`);
+    }
+  });
+
+  await run("backup recovery exits signal-degraded scene", async (page) => {
+    await page.goto(`${baseUrl}#/?scene=rescue-signal-degraded&core=1`, { waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: /Deploy backup/i }).first().click();
+    const dialog = page.getByRole("dialog");
+    await dialog.waitFor();
+    await dialog.getByRole("button", { name: /Confirm Request/i }).click();
+    await page.getByLabel("TALON intelligence brief").getByText(/Authorized plan is executing/i).waitFor({ timeout: 8000 });
+    if (await page.getByText(/Relay signal is degraded/i).count()) {
+      throw new Error("Signal-degraded TALON brief remained after confirmed backup recovery.");
+    }
+  });
 } finally {
   await browser.close();
 }
