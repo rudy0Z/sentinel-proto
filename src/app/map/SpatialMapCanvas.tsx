@@ -110,7 +110,12 @@ function clampLabelX(x: number): number {
  * ring, and the inspector rail still carry the identity, so nothing is lost
  * except the collision. Coordinates are in MAP_DISPLAY space (1440×900).
  */
-const COMMAND_DOCK_ZONE = { xMin: 380, xMax: 1060, yMin: 758 };
+/*
+ * Bottom-center chrome band (command plinth, voice panel, staged commands).
+ * Map labels never render here — a zone plate under the authorization control
+ * reads as a render bug, and the label carries no urgency the chrome doesn't.
+ */
+const COMMAND_DOCK_ZONE = { xMin: 300, xMax: 1140, yMin: 720 };
 
 function collidesWithCommandDock(screen: { x: number; y: number }): boolean {
   return (
@@ -885,6 +890,7 @@ export function SpatialMapCanvas({
       <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
         {visibleZones.map((zone) => {
           const c = toScreen(zone.center);
+          if (collidesWithCommandDock(c)) return null;
           const tone =
             zone.category === "forest" ? "fire" :
             zone.category === "buffer" ? "cyan" : "red";

@@ -23,6 +23,7 @@ import {
   motion,
   radius,
   shadow,
+  shell,
   space,
   surface,
   tint,
@@ -280,24 +281,23 @@ export function ActionBar({
       aria-label="TALON command bar"
     >
       {/*
-        The command stage. Without it the orb, the gate line, and the pill are
-        three unrelated objects floating on live map texture — the map wins and
-        the decision surface reads as scattered chrome. A single grounding
-        gradient (no edge, no radius) seats the whole cluster as one surface and
-        gives the authorization moment somewhere to sit. It is a backdrop, not a
-        panel: it must never look like a fourth material.
+        The command plinth. The old full-bleed gradient (±50vw) blacked out the
+        bottom quarter of the map — depth rendered as a void. A bounded seat
+        under the cluster keeps the map alive at the edges while giving the
+        authorization moment somewhere to sit.
       */}
       <div
         aria-hidden="true"
         style={{
           position: "absolute",
-          left: "-50vw",
-          right: "-50vw",
-          bottom: "-40px",
-          top: "-96px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: `min(1240px, calc(100vw - ${shell.safeAreaPadding * 2}px))`,
+          top: "-24px",
+          bottom: "-16px",
           zIndex: 0,
           pointerEvents: "none",
-          background: `linear-gradient(to top, ${tint(T.bgMap, 0.97)} 0%, ${tint(T.bgMap, 0.9)} 30%, ${tint(T.bgMap, 0.6)} 62%, ${tint(T.bgMap, 0)} 100%)`,
+          background: `linear-gradient(to top, ${tint(T.bgMap, 0.94)} 0%, ${tint(T.bgMap, 0.72)} 46%, ${tint(T.bgMap, 0)} 100%)`,
         }}
       />
       <style dangerouslySetInnerHTML={{ __html: `
@@ -724,9 +724,18 @@ function CommandPill({ action, onClick, state }: { action: QuickActionState; sta
             fontSize: typeScale.caption,
             color: isComplete ? withAlpha(T.teal, 0.92) : isDisabled ? T.textMuted : T.textSecondary,
             letterSpacing: "0.02em",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
+            /*
+             * A stated blocker is the product speaking — never truncate it
+             * mid-sentence ("Verify bu…"). Disabled pills wrap to two lines;
+             * live subtitles stay one line.
+             */
+            overflow: isDisabled ? undefined : "hidden",
+            textOverflow: isDisabled ? undefined : "ellipsis",
+            whiteSpace: isDisabled ? "normal" : "nowrap",
+            display: isDisabled ? "-webkit-box" : undefined,
+            WebkitLineClamp: isDisabled ? 2 : undefined,
+            WebkitBoxOrient: isDisabled ? "vertical" : undefined,
+            lineHeight: isDisabled ? 1.35 : undefined,
           }}
         >
           {pillSubtitle(action, assignedDrone?.name)}
@@ -869,7 +878,11 @@ function HoldPill({ action, onConfirm }: { action: QuickActionState; onConfirm: 
             fontSize: typeScale.caption,
             color: disabled ? T.textMuted : withAlpha(tone, 0.92),
             letterSpacing: "0.02em",
-            whiteSpace: "nowrap",
+            whiteSpace: disabled ? "normal" : "nowrap",
+            display: disabled ? "-webkit-box" : undefined,
+            WebkitLineClamp: disabled ? 2 : undefined,
+            WebkitBoxOrient: disabled ? "vertical" : undefined,
+            lineHeight: disabled ? 1.35 : undefined,
           }}
         >
           {disabled

@@ -106,8 +106,13 @@ try {
     });
 
     const contractFailures = [];
-    if (route.core && metrics.reviewDockCount) {
-      contractFailures.push("Review Dock is visible in core mode.");
+    // Scene navigation is deliberately available in embeds/core mode: a
+    // reviewer must reach any designed state without replaying the 90-second
+    // script. The old "hidden in core" contract stranded the portfolio embed.
+    if (route.core && !route.route.includes("escalation") && metrics.reviewDockCount !== 1) {
+      // The guided escalation sequence runs in simulation mode, where the
+      // navigator intentionally yields to the protocol overlay.
+      contractFailures.push("Review Dock is missing in core mode.");
     }
     if (route.route.includes("authority-notification-ready") && metrics.droneMarkers === 0) {
       contractFailures.push("Authority scene has no visible drone markers.");

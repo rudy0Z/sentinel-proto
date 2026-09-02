@@ -914,12 +914,19 @@ export function SentinelShell() {
         />
       )}
 
-      {experienceMode === "free" && !coreMode && (
+      {/*
+        Scene navigation is always available — including embeds — because a
+        reviewer (or a recruiter) must reach any designed state without
+        replaying the 90-second script. It aligns to the ADAPTIVE rail width;
+        the old constant offset floated it 40px into the map at 1280, where it
+        collided with TALON's voice panel.
+      */}
+      {experienceMode === "free" && (
         <ReviewDock
           open={reviewDockOpen}
           activeScene={state.scene}
           bottomOffset={reviewDockBottom}
-          rightOffset={RIGHT_RAIL_W + SCREEN_INSET + 12}
+          rightOffset={adaptiveRailWidth + SCREEN_INSET + 12}
           onToggle={() => setReviewDockOpen((current) => !current)}
           onJumpToScene={setScene}
         />
