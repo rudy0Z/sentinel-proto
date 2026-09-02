@@ -10,7 +10,8 @@ import {
   getTalonSessionView,
   updateTalonConversation,
 } from "../../domain/talon";
-import { TalonMark } from "./TalonMark";
+import { TalonMark, markStateForPhase, type TalonMarkState } from "./TalonMark";
+import { TalonStream } from "./TalonStream";
 import "./talon.css";
 
 interface SpeechRecognitionResultLike {
@@ -51,6 +52,14 @@ export interface TalonSessionContext {
   detail?: string;
   defaultTranscript?: string;
   scriptedReply?: string;
+  /*
+   * What the mark should say when no session is running. Without this the mark
+   * sits at `watching` in every scene and the aperture becomes decoration —
+   * it would only ever animate if you talked to TALON. The product state is
+   * itself a TALON state: if the incident is parked on a human gate, the
+   * aperture should be closed whether or not anyone opened the session.
+   */
+  ambientMarkState?: TalonMarkState;
 }
 
 export interface TalonSessionProps {
@@ -397,6 +406,16 @@ export function TalonSession({
     emit({ phase: "review", transcript: draftTranscript.trim(), error: null });
   };
 
+  /*
+   * One resolution point for the mark. An active session always wins — if the
+   * operator is talking to TALON, that is the truth. Only when the session is
+   * idle does the mark fall back to what the incident itself is waiting on.
+   */
+  const markState: TalonMarkState =
+    view.phase === "watching" && context.ambientMarkState
+      ? context.ambientMarkState
+      : markStateForPhase(view.phase);
+
   const status = stateLabel(conversation);
   const detail =
     view.phase === "watching"
@@ -447,7 +466,7 @@ export function TalonSession({
           title={`TALON · ${status}`}
         >
           {view.phase === "input" ? <span className="talon-session__orb-ripple" aria-hidden="true" /> : null}
-          <TalonMark color="currentColor" size={28} decorative />
+          <TalonMark color="currentColor" size={28} decorative state={markState} />
         </button>
       ) : null}
 
@@ -468,7 +487,7 @@ export function TalonSession({
             }
             disabled={variant === "compact" && isBusy}
           >
-            <TalonMark color="currentColor" size={36} decorative />
+            <TalonMark color="currentColor" size={36} decorative state={markState} />
           </button>
           <div className="talon-session__summary" aria-live="polite">
             <div className="talon-session__name">TALON · {status}</div>
@@ -490,21 +509,21 @@ export function TalonSession({
       {(expanded || variant === "modal") ? (
         <section className="talon-session__surface" aria-label="TALON command session">
           {showFirstUseDisclosure ? (
-            <div className="talon-session__notice" role="note" style={{ marginBottom: 12 }}>
-              <strong>Prototype disclosure.</strong> Browser speech capture may be available, but TALON replies, agent work, and evidence checks are scripted prototype states.
+            <div className="talon-session__disclosure" role="note">
+              <span>Scripted prototype — TALON replies, agent work, and evidence are authored states, not a live model.</span>
               <button
                 type="button"
-                className="talon-session__button"
+                className="talon-session__disclosure-dismiss"
                 onClick={() => setShowFirstUseDisclosure(false)}
-                style={{ marginLeft: 8 }}
+                aria-label="Dismiss prototype notice"
               >
-                Understood
+                Dismiss
               </button>
             </div>
           ) : null}
           <div className="talon-session__surface-header">
             <div className="talon-session__status-row">
-              <TalonMark color={color} size={28} />
+              <TalonMark color={color} size={28} state={markState} />
               <div>
                 <div className="talon-session__name">TALON session</div>
                 <div className="talon-session__detail" role="status" aria-live="polite">{status}</div>
@@ -615,9 +634,17 @@ export function TalonSession({
 
             {view.phase === "recommendation" || view.phase === "human-gate" ? (
               <>
+                {/*
+                  * The recommendation is TALON's answer — the one place a reply
+                  * should read as arriving rather than appearing. Keyed on the
+                  * body so a new answer restarts the reveal cleanly.
+                  */}
                 <p className="talon-session__copy">
                   <strong>{view.recommendation?.title ?? context.recommendation.title}.</strong>{" "}
-                  {view.recommendation?.body ?? context.scriptedReply ?? context.recommendation.body}
+                  <TalonStream
+                    key={view.recommendation?.body ?? context.scriptedReply ?? context.recommendation.body}
+                    text={view.recommendation?.body ?? context.scriptedReply ?? context.recommendation.body}
+                  />
                 </p>
                 {(view.recommendation?.evidence ?? context.recommendation.evidence).length > 0 ? (
                   <ul className="talon-session__evidence">
@@ -642,10 +669,26 @@ export function TalonSession({
             ) : null}
 
             {view.phase === "receipt" ? (
-              <div className="talon-session__notice">
-                <strong>{conversation.receipt?.id}</strong><br />
-                {conversation.receipt?.summary}
-              </div>
+              <>
+                <div className="talon-session__notice">
+                  <strong>{conversation.receipt?.id}</strong><br />
+                  {conversation.receipt?.summary}
+                </div>
+                {/*
+                 * The receipt used to be a dead end: nothing on this screen let
+                 * the operator talk to TALON again, so re-opening the session
+                 * after any completed action showed only a stale audit line
+                 * forever. TALON must always offer a way back in.
+                 */}
+                <div className="talon-session__actions">
+                  <button type="button" className="talon-session__button talon-session__button--primary" onClick={startVoiceInput} disabled={!canWriteSession}>
+                    {speechSupported && !legacyMode ? "Start browser speech" : "Run scripted fallback"}
+                  </button>
+                  <button type="button" className="talon-session__button" onClick={startTypedInput} disabled={!canWriteSession || legacyMode}>
+                    Type command
+                  </button>
+                </div>
+              </>
             ) : null}
 
           </div>

@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { OperationalIcon } from "./OperationalIcon";
 import {
+  getEvidenceSources,
   getTalonSessionRecommendation,
 } from "../domain/talon";
 import { COMMAND_LABELS } from "../domain/microcopy";
@@ -18,11 +19,14 @@ import {
   border,
   material,
   font,
+  motion,
   radius,
+  shadow,
   space,
   surface,
   tint,
   tone,
+  tracking,
   typeScale,
   typeWeight,
 } from "../tokens";
@@ -209,18 +213,66 @@ export function ActionBar({
         tone: state.talonConversation.response.tone,
       }
     : talonRecommendation;
-  const authorizationLabel = isGate
-    ? "Source conflict must be resolved"
-    : displayedRecommendation.requiresHumanGate
+  /*
+   * The command surface has two axes, both centred on the orb: TALON's voice
+   * rises from behind it, and actions bloom to its sides. The primary command
+   * blooms right (forward / proceed); a decline or monitor option blooms left
+   * (back / hold). Danger stays in its own menu, never a bloom.
+   */
+  /*
+   * Decline/hold actions always bloom LEFT (back); forward commands bloom RIGHT.
+   * Splitting on intent — not on primary/secondary or status — is what keeps the
+   * gated forward command ("Prepare packet", locked) on the right where the
+   * operator expects it, while "Decline escalation" sits on the left, rather
+   * than the decline stealing the right slot just because it happens to be the
+   * only actionable one.
+   */
+  const HOLD_IDS: QuickActionId[] = ["monitor-only"];
+  const forwardPool = [...primary, ...promoted].filter(
+    (a) => !HOLD_IDS.includes(a.id) && !DANGER_IDS.includes(a.id),
+  );
+  const rightAction =
+    forwardPool.find((a) => a.status === "recommended") ??
+    forwardPool.find((a) => a.status === "in-progress") ??
+    forwardPool.find((a) => a.status === "available") ??
+    forwardPool.find((a) => a.status === "disabled") ??
+    null;
+  const leftAction =
+    [...primary, ...secondary].find(
+      (a) => HOLD_IDS.includes(a.id) && a.status !== "hidden",
+    ) ??
+    [...secondary].find(
+      (a) =>
+        !DANGER_IDS.includes(a.id) &&
+        a.id !== rightAction?.id &&
+        a.status !== "hidden" &&
+        a.status !== "disabled",
+    ) ??
+    null;
+
+  /* Ambient voice: what TALON is saying when no session is open. */
+  const ambientLive = getEvidenceSources(state.scene).filter((s) => s.status === "active").length;
+  const hasCommand = Boolean(rightAction || leftAction);
+  const voiceEyebrow = isGate
+    ? "Source conflict"
+    : hasCommand && displayedRecommendation.requiresHumanGate
       ? "Human authorization required"
-      : "Operator review remains in control";
-  const authorizationDetail = isGate
-    ? "TALON cannot prepare the packet until the permit conflict is verified."
-    : displayedRecommendation.blocker ?? "TALON can recommend and explain; only the operator can commit.";
+      : hasCommand
+        ? "Operator review"
+        : "Quiet watch";
+  const voiceLine = isGate
+    ? "Thermal anomaly reads as fire; Satellite IR reads a controlled agricultural burn. TALON will not prepare the packet until you resolve which is true."
+    : hasCommand
+      ? displayedRecommendation.body
+      : ambientLive > 0
+        ? `TALON is watching ${ambientLive} source${ambientLive === 1 ? "" : "s"}. Nothing has crossed the escalation threshold.`
+        : "TALON is holding. No operator action is required.";
+  const voiceTone = isGate || (hasCommand && displayedRecommendation.requiresHumanGate) ? T.amber : T.cyan;
 
   return (
     <div
       style={{
+        position: "relative",
         width: "100%",
         height: "100%",
         display: "flex",
@@ -232,126 +284,196 @@ export function ActionBar({
       role="toolbar"
       aria-label="TALON command bar"
     >
+      {/*
+        The command stage. Without it the orb, the gate line, and the pill are
+        three unrelated objects floating on live map texture — the map wins and
+        the decision surface reads as scattered chrome. A single grounding
+        gradient (no edge, no radius) seats the whole cluster as one surface and
+        gives the authorization moment somewhere to sit. It is a backdrop, not a
+        panel: it must never look like a fourth material.
+      */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          left: "-50vw",
+          right: "-50vw",
+          bottom: "-40px",
+          top: "-96px",
+          zIndex: 0,
+          pointerEvents: "none",
+          background: `linear-gradient(to top, ${tint(T.bgMap, 0.97)} 0%, ${tint(T.bgMap, 0.9)} 30%, ${tint(T.bgMap, 0.6)} 62%, ${tint(T.bgMap, 0)} 100%)`,
+        }}
+      />
       <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes commandTileIn {
-          from { opacity: 0; transform: translateY(6px) scale(.985); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
+        /*
+          Actions bloom sideways out of TALON. Each pill grows from the orb side
+          of its cell (right action from its left edge, left action from its
+          right edge) so it reads as extending out of TALON rather than
+          appearing beside it. Critically damped — no bounce, this is an
+          authorization surface. Clickable from frame one; motion never gates input.
+        */
+        @keyframes commandBloomRight {
+          from { opacity: 0; transform: scaleX(.55); }
+          to   { opacity: 1; transform: scaleX(1); }
         }
+        @keyframes commandBloomLeft {
+          from { opacity: 0; transform: scaleX(.55); }
+          to   { opacity: 1; transform: scaleX(1); }
+        }
+        .talon-bloom-right { transform-origin: left center; animation: commandBloomRight 200ms cubic-bezier(0.23,1,0.32,1); }
+        .talon-bloom-left  { transform-origin: right center; animation: commandBloomLeft 200ms cubic-bezier(0.23,1,0.32,1); }
         @media (prefers-reduced-motion: reduce) {
-          @keyframes commandTileIn {
-            from { opacity: 1; transform: none; }
-            to { opacity: 1; transform: none; }
-          }
+          .talon-bloom-right, .talon-bloom-left { animation: none; }
         }
       `}} />
-      {/* Source-conflict calibrator gate (verify-active) */}
-      {isGate && (
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          gap: space.lg,
-          background: tone.caution.fill,
-          border: `1.5px solid ${T.amber}`,
-          borderRadius: radius.panel,
-          padding: `${space.sm}px ${space.lg}px`,
-          maxWidth: 760,
-        }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: space.xs, minWidth: 0 }}>
-            <span style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.bold, color: T.amber }}>
-              Source disagreement: thermal anomaly vs. active burn permit
-            </span>
-            <span style={{ fontFamily: font.sans, fontSize: typeScale.body, color: T.textSecondary, lineHeight: 1.35 }}>
-              Sensor Fusion flags a thermal spike but Satellite IR indicates a controlled agricultural burn.
-            </span>
-          </div>
-          <label style={{
-            display: "flex", alignItems: "center", gap: space.sm,
-            fontFamily: font.sans, fontSize: typeScale.label, color: T.textPrimary, fontWeight: typeWeight.semibold,
-            cursor: "pointer", userSelect: "none", whiteSpace: "nowrap",
-            background: surface.controlHover, padding: `${space.sm}px ${space.md}px`, borderRadius: radius.control, border: `1px solid ${border.strong}`,
-          }}>
-            <input type="checkbox" checked={burnPermitVerified} onChange={(e) => onBurnPermitVerifyChange?.(e.target.checked)}
-              style={{ cursor: "pointer", width: space.lg, height: space.lg, accentColor: T.amber }} />
-            <span>I have verified agricultural burn permits for this sector.</span>
-          </label>
-        </div>
-      )}
 
       {/*
-        One line of gate / blocker state, directly above the control it governs.
-        In quiet watch there is no gate to name, so the line goes away rather
-        than asserting an authorization that nothing is waiting on. The open
-        session states its own gate, so the line yields to it.
-      */}
-      {flank.length > 0 && !expanded && (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "baseline",
-          justifyContent: "center",
-          gap: space.sm,
-          maxWidth: "min(660px, calc(100vw - 48px))",
-          textAlign: "center",
-        }}
-        role="status"
-        aria-live="polite"
-      >
-        <span
-          style={{
-            fontFamily: font.sans,
-            fontSize: typeScale.caption,
-            fontWeight: typeWeight.bold,
-            color: isGate || displayedRecommendation.requiresHumanGate ? T.amber : T.cyan,
-            whiteSpace: "nowrap",
-          }}
-        >
-          {authorizationLabel}
-        </span>
-        <span
-          style={{
-            fontFamily: font.sans,
-            fontSize: typeScale.caption,
-            color: T.textSecondary,
-            lineHeight: 1.4,
-          }}
-        >
-          {authorizationDetail}
-        </span>
-      </div>
-      )}
-
-      {/*
-        Three-column frame keeps the orb on the true horizontal centre no matter
-        how wide the current command is. The frame itself has no surface — the
-        map runs underneath the cluster.
+        One command surface, three zones, all centred on the orb:
+          · TALON's voice rises from behind the orb (the `.talon-voice` panel,
+            or the fuller session when expanded — same position, same material)
+          · actions bloom to the sides
+          · the orb is fixed dead-centre and never moves
+        There is no wrapping dock box any more: the orb is a lit object, the
+        actions extend from it, and the voice unfolds above it. Nothing floats
+        detached, and there is one material for everything TALON says.
       */}
       <div
         style={{
-          width: "min(980px, calc(100vw - 48px))",
+          position: "relative",
+          zIndex: 1,
+          width: "min(1040px, calc(100vw - 48px))",
           display: "grid",
           gridTemplateColumns: "1fr auto 1fr",
           alignItems: "center",
-          gap: space.md,
+          columnGap: space.md,
         }}
       >
-        <div aria-hidden="true" />
+        {/* Left bloom — decline / hold */}
+        <div style={{ display: "flex", justifyContent: "flex-end", minWidth: 0 }}>
+          {leftAction ? (
+            <div className="talon-bloom-left" style={{ minWidth: 0 }}>
+              <CommandGroup actions={[leftAction]} onAction={handleAction} state={state} />
+            </div>
+          ) : null}
+        </div>
 
-        <TalonSession
-          variant="floating"
-          conversation={state.talonConversation}
-          onConversationChange={handleConversation}
-          legacyMode={!onTalonConversationChange}
-          expanded={expanded}
-          onExpandedChange={() => onToggleExpand()}
-          context={{
-            recommendation: displayedRecommendation,
-            statusLabel: displayedRecommendation.title,
-            detail: displayedRecommendation.body,
-          }}
-        />
+        {/* Centre — the orb, with TALON's voice rising from behind it */}
+        <div style={{ position: "relative", display: "grid", placeItems: "center" }}>
+          {!expanded ? (
+            <div
+              className="talon-voice"
+              role="status"
+              aria-live="polite"
+              style={{ "--talon-state": voiceTone } as React.CSSProperties}
+            >
+              <div
+                style={{
+                  fontFamily: font.sans,
+                  fontSize: typeScale.label,
+                  fontWeight: typeWeight.bold,
+                  letterSpacing: tracking.eyebrow,
+                  textTransform: "uppercase",
+                  color: voiceTone,
+                }}
+              >
+                {voiceEyebrow}
+              </div>
+              <p
+                style={{
+                  margin: `${space.xs}px 0 0`,
+                  fontFamily: font.sans,
+                  fontSize: typeScale.body,
+                  lineHeight: 1.45,
+                  color: T.textSecondary,
+                }}
+              >
+                {voiceLine}
+              </p>
 
-        <div style={{ display: "flex", alignItems: "center", gap: space.md, justifySelf: "start", minWidth: 0 }}>
-          <CommandGroup actions={flank} onAction={handleAction} state={state} />
+              {/*
+                The calibrator, in TALON's own voice — not a checkbox in a card.
+                A source conflict blocks escalation; clearing it is a deliberate
+                confirmation the operator makes here, inside the panel that
+                raised the conflict, and it unlocks the bloomed command.
+              */}
+              {isGate ? (
+                <button
+                  type="button"
+                  onClick={() => onBurnPermitVerifyChange?.(!burnPermitVerified)}
+                  aria-pressed={burnPermitVerified}
+                  style={{
+                    marginTop: space.md,
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: space.sm,
+                    padding: `${space.sm}px ${space.md}px`,
+                    borderRadius: radius.control,
+                    border: `1px solid ${burnPermitVerified ? withAlpha(T.teal, 0.5) : withAlpha(T.amber, 0.5)}`,
+                    background: burnPermitVerified ? withAlpha(T.teal, 0.12) : withAlpha(T.amber, 0.1),
+                    color: burnPermitVerified ? T.teal : T.amber,
+                    fontFamily: font.sans,
+                    fontSize: typeScale.label,
+                    fontWeight: typeWeight.semibold,
+                    cursor: "pointer",
+                    textAlign: "left",
+                    transition: `background ${motion.normal}, border-color ${motion.normal}, color ${motion.normal}`,
+                  }}
+                >
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      width: 16,
+                      height: 16,
+                      flexShrink: 0,
+                      borderRadius: radius.dense,
+                      border: `1.5px solid currentColor`,
+                      display: "grid",
+                      placeItems: "center",
+                    }}
+                  >
+                    {burnPermitVerified ? (
+                      <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M2.5 6.5l2.5 2.5 4.5-5" />
+                      </svg>
+                    ) : null}
+                  </span>
+                  {burnPermitVerified
+                    ? "Burn permit verified — escalation unlocked"
+                    : "Confirm you have checked the agricultural burn permit"}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+
+          <TalonSession
+            variant="floating"
+            conversation={state.talonConversation}
+            onConversationChange={handleConversation}
+            legacyMode={!onTalonConversationChange}
+            expanded={expanded}
+            onExpandedChange={() => onToggleExpand()}
+            context={{
+              recommendation: displayedRecommendation,
+              statusLabel: displayedRecommendation.title,
+              detail: displayedRecommendation.body,
+              ambientMarkState: isGate
+                ? "blocked"
+                : hasCommand && displayedRecommendation.requiresHumanGate
+                  ? "gated"
+                  : "watching",
+            }}
+          />
+        </div>
+
+        {/* Right bloom — the primary command, plus the danger menu when present */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", gap: space.sm, minWidth: 0 }}>
+          {rightAction ? (
+            <div className="talon-bloom-right" style={{ minWidth: 0 }}>
+              <CommandGroup actions={[rightAction]} onAction={handleAction} state={state} />
+            </div>
+          ) : null}
           {menuActions.length > 0 && <DangerMenu actions={menuActions} onAction={handleAction} state={state} />}
         </div>
       </div>
@@ -366,25 +488,37 @@ function CommandGroup({ actions, onAction, state }: { actions: QuickActionState[
   if (actions.length === 0) {
     /*
      * Quiet watch. TALON is still synthesizing, but nothing is waiting on the
-     * operator — say so rather than inventing a command.
+     * operator. State TALON's posture rather than the absence of a command —
+     * "No command staged" made the entry state read as an empty system, which
+     * is the first sentence a reviewer sees.
      */
+    const sources = getEvidenceSources(state.scene);
+    const live = sources.filter((s) => s.status === "active").length;
+    const posture = live > 0
+      ? `Watching ${live} source${live === 1 ? "" : "s"} · nothing above threshold`
+      : "Holding · no operator action required";
     return (
       <div
         style={{
           height: PILL_H,
           display: "flex",
           alignItems: "center",
+          gap: space.sm,
           padding: `0 ${space.md}px`,
           borderRadius: radius.panel,
           border: `1px dashed ${border.default}`,
           fontFamily: font.mono,
           fontSize: typeScale.caption,
-          letterSpacing: "0.04em",
+          letterSpacing: tracking.telemetry,
           color: T.textMuted,
           whiteSpace: "nowrap",
         }}
       >
-        No command staged
+        <span
+          aria-hidden="true"
+          style={{ width: 5, height: 5, borderRadius: radius.pill, background: tint(T.cyan, 0.85) }}
+        />
+        {posture}
       </div>
     );
   }
@@ -553,6 +687,7 @@ function CommandPill({ action, onClick, state }: { action: QuickActionState; sta
         transform: pressed ? "translateY(1px) scale(0.99)" : hovered && isInteractive ? "translateY(-1px)" : "translateY(0)",
         transition: "transform 120ms ease, border-color 160ms ease, background 160ms ease",
         textAlign: "left",
+        transformOrigin: "left center",
         animation: "commandTileIn 200ms cubic-bezier(0.23,1,0.32,1)",
       }}
     >
@@ -699,6 +834,7 @@ function HoldPill({ action, onConfirm }: { action: QuickActionState; onConfirm: 
         boxShadow: `inset 0 1px 0 ${border.soft}`,
         transform: holding ? "scale(0.99)" : hovered && !disabled ? "translateY(-1px)" : "translateY(0)",
         transition: "transform 120ms ease, border-color 160ms ease",
+        transformOrigin: "left center",
         animation: "commandTileIn 200ms cubic-bezier(0.23,1,0.32,1)",
       }}
     >

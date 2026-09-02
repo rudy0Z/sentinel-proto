@@ -27,6 +27,38 @@ export function RailStack({ views, defaultViewId, ariaLabel }: { views: RailView
   const instanceId = useId().replace(/:/g, "");
   const availableIds = views.map((view) => view.id).join("|");
 
+  /*
+   * Scroll affordance. Tracks whether content remains below the fold so the
+   * fade can be shown only when it means something. Re-measured on scroll, on
+   * resize, and whenever the rail's content changes height (scene switches and
+   * disclosure toggles both change it without a scroll event).
+   */
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [hasMoreBelow, setHasMoreBelow] = useState(false);
+
+  const updateOverflow = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setHasMoreBelow(el.scrollHeight - el.scrollTop - el.clientHeight > 4);
+  };
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || typeof ResizeObserver === "undefined") {
+      updateOverflow();
+      return;
+    }
+    updateOverflow();
+    const ro = new ResizeObserver(updateOverflow);
+    ro.observe(el);
+    if (el.firstElementChild) ro.observe(el.firstElementChild);
+    window.addEventListener("resize", updateOverflow);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", updateOverflow);
+    };
+  }, [activeId, availableIds]);
+
   // Smart defaults follow context until the operator explicitly pins a tab.
   useEffect(() => {
     if (prevDefault.current !== defaultViewId) {
@@ -166,7 +198,14 @@ export function RailStack({ views, defaultViewId, ariaLabel }: { views: RailView
         </div>
       ) : null}
 
-      {/* Active view — scrollable, hidden scrollbar, floating only around content. */}
+      {/*
+        Active view — scrollable with a hidden scrollbar. Because the scrollbar
+        is hidden, a rail whose content runs past its box simply stops
+        mid-element, which reads as a broken panel rather than a scrollable one.
+        The fade below is the affordance that makes the hidden scrollbar
+        survivable: it appears only while content remains underneath, so a rail
+        that fits shows no chrome at all.
+      */}
       <div
         id={contentPanelId}
         role={hasTabStrip ? "tabpanel" : "region"}
@@ -174,7 +213,10 @@ export function RailStack({ views, defaultViewId, ariaLabel }: { views: RailView
         aria-label={hasTabStrip ? undefined : `${ariaLabel ?? "Rail"}: ${resolved.label}`}
         tabIndex={0}
         data-scroll-surface
+        ref={scrollRef}
+        onScroll={updateOverflow}
         style={{
+          position: "relative",
           flex: 1,
           minHeight: 0,
           overflowY: "auto",
@@ -193,6 +235,23 @@ export function RailStack({ views, defaultViewId, ariaLabel }: { views: RailView
             {resolved.render()}
           </RailChromeContext.Provider>
         </div>
+        {hasMoreBelow ? (
+          <div
+            aria-hidden="true"
+            style={{
+              position: "sticky",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: 28,
+              marginTop: -28,
+              pointerEvents: "none",
+              background: `linear-gradient(to top, ${tint(T.bgPanel, 0.96)} 0%, ${tint(T.bgPanel, 0)} 100%)`,
+              borderBottomLeftRadius: radius.panel,
+              borderBottomRightRadius: radius.panel,
+            }}
+          />
+        ) : null}
       </div>
     </div>
   );

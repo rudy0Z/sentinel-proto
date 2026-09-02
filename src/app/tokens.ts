@@ -6,19 +6,34 @@ export const T = {
   bgRaised: "#122033",
   bgMap: "#060A12",
   border: "#1E2D42",
-  cyan: "#00C8FF",
+  /*
+   * Instrument cyan, calibrated off the old pure-neon #00C8FF (0,200,255).
+   * Lifting the zero red channel and easing saturation reads as telemetry, not
+   * a toy accent (vibecoded tell #29), while staying vivid on the dark map.
+   * Feeds every tint()/tone.info/focus derivation, so the whole cyan family
+   * shifts with this one value.
+   */
+  cyan: "#1CB8E6",
   amber: "#F5A623",
   red: "#E5533C",
   fire: "#FF6B4A",
   teal: "#2DD4A0",
-  yellow: "#FFD166",
+  /*
+   * Guidance yellow (ground-team / ingress routes / advisory / stale). Shifted
+   * off the old warm #FFD166 toward a cooler true-yellow so it no longer reads
+   * as a shade of amber (#F5A623 orange) — the one genuine palette confusability.
+   * Kept calmer than amber because guidance is lower-urgency than pending human
+   * judgment. Leads its family via tint(); one raw rgba in ActionModal is routed
+   * through tint() too.
+   */
+  yellow: "#E6D24C",
   textPrimary: "#E8EDF4",
   textSecondary: "#9AACBE",
   textMuted: "#7A8BA0",
   /** Legible label color on bright semantic action fills (WCAG AA). */
   onAction: "#071019",
   // TALON convergence-gate perimeter states.
-  talonIdle: "#00C8FF",
+  talonIdle: "#1CB8E6",
   talonListening: "#E5533C",
   talonProcessing: "#F5A623",
   talonResponded: "#2DD4A0",
@@ -79,26 +94,48 @@ export const typeWeight = {
   heavy: 800,
 } as const;
 
-/** Size + lineHeight + weight + family role. Prefer these over free-form type. */
-export const typeStyle = {
-  display: { size: 26, lineHeight: 32, weight: typeWeight.bold, family: "sans" as const },
-  heading: { size: 18, lineHeight: 24, weight: typeWeight.semibold, family: "sans" as const },
-  panelTitle: { size: 15, lineHeight: 21, weight: typeWeight.semibold, family: "sans" as const },
-  body: { size: 12, lineHeight: 18, weight: typeWeight.regular, family: "sans" as const },
-  bodyStrong: { size: 12, lineHeight: 18, weight: typeWeight.semibold, family: "sans" as const },
-  control: { size: 12, lineHeight: 16, weight: typeWeight.semibold, family: "sans" as const },
-  label: { size: 11, lineHeight: 15, weight: typeWeight.semibold, family: "sans" as const },
-  metadata: { size: 10, lineHeight: 14, weight: typeWeight.medium, family: "mono" as const },
-  metric: { size: 32, lineHeight: 36, weight: typeWeight.bold, family: "sans" as const },
-  brand: { size: 14, lineHeight: 20, weight: typeWeight.bold, family: "sans" as const },
-  title: { size: 13, lineHeight: 18, weight: typeWeight.semibold, family: "sans" as const },
+/**
+ * Letter-spacing roles. Free-form tracking is a review failure.
+ *
+ * Optical tracking law (benchmarked against Linear + IBM Carbon):
+ *   - Large display type gets NEGATIVE tracking so it reads intentional, not loose.
+ *   - Small dense body/telemetry gets slight POSITIVE tracking for legibility at density.
+ *   - Uppercase codes/eyebrows keep the wider telemetry/eyebrow tracking.
+ */
+export const tracking = {
+  /** ≥26px display/metric — Linear runs ~-0.021em at 28px. */
+  displayTight: "-0.02em",
+  /** 15–18px headings. */
+  tight: "-0.01em",
+  /** 10–13px body/label — Carbon adds ~+0.011em at 14px for dense legibility. */
+  fine: "0.01em",
+  /** Uppercase machine codes / short telemetry strings. */
+  telemetry: "0.06em",
+  /** Uppercase section eyebrows. */
+  eyebrow: "0.1em",
 } as const;
 
-/** Letter-spacing roles. Free-form tracking is a review failure. */
-export const tracking = {
-  telemetry: "0.06em",
-  eyebrow: "0.1em",
-  tight: "-0.01em",
+/**
+ * Size + lineHeight + weight + family + optical tracking. Prefer these full
+ * recipes over free-form type or the size-only `typeScale` wrapper below.
+ *
+ * FOCAL CONTRACT (see DESIGN.md §5): every panel renders exactly ONE ≥26px read
+ * — `metric` (data) or `display` (title). No size between 18 and 26 competes
+ * beneath it. This is what survives the portfolio's ~0.65× embed downscale and
+ * is the primary cure for the "no focal point / generic" read.
+ */
+export const typeStyle = {
+  display: { size: 26, lineHeight: 32, weight: typeWeight.bold, family: "sans" as const, tracking: tracking.displayTight },
+  heading: { size: 18, lineHeight: 24, weight: typeWeight.semibold, family: "sans" as const, tracking: tracking.tight },
+  panelTitle: { size: 15, lineHeight: 21, weight: typeWeight.semibold, family: "sans" as const, tracking: tracking.tight },
+  body: { size: 12, lineHeight: 18, weight: typeWeight.regular, family: "sans" as const, tracking: tracking.fine },
+  bodyStrong: { size: 12, lineHeight: 18, weight: typeWeight.semibold, family: "sans" as const, tracking: tracking.fine },
+  control: { size: 12, lineHeight: 16, weight: typeWeight.semibold, family: "sans" as const, tracking: tracking.fine },
+  label: { size: 11, lineHeight: 15, weight: typeWeight.semibold, family: "sans" as const, tracking: tracking.fine },
+  metadata: { size: 10, lineHeight: 14, weight: typeWeight.medium, family: "mono" as const, tracking: tracking.fine },
+  metric: { size: 32, lineHeight: 36, weight: typeWeight.bold, family: "sans" as const, tracking: tracking.displayTight },
+  brand: { size: 14, lineHeight: 20, weight: typeWeight.bold, family: "sans" as const, tracking: tracking.tight },
+  title: { size: 13, lineHeight: 18, weight: typeWeight.semibold, family: "sans" as const, tracking: tracking.fine },
 } as const;
 
 /** Thin size wrappers — prefer typeStyle for new work. */
@@ -237,10 +274,22 @@ export const focus = {
   outline: `1px solid ${border.focus}`,
 } as const;
 
+/**
+ * The two — and only two — sanctioned easing curves, standalone so progress
+ * fills and draw-ins at custom durations reference the curve without a bundled
+ * duration. A third curve is a review failure (see DESIGN.md §12).
+ */
+export const ease = {
+  /** Default ease-out for UI transitions and hold/progress fills. */
+  out: "cubic-bezier(0.23, 1, 0.32, 1)",
+  /** Drawer / deliberate surfaces. */
+  drawer: "cubic-bezier(0.32, 0.72, 0, 1)",
+} as const;
+
 export const motion = {
-  fast: "120ms cubic-bezier(0.23, 1, 0.32, 1)",
-  normal: "180ms cubic-bezier(0.23, 1, 0.32, 1)",
-  deliberate: "240ms cubic-bezier(0.32, 0.72, 0, 1)",
+  fast: `120ms ${ease.out}`,
+  normal: `180ms ${ease.out}`,
+  deliberate: `240ms ${ease.drawer}`,
 } as const;
 
 /** Shared TALON UI and scripted-prototype timing. */
@@ -902,6 +951,16 @@ export interface ShellState {
   escalationBasis: EscalationBasis;
   rescueProgress: RescueProgress;
   operationalException: OperationalException | null;
+  /**
+   * Spatial OS: per-zone envelope margin in normalized MapFrame units.
+   * Positive expands; negative contracts. Consumed by SpatialMapCanvas.
+   */
+  zoneMargins: Record<string, number>;
+  /**
+   * Selected guided egress corridor id (`route-a` | `route-b`).
+   * When null and evacuation is active, both egress routes emphasize.
+   */
+  selectedEvacuationRouteId: string | null;
   /** TALON conversational state — drives copilot rail content */
   talonConversation: TalonConversationState;
   /** Optional until incident selection is wired into the shell. */

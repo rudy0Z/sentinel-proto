@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { FOCUSED_INCIDENT_QUEUE, INCIDENT, getIncidentQueueItem } from "../mockData";
-import { MODE_META, WORKFLOW_META, ShellState, T, border, font, radius, space, surface, tint, tracking, typeScale, typeStyle, typeWeight } from "../tokens";
+import { WORKFLOW_META, ShellState, T, border, font, radius, space, surface, tint, tracking, typeScale, typeStyle, typeWeight } from "../tokens";
 import { OperationalIcon } from "./OperationalIcon";
 import { PopoverSurface, usePopoverDismissal } from "./shared/PopoverSurface";
 
@@ -49,7 +49,15 @@ export function Navbar({
 
       <div style={{ flex: "1 1 auto", minWidth: 12 }} />
 
-      {/* V2 centerpiece — Intelligence/Operations phase + escalation benchmark */}
+      {/*
+        The one loud thing in the navbar. TALON's voice panel over the map now
+        owns narration (what's happening, why, what's next) — the navbar's job
+        shrank to identity + this single temporal anchor. EnvironmentMetrics and
+        the Scan/Verify/Escalate stepper used to sit on either side of this and
+        were cut: both duplicated telemetry the left rail and TALON already
+        state, and three "where am I" indicators (mode chip, stepper, this
+        pill) competing at once was exactly the noise being fixed.
+      */}
       <WorkflowPhaseBlock
         state={state}
         incidentElapsed={incidentElapsed}
@@ -58,8 +66,6 @@ export function Navbar({
       />
 
       <div style={{ flex: "1 1 auto", minWidth: 12 }} />
-
-      {!coreMode && viewportWidth >= 1500 ? <EnvironmentMetrics state={state} /> : null}
 
       {!coreMode ? <VerticalDivider /> : null}
 
@@ -240,73 +246,23 @@ function FlytBaseLogo() {
 
 /**
  * IncidentStatusBlock — "what am I looking at"
- * Merges operational mode, active incident ID, and a live status line into one
- * grouped unit (Law of Proximity). The incident ID gives the command system
- * accountability anchoring; the status line tells the operator the current beat.
+ *
+ * Just the accountability anchor: the incident ID. This used to also carry a
+ * colour-coded mode chip and a full prose status line ("Convergence active ·
+ * 78% confidence") — both were the navbar independently narrating what was
+ * happening, in a THIRD voice alongside TALON's own voice panel and the phase
+ * pill next to it. Three narrators for one incident is how you get "playing
+ * with colours, nothing meaningful." TALON's voice panel is now the one place
+ * that says what's happening and why; the navbar just says which incident.
  */
-function IncidentStatusBlock({ state, compact }: { state: ShellState; compact: boolean }) {
-  const meta = MODE_META[state.mode];
-  const scene = state.scene;
-  const isActive = scene !== "baseline";
-
-  const activeScout = state.drones.find(
-    (d) => d.assignedMission === "investigation" || d.droneClass === "thermal-lidar" || d.status === "en-route"
-  );
-  const scoutName = activeScout ? activeScout.name : "Scout-02";
-  const scoutGrid = activeScout?.gridLabel || "Grid 4C";
-  const degradedDrone = state.drones.find((d) => d.status === "signal-degraded");
-
-  let detail = "Quiet watch · all sensors nominal";
-  if (scene === "alert-command") detail = "Thermal spike detected · Grid 4C";
-  else if (scene === "investigation-pending") detail = `${scoutName} en route · verifying ${scoutGrid}`;
-  else if (scene === "verify-active") detail = "Convergence active · 78% confidence";
-  else if (scene === "monitoring-contested") detail = "Contested watch · operator closed, TALON holding";
-  else if (scene === "talon-reraise") detail = "New evidence since override · escalated to supervisor";
-  else if (scene === "authority-notification-ready") detail = "Authority packet staged for send";
-  else if (scene === "contain-recommended") detail = "Protection plan staging";
-  else if (scene === "contain-alternate") detail = `${state.planVariant === "alternate" ? "Alternate" : "Recommended"} plan loaded`;
-  else if (scene === "contain-degraded") detail = "Fallback evidence mode";
-  else if (scene === "satellite-feed-loss") detail = "Satellite offline · drone-weighted";
-  else if (scene === "network-degraded") detail = "Low-bandwidth failback active";
-  else if (scene === "rescue-signal-degraded") detail = degradedDrone ? `${degradedDrone.name} signal exception` : "Signal exception";
-  else if (scene === "rescue-battery-critical") detail = "Supervised battery handoff pending";
-  else if (scene === "infrastructure-total-loss") detail = "Manual protocol active";
-  else if (scene === "rescue-nominal") {
-    const airborne = state.drones.filter(d => d.status === "assigned" || d.status === "holding" || d.status === "signal-degraded").length;
-    detail = `Coordinating ${airborne} field assets`;
-  }
+function IncidentStatusBlock({ state, compact: _compact }: { state: ShellState; compact: boolean }) {
+  const isActive = state.scene !== "baseline";
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, overflow: "hidden", flexShrink: 1 }} role="status" aria-label={`${meta.label}. ${detail}`}>
-      {/* Mode chip */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          padding: "5px 9px",
-          borderRadius: radius.control,
-          background: `${meta.color}14`,
-          border: `1px solid ${meta.color}30`,
-          flexShrink: 0,
-        }}
-      >
-        <span style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.bold, color: meta.color, whiteSpace: "nowrap" }}>
-          {meta.label}
-        </span>
-      </div>
-
-      {/* Incident ID + status line */}
-      <div style={{ minWidth: 0, overflow: "hidden", display: "flex", flexDirection: "column", gap: 1 }}>
-        <span style={{ fontFamily: font.mono, fontSize: typeScale.label, color: isActive ? T.textSecondary : T.textMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {isActive ? INCIDENT.id : "No active incident"}
-        </span>
-        {!compact ? (
-          <span style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 }}>
-            {detail}
-          </span>
-        ) : null}
-      </div>
+    <div style={{ display: "flex", alignItems: "center", minWidth: 0, overflow: "hidden", flexShrink: 1 }} role="status" aria-label={isActive ? `Active incident ${INCIDENT.id}` : "No active incident"}>
+      <span style={{ fontFamily: font.mono, fontSize: typeScale.label, color: isActive ? T.textSecondary : T.textMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        {isActive ? INCIDENT.id : "No active incident"}
+      </span>
     </div>
   );
 }
@@ -373,11 +329,6 @@ function WorkflowPhaseBlock({
         </div>
       </div>
 
-      {/* Stage stepper — where the operator is INSIDE the Intelligence window */}
-      {!compact && isIntelligence && isActiveIncident && (
-        <StageStepper state={state} isNotified={isNotified} />
-      )}
-
       {/* Escalation benchmark — Intelligence phase, active incident */}
       {isIntelligence && isActiveIncident && (
         <div style={{ display: "flex", alignItems: "center", gap: 8 }} aria-label={isNotified ? "Authorities notified" : `Elapsed ${elapsedStr} toward 90 second benchmark`}>
@@ -432,82 +383,6 @@ function WorkflowPhaseBlock({
   );
 }
 
-/**
- * StageStepper — Scan → Verify → Escalate, so the operator always knows where
- * they are inside the 90-second Intelligence window. Completed stages settle
- * teal, the current stage pulses in the phase color, upcoming stages stay muted.
- */
-function StageStepper({ state, isNotified }: { state: ShellState; isNotified: boolean }) {
-  const escalateActive = state.scene === "authority-notification-ready";
-  const stages: Array<{ label: string; status: "done" | "current" | "upcoming" }> = [
-    {
-      label: "Scan",
-      status: state.mode === "scan" && !isNotified ? "current" : "done",
-    },
-    {
-      label: "Verify",
-      status:
-        isNotified || escalateActive
-          ? "done"
-          : state.mode === "verify"
-            ? "current"
-            : "upcoming",
-    },
-    {
-      label: "Escalate",
-      status: isNotified ? "done" : escalateActive ? "current" : "upcoming",
-    },
-  ];
-
-  return (
-    <div
-      style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}
-      aria-label={`Intelligence stages: ${stages.map((s) => `${s.label} ${s.status}`).join(", ")}`}
-    >
-      {stages.map((stage, index) => {
-        const color =
-          stage.status === "done" ? T.teal : stage.status === "current" ? T.amber : T.textMuted;
-        return (
-          <div key={stage.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              {stage.status === "done" ? (
-                <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden="true">
-                  <path d="M1.5 5.2l2.4 2.5 4.6-5" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              ) : (
-                <span
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: "50%",
-                    background: stage.status === "current" ? color : "transparent",
-                    border: `1px solid ${color}`,
-                    animation: stage.status === "current" ? "pulse 1.6s infinite" : undefined,
-                  }}
-                  aria-hidden="true"
-                />
-              )}
-              <span
-                style={{
-                  fontFamily: font.sans,
-                  fontSize: typeScale.label,
-                  fontWeight: stage.status === "current" ? 700 : 500,
-                  color,
-                }}
-              >
-                {stage.label}
-              </span>
-            </div>
-            {index < stages.length - 1 && (
-              <span aria-hidden="true" style={{ width: 10, height: 1, background: border.strong }} />
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function VerticalDivider() {
   return <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.08)", flexShrink: 0 }} aria-hidden="true" />;
 }
@@ -542,55 +417,6 @@ function HandoverButton({ state, onShiftHandover }: { state: ShellState; onShift
       <OperationalIcon actionId="shift-handover" color={btnColor} size={13} />
       Handover
     </button>
-  );
-}
-
-/**
- * EnvironmentMetrics — quiet contextual telemetry.
- * Two most-relevant live numbers per phase. Hidden on narrow viewports so the
- * navbar centerpiece never gets crowded (progressive disclosure).
- */
-function EnvironmentMetrics({ state }: { state: ShellState }) {
-  const avgBattery = state.drones.length > 0
-    ? Math.round(state.drones.reduce((sum, d) => sum + d.battery, 0) / state.drones.length)
-    : 100;
-
-  let metrics: Array<{ label: string; value: string }> = [];
-  switch (state.mode) {
-    case "scan":
-      metrics = [
-        { label: "Fleet", value: `${state.drones.length} ready` },
-        { label: "Avg battery", value: `${avgBattery}%` },
-      ];
-      break;
-    case "verify":
-      metrics = [
-        { label: "Confidence", value: "78%" },
-        { label: "Wind", value: INCIDENT.windVector.split(" · ")[0] },
-      ];
-      break;
-    case "contain":
-    case "rescue": {
-      const airborne = state.drones.filter(
-        (d) => d.status === "assigned" || d.status === "en-route" || d.status === "holding" || d.status === "signal-degraded"
-      ).length;
-      metrics = [
-        { label: "Structures", value: `${INCIDENT.structuresAtRisk} exposed` },
-        { label: "Airborne", value: `${airborne}` },
-      ];
-      break;
-    }
-  }
-
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
-      {metrics.map((m) => (
-        <div key={m.label} style={{ display: "flex", flexDirection: "column", lineHeight: 1, alignItems: "flex-end" }}>
-          <span style={{ fontFamily: font.mono, fontSize: typeScale.body, fontWeight: typeWeight.bold, color: T.textPrimary }}>{m.value}</span>
-          <span style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textMuted, marginTop: space.xs }}>{m.label}</span>
-        </div>
-      ))}
-    </div>
   );
 }
 

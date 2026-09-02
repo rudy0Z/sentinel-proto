@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
-import { EVACUATION_ROUTES, ZONES, INCIDENT } from "../mockData";
+import { ZONES, INCIDENT } from "../mockData";
+import { EGRESS_ROUTES } from "../map/routes";
 import type {
   QuickActionId,
   DroneRosterEntry,
   ShellState,
   TalonConversationChangeHandler,
 } from "../tokens";
-import { T, border, font, layer, material, motion, radius, surface, typeScale } from "../tokens";
+import { T, border, font, layer, material, motion, radius, surface, tint, typeScale } from "../tokens";
 import { getTalonSessionView } from "../domain/talon";
 import { OperationalIcon } from "./OperationalIcon";
 import { TalonSession } from "./talon/TalonSession";
@@ -103,6 +104,8 @@ export const MISSION_BRIEF_DATA: Partial<Record<QuickActionId, MissionBriefConfi
 export interface ModalPayload {
   zones?: string[];
   route?: string;
+  /** Named corridor id from NAMED_ROUTES / EGRESS_ROUTES (`route-a` | `route-b`). */
+  routeId?: string;
   count?: number;
   teamAssignments?: { teamId: string; zoneId: string }[];
   zoneTarget?: string;
@@ -400,7 +403,9 @@ function CommandConfirmationModal({
 
 /** Modal 1: Emergency Evacuation Protocol */
 function EvacuationModal({ state, onClose, onConfirm }: { state: ShellState; onClose: () => void; onConfirm: (payload: ModalPayload) => void }) {
-  const [selectedRouteId, setSelectedRouteId] = useState<string>(EVACUATION_ROUTES[0]?.id ?? "");
+  const [selectedRouteId, setSelectedRouteId] = useState<string>(
+    state.selectedEvacuationRouteId ?? EGRESS_ROUTES[0]?.id ?? "route-a",
+  );
   const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]);
   const [teamZones, setTeamZones] = useState<Record<string, string>>({});
 
@@ -421,7 +426,7 @@ function EvacuationModal({ state, onClose, onConfirm }: { state: ShellState; onC
     setTeamZones((prev) => ({ ...prev, [teamId]: zoneId }));
   };
 
-  const selectedRouteLabel = EVACUATION_ROUTES.find((r) => r.id === selectedRouteId)?.label ?? "";
+  const selectedRouteLabel = EGRESS_ROUTES.find((r) => r.id === selectedRouteId)?.label ?? "";
   const assignmentsComplete = selectedTeamIds.length > 0 && selectedTeamIds.every((id) => teamZones[id]);
   const isValid = selectedRouteId && assignmentsComplete;
 
@@ -440,7 +445,7 @@ function EvacuationModal({ state, onClose, onConfirm }: { state: ShellState; onC
         <div>
           <Label>Evacuation Route</Label>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {EVACUATION_ROUTES.map((r) => (
+            {EGRESS_ROUTES.map((r) => (
               <Chip key={r.id} label={r.label} selected={selectedRouteId === r.id} onClick={() => setSelectedRouteId(r.id)} color={T.fire} />
             ))}
           </div>
@@ -514,6 +519,7 @@ function EvacuationModal({ state, onClose, onConfirm }: { state: ShellState; onC
         onConfirm={() =>
           onConfirm({
              route: selectedRouteLabel,
+             routeId: selectedRouteId,
              teamAssignments: selectedTeamIds.map((id) => ({ teamId: id, zoneId: teamZones[id] }))
           })
         }
@@ -719,7 +725,7 @@ function NotifyTeamsModal({ onClose, onConfirm }: { onClose: () => void; onConfi
       <ModalHeader title="Alert Ground Teams" subtitle="Notify teams with current assignments and staging instructions." accentColor={T.yellow} icon={<OperationalIcon actionId="notify-teams" color={T.yellow} size={18} />} />
 
       <div style={{ padding: "16px 24px" }}>
-        <div style={{ background: "rgba(255,209,102,0.07)", border: `1px solid ${T.yellow}22`, borderRadius: 12, padding: "14px" }}>
+        <div style={{ background: tint(T.yellow, 0.07), border: `1px solid ${tint(T.yellow, 0.28)}`, borderRadius: radius.panel, padding: "14px" }}>
           {[
             { team: "Alpha Lead", detail: "Perimeter control – Forest North" },
             { team: "Bravo Team", detail: "Structure protection – Buffer East" },

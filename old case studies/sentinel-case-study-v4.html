@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FlytBase Sentinel — Case Study</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+/* ─── RESET ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+
+/* ─── TOKENS ─── */
+:root {
+  --white: #FFFFFF;
+  --off: #F7F7F5;
+  --border: #E5E5E2;
+  --border-dark: #CDCDC9;
+  --ink: #111110;
+  --ink-2: #3D3D3A;
+  --ink-3: #767672;
+  --ink-4: #A8A8A4;
+
+  --bg-base: #080D16;
+  --bg-panel: #0D1520;
+  --bg-raised: #121C2E;
+  --panel-border: #1A2A3E;
+
+  --cyan: #00C8FF;
+  --cyan-dim: rgba(0,200,255,0.15);
+  --amber: #F5A623;
+  --amber-dim: rgba(245,166,35,0.15);
+  --red: #E5533C;
+  --red-dim: rgba(229,83,60,0.15);
+  --teal: #2DD4A0;
+  --teal-dim: rgba(45,212,160,0.15);
+
+  --radius-sm: 5px;
+  --radius: 10px;
+  --radius-lg: 16px;
+
+  --body: 'Instrument Sans', system-ui, sans-serif;
+  --serif: 'Instrument Serif', Georgia, serif;
+}
+
+body {
+  font-family: var(--body);
+  background: var(--white);
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.65;
+  overflow-x: hidden;
+}
+
+/* ─── LAYOUT ─── */
+.page { max-width: 760px; margin: 0 auto; padding: 0 32px; }
+.section { padding: 80px 0; border-bottom: 1px solid var(--border); }
+.section:last-of-type { border-bottom: none; }
+.wide { max-width: 960px; margin: 0 auto; padding: 0 32px; }
+
+/* ─── TYPOGRAPHY ─── */
+h2 {
+  font-family: var(--serif);
+  font-size: clamp(24px, 3.5vw, 36px);
+  font-weight: 400; line-height: 1.18;
+  letter-spacing: -0.018em; color: var(--ink);
+  margin-bottom: 24px;
+}
+h3 {
+  font-size: 15px; font-weight: 600;
+  color: var(--ink); margin-bottom: 8px; margin-top: 36px;
+}
+h3:first-child { margin-top: 0; }
+p {
+  font-size: 15px; line-height: 1.8;
+  color: var(--ink-2); margin-bottom: 18px;
+}
+p:last-child { margin-bottom: 0; }
+p strong { color: var(--ink); font-weight: 600; }
+
+.label {
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-4); margin-bottom: 20px;
+  display: flex; align-items: center; gap: 10px;
+}
+.label::before { content: ''; width: 20px; height: 1px; background: var(--border-dark); display: block; }
+
+.punchline {
+  font-size: 16px; font-weight: 600; color: var(--ink);
+  padding-left: 18px; border-left: 2px solid var(--ink);
+  margin-bottom: 22px; line-height: 1.6;
+}
+
+.pull-quote {
+  padding: 32px 0; margin: 40px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.pull-quote p {
+  font-family: var(--serif);
+  font-size: clamp(19px, 3vw, 28px);
+  font-style: italic; color: var(--ink);
+  line-height: 1.4; margin: 0;
+}
+
+/* ─── HIGHLIGHTS ─── */
+.hl { background: var(--off); border-radius: var(--radius); padding: 18px 22px; margin: 22px 0; font-size: 14px; line-height: 1.75; color: var(--ink-2); }
+.hl strong { color: var(--ink); }
+.hl-cyan  { background: #E6F9FF; border-left: 3px solid var(--cyan); border-radius: 0 var(--radius) var(--radius) 0; color: #004050; }
+.hl-amber { background: #FFF8EC; border-left: 3px solid var(--amber); border-radius: 0 var(--radius) var(--radius) 0; color: #5C3300; }
+.hl-red   { background: #FFF0EE; border-left: 3px solid var(--red); border-radius: 0 var(--radius) var(--radius) 0; color: #6A1A0A; }
+.hl-teal  { background: #EDFAF5; border-left: 3px solid var(--teal); border-radius: 0 var(--radius) var(--radius) 0; color: #0A4030; }
+
+/* ─── DIAGRAM PLACEHOLDER ─── */
+.diagram-ph {
+  border: 1.5px dashed var(--border-dark);
+  border-radius: var(--radius);
+  background: var(--off);
+  min-height: 260px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 10px; padding: 32px; margin: 28px 0;
+  text-align: center;
+}
+.diagram-ph-icon {
+  width: 40px; height: 40px; border-radius: var(--radius-sm);
+  background: var(--border); display: flex;
+  align-items: center; justify-content: center;
+  font-size: 18px; margin-bottom: 4px;
+}
+.diagram-ph-label {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ink-4);
+}
+.diagram-ph-name {
+  font-family: var(--serif); font-size: 17px; color: var(--ink-3);
+  line-height: 1.4;
+}
+.diagram-ph-note {
+  font-size: 12px; color: var(--ink-4);
+  max-width: 320px; line-height: 1.6;
+}
+
+/* ═══════════════════════════════════════
+   SCENE OPEN
+═══════════════════════════════════════ */
+.scene {
+  background: var(--bg-base);
+  min-height: 100vh;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 0 0 72px; position: relative; overflow: hidden;
+}
+.scene-noise {
+  position: absolute; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+}
+.scene-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(0,200,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,200,255,0.03) 1px, transparent 1px);
+  background-size: 48px 48px; pointer-events: none;
+}
+.scene-glow {
+  position: absolute; top: 30%; right: 20%;
+  width: 600px; height: 400px;
+  background: radial-gradient(ellipse, rgba(229,83,60,0.08) 0%, transparent 65%);
+  pointer-events: none;
+}
+.scene-inner { max-width: 760px; margin: 0 auto; padding: 0 32px; position: relative; z-index: 1; }
+.scene-alert-bar {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: rgba(229,83,60,0.12); border: 1px solid rgba(229,83,60,0.25);
+  border-radius: 100px; padding: 6px 14px; margin-bottom: 36px;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+  color: rgba(229,83,60,0.9);
+}
+.scene-alert-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--red);
+  animation: blink 1.4s infinite;
+}
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+.scene h1 {
+  font-family: var(--serif);
+  font-size: clamp(32px, 5.5vw, 58px);
+  font-weight: 400; line-height: 1.1; letter-spacing: -0.025em;
+  color: #E8EDF4; margin-bottom: 28px; max-width: 680px;
+}
+.scene h1 em { font-style: italic; color: rgba(232,237,244,0.45); }
+.scene-lead {
+  font-size: 16px; line-height: 1.75;
+  color: rgba(232,237,244,0.55); max-width: 560px; margin-bottom: 48px;
+}
+.scene-lead strong { color: rgba(232,237,244,0.85); font-weight: 500; }
+.scene-divider { width: 48px; height: 1px; background: rgba(0,200,255,0.3); margin-bottom: 40px; }
+.scene-meta { display: flex; gap: 0; flex-wrap: wrap; }
+.scene-meta-item { padding-right: 24px; margin-right: 24px; border-right: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; }
+.scene-meta-item:last-child { border-right: none; }
+.scene-meta-label { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.25); margin-bottom: 3px; }
+.scene-meta-value { font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.65); }
+
+/* ═══════════════════════════════════════
+   TL;DR
+═══════════════════════════════════════ */
+.tldr { background: var(--bg-base); border-radius: var(--radius-lg); padding: 40px 44px; margin-bottom: 0; }
+.tldr-eyebrow { font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.28); margin-bottom: 16px; }
+.tldr h2 { font-family: var(--serif); font-size: 20px; color: #E8EDF4; margin-bottom: 14px; line-height: 1.4; }
+.tldr p { font-size: 14px; color: rgba(232,237,244,0.48); line-height: 1.7; margin-bottom: 28px; }
+.tldr-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border-top: 1px solid rgba(255,255,255,0.07); padding-top: 22px; }
+.tldr-stat { padding-right: 20px; }
+.tldr-stat-n { font-family: var(--serif); font-size: 32px; color: #E8EDF4; line-height: 1; margin-bottom: 5px; }
+.tldr-stat-label { font-size: 12px; color: rgba(255,255,255,0.35); line-height: 1.4; }
+
+/* ═══════════════════════════════════════
+   SCOPE TABLE
+═══════════════════════════════════════ */
+.scope { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 28px 0; }
+.scope-col { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.scope-head { padding: 8px 14px; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+.scope-head.ai { color: #004050; background: #E6F9FF; }
+.scope-head.hu { color: #5C3300; background: #FFF8EC; }
+.scope-row { padding: 9px 14px; font-size: 13px; color: var(--ink-2); border-bottom: 1px solid var(--border); line-height: 1.55; }
+.scope-row:last-child { border-bottom: none; }
+
+/* ═══════════════════════════════════════
+   MESSY MIDDLE
+═══════════════════════════════════════ */
+.failure-card { border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; margin: 32px 0; }
+.failure-card-img { background: var(--bg-base); min-height: 280px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; position: relative; overflow: hidden; border-bottom: 1px solid var(--panel-border); }
+.failure-card-img-label { position: absolute; top: 16px; left: 16px; font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.22); }
+.failure-card-img-name { font-family: var(--serif); font-size: 16px; color: rgba(255,255,255,0.32); text-align: center; line-height: 1.5; }
+.failure-card-img-note { font-size: 12px; color: rgba(255,255,255,0.18); text-align: center; max-width: 280px; line-height: 1.5; }
+.failure-card-body { padding: 24px 28px; }
+.failure-card-body p { font-size: 14px; }
+
+.decision-chip { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 100px; margin: 4px 4px 4px 0; }
+.chip-reject { background: #FFF0EE; color: #C84030; border: 1px solid #FFD5CF; }
+.chip-accept { background: #EDFAF5; color: #0A6040; border: 1px solid #BBEDE0; }
+
+.decision-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin: 20px 0; }
+.decision-box { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; font-size: 13px; }
+.decision-box-label { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 7px; }
+.decision-box.rejected .decision-box-label { color: #C84030; }
+.decision-box.chosen .decision-box-label { color: #0A6040; }
+.decision-box.why .decision-box-label { color: var(--ink-4); }
+.decision-box-text { color: var(--ink-2); line-height: 1.55; }
+
+/* ═══════════════════════════════════════
+   PROCESS FRAMES
+═══════════════════════════════════════ */
+.process-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin: 28px 0; }
+.process-frame { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.process-frame-img { background: var(--off); min-height: 160px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 16px; border-bottom: 1px solid var(--border); position: relative; }
+.process-frame-badge { position: absolute; top: 8px; left: 8px; font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 7px; border-radius: 100px; background: var(--border); color: var(--ink-4); }
+.process-frame-ph { font-size: 12px; color: var(--ink-4); text-align: center; line-height: 1.5; }
+.process-frame-caption { padding: 10px 12px; font-size: 12px; color: var(--ink-3); line-height: 1.5; }
+.process-frame-caption strong { color: var(--ink); display: block; }
+
+/* ═══════════════════════════════════════
+   PIVOTS — ALWAYS OPEN
+═══════════════════════════════════════ */
+.pivot-list { display: flex; flex-direction: column; gap: 16px; margin: 28px 0; }
+.pivot { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.pivot-header { padding: 20px 22px 0; display: grid; grid-template-columns: 28px 1fr; gap: 14px; align-items: start; }
+.pivot-num { font-family: var(--serif); font-size: 20px; color: var(--ink-4); padding-top: 2px; }
+.pivot-title { font-size: 15px; font-weight: 600; color: var(--ink); line-height: 1.4; margin-bottom: 4px; }
+.pivot-oneliner { font-size: 13px; color: var(--ink-3); line-height: 1.5; margin-bottom: 0; }
+.pivot-body { padding: 18px 22px 22px 64px; border-top: 1px solid var(--border); margin-top: 18px; }
+.pivot-visual { background: var(--off); border-radius: var(--radius); min-height: 140px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 20px; margin-bottom: 16px; border: 1px solid var(--border); position: relative; }
+.pivot-visual-label { position: absolute; top: 10px; left: 12px; font-size: 9px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-4); }
+.pivot-visual-ph { font-size: 12px; color: var(--ink-4); text-align: center; line-height: 1.5; }
+.ba { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.ba-col { border-radius: var(--radius-sm); padding: 12px 14px; }
+.ba-col.before { background: #FFF4F3; border: 1px solid #FFCCC8; }
+.ba-col.after  { background: #F0FDF9; border: 1px solid #B8EDD8; }
+.ba-label { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 7px; }
+.ba-col.before .ba-label { color: #C84030; }
+.ba-col.after  .ba-label { color: #1F6B3A; }
+.ba-text { font-size: 13px; color: var(--ink-2); line-height: 1.6; }
+.pivot-reasoning { font-size: 13.5px; color: var(--ink-2); line-height: 1.75; }
+.pivot-reasoning strong { color: var(--ink); }
+
+/* ═══════════════════════════════════════
+   90-SECOND FLOW
+═══════════════════════════════════════ */
+.flow-section { background: var(--bg-base); padding: 0; border-bottom: none; }
+.flow-header { max-width: 760px; margin: 0 auto; padding: 80px 32px 0; }
+.flow-header .label { color: rgba(255,255,255,0.28); }
+.flow-header .label::before { background: rgba(255,255,255,0.12); }
+.flow-header h2 { color: #E8EDF4; font-size: clamp(24px, 3.5vw, 36px); }
+.flow-header p { color: rgba(232,237,244,0.5); font-size: 15px; max-width: 540px; }
+.flow-timeline { max-width: 760px; margin: 40px auto 0; padding: 0 32px; display: flex; align-items: center; gap: 0; }
+.timeline-step { display: flex; flex-direction: column; align-items: center; flex: 1; position: relative; cursor: pointer; }
+.timeline-step:not(:last-child)::after { content: ''; position: absolute; top: 9px; left: 60%; width: calc(100% - 20px); height: 1px; background: rgba(255,255,255,0.08); }
+.timeline-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.12); background: var(--bg-base); margin-bottom: 8px; z-index: 1; transition: all 0.2s ease; }
+.timeline-step.active .timeline-dot { border-color: var(--phase-c); background: var(--phase-c); box-shadow: 0 0 12px var(--phase-c); }
+.timeline-label { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.25); text-align: center; transition: color 0.2s; }
+.timeline-time { font-size: 10px; color: rgba(255,255,255,0.15); text-align: center; margin-top: 2px; }
+.timeline-step.active .timeline-label { color: var(--phase-c); }
+.phase-panels { padding-bottom: 80px; }
+.phase-panel { max-width: 760px; margin: 0 auto; padding: 56px 32px 0; display: none; }
+.phase-panel.active { display: block; }
+.phase-panel-header { display: flex; align-items: center; gap: 12px; margin-bottom: 36px; }
+.phase-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; padding: 4px 10px; border-radius: 100px; }
+.phase-timestamp { font-size: 12px; color: rgba(255,255,255,0.28); font-variant-numeric: tabular-nums; }
+.phase-status { font-size: 12px; color: rgba(255,255,255,0.2); margin-left: auto; }
+.phase-split { display: flex; flex-direction: column; gap: 20px; margin-bottom: 28px; }
+.phase-video { border-radius: var(--radius); overflow: hidden; background: var(--bg-panel); border: 1px solid var(--panel-border); aspect-ratio: 16/7; position: relative; cursor: pointer; width: 100%; }
+.phase-video video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.phase-video-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 20px; text-align: center; }
+.phase-video-shimmer { position: absolute; inset: 0; background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.015) 50%, transparent 60%); background-size: 200% 200%; animation: shimmer 3s ease infinite; }
+@keyframes shimmer { 0% { background-position: 200% 200%; } 100% { background-position: -200% -200%; } }
+.phase-video-label { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.18); margin-bottom: 4px; }
+.phase-video-name { font-size: 13px; color: rgba(255,255,255,0.28); line-height: 1.4; }
+.phase-video-hint { font-size: 11px; color: rgba(255,255,255,0.14); margin-top: 4px; }
+.phase-video-lines { position: absolute; bottom: 16px; left: 16px; right: 16px; display: flex; flex-direction: column; gap: 4px; z-index: 1; }
+.pvl { height: 2px; border-radius: 1px; background: rgba(0,200,255,0.12); }
+.phase-narrative { display: flex; flex-direction: column; gap: 0; }
+.phase-beat { padding: 16px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.phase-beat:last-child { border-bottom: none; }
+.beat-who { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.beat-who-dot { width: 5px; height: 5px; border-radius: 50%; }
+.beat-who.talon { color: var(--cyan); }
+.beat-who.talon .beat-who-dot { background: var(--cyan); }
+.beat-who.operator { color: var(--amber); }
+.beat-who.operator .beat-who-dot { background: var(--amber); }
+.beat-story { font-size: 14px; line-height: 1.75; color: rgba(232,237,244,0.6); }
+.beat-story strong { color: rgba(232,237,244,0.9); font-weight: 500; }
+.phase-decision { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: var(--radius); padding: 16px 18px; margin-top: 12px; }
+.phase-decision-label { font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(245,166,35,0.6); margin-bottom: 10px; }
+.phase-decision-paths { display: flex; flex-direction: column; gap: 6px; }
+.decision-path { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: rgba(232,237,244,0.75); line-height: 1.5; }
+.path-letter { width: 20px; height: 20px; border-radius: 4px; background: rgba(245,166,35,0.12); border: 1px solid rgba(245,166,35,0.2); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--amber); flex-shrink: 0; margin-top: 1px; }
+.path-or { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.15); padding-left: 30px; }
+.phase-aside { background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.08); border-radius: var(--radius); padding: 14px 18px; margin: 24px 0 0; display: flex; gap: 12px; align-items: flex-start; }
+.phase-aside-icon { color: rgba(255,255,255,0.2); font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+.phase-aside-text { font-size: 13px; color: rgba(255,255,255,0.28); line-height: 1.6; }
+.phase-aside-text strong { color: rgba(255,255,255,0.45); }
+.phase-nav { max-width: 760px; margin: 0 auto; padding: 28px 32px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.05); }
+.phase-nav-btn { font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.35); background: none; border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius-sm); padding: 8px 16px; cursor: pointer; font-family: var(--body); transition: all 0.15s; }
+.phase-nav-btn:hover { color: rgba(255,255,255,0.7); border-color: rgba(255,255,255,0.2); }
+.phase-nav-btn:disabled { opacity: 0.2; cursor: default; }
+.phase-nav-btn.primary { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.75); border-color: rgba(255,255,255,0.14); }
+.phase-counter { font-size: 12px; color: rgba(255,255,255,0.2); font-variant-numeric: tabular-nums; }
+
+/* ═══════════════════════════════════════
+   VISUAL ARCHITECTURE
+═══════════════════════════════════════ */
+.map-concept { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 28px 0; }
+.map-layer-card { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.map-layer-preview { height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 20px; position: relative; overflow: hidden; }
+.map-layer-preview.reality { background: linear-gradient(160deg, #0A1A10 0%, #0D1508 50%, #151008 100%); }
+.map-layer-preview.intel { background: var(--bg-base); }
+.map-layer-img-label { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; position: absolute; top: 12px; left: 12px; color: rgba(255,255,255,0.22); }
+.map-layer-img-ph { font-size: 12px; color: rgba(255,255,255,0.28); text-align: center; line-height: 1.5; }
+.map-layer-footer { padding: 12px 14px; border-top: 1px solid var(--border); font-size: 13px; color: var(--ink-2); line-height: 1.5; }
+.map-layer-footer strong { color: var(--ink); display: block; margin-bottom: 2px; }
+
+/* ═══════════════════════════════════════
+   EDGE CASES / CHAOS
+═══════════════════════════════════════ */
+.edge-list { display: flex; flex-direction: column; gap: 16px; margin: 28px 0; }
+.edge-card { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.edge-head { padding: 16px 18px; display: flex; align-items: flex-start; gap: 14px; border-bottom: 1px solid var(--border); background: var(--off); }
+.edge-icon { width: 36px; height: 36px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+.edge-head-text { }
+.edge-badge { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-4); margin-bottom: 3px; }
+.edge-title { font-size: 14px; font-weight: 600; color: var(--ink); }
+.edge-body { padding: 18px; }
+.edge-reality { font-size: 11px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-4); margin-bottom: 6px; }
+.edge-story { font-size: 14px; color: var(--ink-2); line-height: 1.7; margin-bottom: 14px; }
+.edge-story strong { color: var(--ink); }
+.edge-solution-label { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; padding: 3px 8px; border-radius: 100px; display: inline-block; margin-bottom: 8px; }
+.edge-response { font-size: 14px; color: var(--ink-2); line-height: 1.7; }
+.edge-response strong { color: var(--ink); }
+
+/* Standalone decision card (chaos section) */
+.chaos-decision {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  overflow: hidden; margin-top: 16px;
+}
+.chaos-decision-header {
+  padding: 10px 16px; background: var(--off);
+  border-bottom: 1px solid var(--border);
+  font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ink-4);
+}
+.chaos-decision-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0;
+}
+.chaos-decision-col { padding: 16px 18px; border-right: 1px solid var(--border); }
+.chaos-decision-col:last-child { border-right: none; }
+.chaos-decision-label { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; }
+.chaos-decision-col.rejected .chaos-decision-label { color: #C84030; }
+.chaos-decision-col.chosen  .chaos-decision-label { color: #1F6B3A; }
+.chaos-decision-col.why     .chaos-decision-label { color: var(--ink-4); }
+.chaos-decision-text { font-size: 13px; color: var(--ink-2); line-height: 1.65; }
+.chaos-decision-text strong { color: var(--ink); }
+
+/* ═══════════════════════════════════════
+   SCREENS / FOOTER / METRICS
+═══════════════════════════════════════ */
+.screen-wrap { margin: 40px -32px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.screen-inner { background: var(--bg-base); min-height: 320px; display: flex; align-items: center; justify-content: center; padding: 28px; }
+.screen-inner img { width: 100%; height: auto; display: block; border-radius: var(--radius); }
+.screen-ph { display: flex; flex-direction: column; align-items: center; gap: 7px; text-align: center; }
+.screen-ph-label { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.18); }
+.screen-ph-name { font-family: var(--serif); font-size: 16px; color: rgba(255,255,255,0.32); }
+.screen-ph-note { font-size: 12px; color: rgba(255,255,255,0.16); max-width: 260px; line-height: 1.5; }
+.screen-cap { padding: 13px 32px; font-size: 13px; color: var(--ink-3); display: flex; align-items: baseline; gap: 8px; }
+.screen-cap-n { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-4); flex-shrink: 0; }
+.metrics { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin: 28px 0; }
+.metric { border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 16px; }
+.metric-n { font-family: var(--serif); font-size: 28px; color: var(--ink); line-height: 1; margin-bottom: 5px; }
+.metric-l { font-size: 12px; color: var(--ink-3); line-height: 1.4; }
+.footer { padding: 64px 32px; max-width: 760px; margin: 0 auto; border-top: 1px solid var(--border); }
+.footer-punchline { font-family: var(--serif); font-size: clamp(20px,3vw,30px); font-style: italic; color: var(--ink); line-height: 1.3; margin-bottom: 28px; max-width: 540px; }
+.footer-meta { font-size: 12px; color: var(--ink-4); line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<!-- ═══ SCENE OPEN ═══ -->
+<section class="scene">
+  <div class="scene-noise"></div>
+  <div class="scene-grid"></div>
+  <div class="scene-glow"></div>
+  <div class="scene-inner">
+    <div class="scene-alert-bar">
+      <div class="scene-alert-dot"></div>
+      03:47:03 UTC &nbsp;·&nbsp; Thermal anomaly · Grid 4C &nbsp;·&nbsp; Altadena, California
+    </div>
+    <h1>It's 4 AM. A fire starts<br>in the foothills.<br><em>Asha has 90 seconds.</em></h1>
+    <p class="scene-lead">
+      The nearest residential grid is 800 metres from the forest edge. Under current wind —
+      <strong>18 mph, northeast</strong> — fire reaches it in under 30 minutes. The standard
+      dispatch process involves manually cross-referencing three systems, two phone calls, and a
+      pre-deployment form. That process takes <strong>48 minutes on a good night.</strong>
+    </p>
+    <div class="scene-divider"></div>
+    <p class="scene-lead" style="margin-bottom: 40px;">
+      Sentinel was built to collapse that window. Not by removing Asha from the loop —
+      by redesigning exactly <strong>where in the loop she belongs.</strong>
+    </p>
+    <div class="scene-meta">
+      <div class="scene-meta-item"><div class="scene-meta-label">Project</div><div class="scene-meta-value">FlytBase Sentinel</div></div>
+      <div class="scene-meta-item"><div class="scene-meta-label">Role</div><div class="scene-meta-value">End-to-end Product Design</div></div>
+      <div class="scene-meta-item"><div class="scene-meta-label">Context</div><div class="scene-meta-value">Design Fusion S3</div></div>
+      <div class="scene-meta-item"><div class="scene-meta-label">Result</div><div class="scene-meta-value">Runner-up</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ MAIN ═══ -->
+<div class="page">
+
+  <!-- TL;DR -->
+  <div style="padding: 64px 0 0;">
+    <div class="tldr">
+      <div class="tldr-eyebrow">TL;DR — For the scanners</div>
+      <h2>The bottleneck in wildfire response is cognitive, not technological. Sentinel redesigns the interface as a decision surface — the AI handles triage and execution, the human owns the three moments where judgment actually matters.</h2>
+      <p>Every decision in this project is an answer to the same question: what does the operator need to do right now, and what can the system safely carry for them?</p>
+      <div class="tldr-stats">
+        <div class="tldr-stat"><div class="tldr-stat-n">48 min</div><div class="tldr-stat-label">Avg. detection-to-deployment today</div></div>
+        <div class="tldr-stat"><div class="tldr-stat-n">90 sec</div><div class="tldr-stat-label">Target window Sentinel is designed for</div></div>
+        <div class="tldr-stat"><div class="tldr-stat-n">3</div><div class="tldr-stat-label">Operator decisions in the entire flow</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── 01 THE PROBLEM ─── -->
+  <div class="section">
+    <div class="label">01 — The Problem</div>
+    <h2>48 minutes. And it's not a drone problem.</h2>
+
+    <p class="punchline">California already has the hardware. It doesn't have an interface worthy of it.</p>
+
+    <p>Sensor networks catch thermal anomalies in seconds. Drones can be airborne in under a minute. So why does the average detection-to-deployment window still sit at 48 minutes? Every solution in this space attacks the hardware — faster drones, more sensors, wider satellite coverage. None of it moves the number. Because the number isn't a hardware problem.</p>
+
+    <p>Here's what's actually happening when that timer runs. The operator gets a thermal alert alongside three others from different zones, a satellite feed on a second monitor, and a ground sensor log no one's touched since the last shift. They mentally try to stitch it all together. Is this a controlled burn? What's the wind doing? How far is the nearest housing cluster? Who's on-call at Station 12? None of those questions require human judgment — the data to answer them exists. But no interface assembles it. So the operator does, at 4 AM, under time pressure, six hours into a shift.</p>
+
+    <p><strong>That assembly process is where the 48 minutes go.</strong></p>
+
+    <!-- Diagram: 48-minute workflow breakdown -->
+    <div class="diagram-ph">
+      <div class="diagram-ph-icon">📊</div>
+      <div class="diagram-ph-label">Diagram · 01</div>
+      <div class="diagram-ph-name">The 48-minute workflow breakdown</div>
+      <div class="diagram-ph-note">Replace with: annotated timeline showing where cognitive assembly time is lost between detection, cross-referencing, phone calls, and pre-deployment form</div>
+    </div>
+
+    <div class="hl hl-cyan">
+      <strong>The real problem statement:</strong> There's no interface that handles cognitive assembly between detection and deployment. Operators are doing machine-speed data aggregation with human-speed brains — under conditions specifically designed to produce errors.
+    </div>
+
+    <p>I also want to be upfront about what I intentionally left out. No manual drone joystick controls. No mobile app. Operators should be authorizing <em>outcomes</em>, not piloting individual assets. Manual flight controls would recreate the exact bottleneck I was trying to eliminate. And a mobile app is for field teams — you can't reason spatially about a spreading wildfire on a 6-inch screen. Sometimes the most important design decision is what you say no to.</p>
+  </div>
+
+  <!-- ─── 02 THE MESSY MIDDLE ─── -->
+  <div class="section">
+    <div class="label">02 — The Messy Middle</div>
+    <h2>My first prototype tried to automate the crisis. It accidentally cut the human out entirely.</h2>
+
+    <p>Early on, I was fixated on a research finding: operators under extreme stress experience cognitive tunneling — they fixate on one data point and lose everything else. The obvious design response felt elegant: compress the decision tree as much as possible. Remove the complexity. Make it impossible to get lost.</p>
+
+    <h3>The Escalation Slider — what it was</h3>
+    <p>I designed a horizontal control at the bottom of the screen. Drag a handle from <em>Assess → Contain → Rescue</em>. Each position triggers a predefined AI macro-script — a set of drone deployments, zone classifications, and notification sequences that execute automatically when the slider hits that stop. Clean. Fast. Confident-looking.</p>
+
+    <div class="failure-card">
+      <div class="failure-card-img">
+        <div class="failure-card-img-label">Early wireframe · V0.1</div>
+        <div class="failure-card-img-name">Escalation Slider concept</div>
+        <div class="failure-card-img-note">[ Insert: early prototype wireframe showing the slider ]</div>
+      </div>
+      <div class="failure-card-body">
+        <p>It looked slick in Figma. Then I thought about what would actually happen if Asha dragged it to "Contain."</p>
+      </div>
+    </div>
+
+    <!-- Diagram: Macro vs Authorization -->
+    <div class="diagram-ph">
+      <div class="diagram-ph-icon">⚡</div>
+      <div class="diagram-ph-label">Diagram · 02</div>
+      <div class="diagram-ph-name">Escalation Macro vs. Intent-Based Authorization</div>
+      <div class="diagram-ph-note">Replace with: side-by-side comparison — slider triggering a black-box script vs. TALON proposing a specific mapped plan that the operator explicitly reviews and approves</div>
+    </div>
+
+    <p>The core problem: a slider implies a script. When Asha drags to Contain, she's blindly trusting an execution she never reviewed — no geometry, no drone positions, no idea which residential structures fall inside the projected spread zone. <strong>A slider doesn't record a conscious decision. It records a gesture.</strong> And when 47 households get evacuated based on that gesture, the audit trail just says "operator moved slider at 03:48." That's not authorization. That's abdication.</p>
+
+    <p>The wireframes had another issue too. I'd built a dark-mode <em>dashboard</em> — drone telemetry panels, altitude readouts, sensor graphs everywhere. Roughly 120 text elements. I was solving cognitive load while actively creating it.</p>
+
+    <div class="process-grid">
+      <div class="process-frame">
+        <div class="process-frame-img">
+          <div class="process-frame-badge">V0.1</div>
+          <div class="process-frame-ph">[ Insert: initial wireframe — dashboard layout with slider ]</div>
+        </div>
+        <div class="process-frame-caption"><strong>Dashboard + Slider</strong>All data visible, linear escalation, ~120 elements on screen.</div>
+      </div>
+      <div class="process-frame">
+        <div class="process-frame-img">
+          <div class="process-frame-badge">V0.3</div>
+          <div class="process-frame-ph">[ Insert: mid-iteration — panel layout, slider removed ]</div>
+        </div>
+        <div class="process-frame-caption"><strong>Panel reduction attempt</strong>Removed the slider. Still way too much telemetry everywhere.</div>
+      </div>
+      <div class="process-frame">
+        <div class="process-frame-img">
+          <div class="process-frame-badge">V0.6</div>
+          <div class="process-frame-ph">[ Insert: decision surface pivot — map dominant ]</div>
+        </div>
+        <div class="process-frame-caption"><strong>First decision surface</strong>Map dominant, panels float, actions phase-locked.</div>
+      </div>
+    </div>
+
+    <div class="decision-row">
+      <div class="decision-box rejected">
+        <div class="decision-box-label">Rejected</div>
+        <div class="decision-box-text">The Escalation Slider — one drag triggers an AI macro-script across three predefined states.</div>
+      </div>
+      <div class="decision-box chosen">
+        <div class="decision-box-label">Chosen</div>
+        <div class="decision-box-text">Intent-Based Authorization — TALON proposes a specific, mapped plan that the operator explicitly reads and approves.</div>
+      </div>
+      <div class="decision-box why">
+        <div class="decision-box-label">Why</div>
+        <div class="decision-box-text">A gesture isn't a decision. Explicit authorization forces the human to stay the accountability boundary — every time.</div>
+      </div>
+    </div>
+
+    <div class="pull-quote">
+      <p>"I stopped trying to automate the operator's job. I started designing a system to assist their judgment."</p>
+    </div>
+
+    <p>That reframe changed everything. Once I'd accepted that the operator needs to stay in the loop — not as a rubber stamp, but as a genuine decision-maker — the hard question became: where exactly does the loop begin, and where does it end? Here's how I drew that line.</p>
+
+    <!-- Scope table — moved here after the slider failure -->
+    <div class="scope">
+      <div class="scope-col">
+        <div class="scope-head ai">TALON handles autonomously</div>
+        <div class="scope-row">Sensor fusion + cross-referencing</div>
+        <div class="scope-row">Ignition probability classification</div>
+        <div class="scope-row">Drone routing + dispatch</div>
+        <div class="scope-row">Terrain + fire spread modeling</div>
+        <div class="scope-row">Evacuation route generation</div>
+        <div class="scope-row">Passive audit trail, timestamped</div>
+      </div>
+      <div class="scope-col">
+        <div class="scope-head hu">Asha owns</div>
+        <div class="scope-row">Dispatch drone — or — alert ground team</div>
+        <div class="scope-row">Confirm active incident or monitor-only</div>
+        <div class="scope-row">Authorize containment plan (hold 2 sec)</div>
+        <div class="scope-row">Activate drone evacuation guidance</div>
+        <div class="scope-row">Override any TALON proposal</div>
+        <div class="scope-row">Handle exceptions the system surfaces</div>
+      </div>
+    </div>
+    <p style="font-size: 13px; color: var(--ink-3);">The AI system is named <strong style="color:var(--ink-2);">TALON</strong>. Every autonomous action it takes logs under that callsign with a timestamp — separated from operator actions in the audit trail. Not branding. Accountability.</p>
+  </div>
+
+  <!-- ─── 03 DESIGN DECISIONS ─── -->
+  <div class="section">
+    <div class="label">03 — Design Decisions</div>
+    <h2>Six pivots. Each one moved where the line sits.</h2>
+
+    <p>These aren't aesthetic refinements. Each one is a change in the authority boundary — where TALON's responsibility ends and Asha's begins.</p>
+
+    <div class="pivot-list">
+
+      <!-- Pivot 1 -->
+      <div class="pivot">
+        <div class="pivot-header">
+          <div class="pivot-num">1</div>
+          <div>
+            <div class="pivot-title">Forced navigation → interrupt design</div>
+            <div class="pivot-oneliner">Alert snapping to a new screen destroyed the operator's spatial context every single time.</div>
+          </div>
+        </div>
+        <div class="pivot-body">
+          <div class="pivot-visual">
+            <div class="pivot-visual-label">Visual reference · Pivot 01</div>
+            <div class="pivot-visual-ph">[ Insert: side-by-side — full screen context switch vs. modal overlay on live map ]</div>
+          </div>
+          <div class="ba">
+            <div class="ba-col before"><div class="ba-label">Before</div><div class="ba-text">Anomaly detected → entire UI jumps to an Alert screen. Everything the operator was watching is gone.</div></div>
+            <div class="ba-col after"><div class="ba-label">After</div><div class="ba-text">Alert arrives as a floating modal over the live map. Spatial context stays intact. Asha responds without disorientation.</div></div>
+          </div>
+          <p class="pivot-reasoning">Operators don't have "alert time" and "non-alert time." They're always mid-task. This also crystallised a distinction I'd been blurring: <strong>an interrupt demands a decision on top of current state — a transition means the operator commits to a new phase entirely.</strong> Once I separated those two things, every subsequent navigation decision got easier.</p>
+        </div>
+      </div>
+
+      <!-- Pivot 2 -->
+      <div class="pivot">
+        <div class="pivot-header">
+          <div class="pivot-num">2</div>
+          <div>
+            <div class="pivot-title">Replay verification → live signal classification</div>
+            <div class="pivot-oneliner">A reassuring clip of the incident felt trustworthy. It was also factually impossible — fire doesn't have a replay.</div>
+          </div>
+        </div>
+        <div class="pivot-body">
+          <div class="pivot-visual">
+            <div class="pivot-visual-label">Visual reference · Pivot 02</div>
+            <div class="pivot-visual-ph">[ Insert: alert modal showing classification inputs — prior burns, wind vector, thermal delta above baseline ]</div>
+          </div>
+          <div class="ba">
+            <div class="ba-col before"><div class="ba-label">Before</div><div class="ba-text">A short "verification replay" to build confidence. Borrowed from consumer product thinking. Didn't reflect how the system actually works.</div></div>
+            <div class="ba-col after"><div class="ba-label">After</div><div class="ba-text">TALON classification: ignition probability with the contributing factors surfaced openly — prior burn history, wind vector, thermal delta above baseline.</div></div>
+          </div>
+          <p class="pivot-reasoning">The deeper failure: I was designing trust through <em>familiarity</em> rather than <em>accuracy</em>. A score alone gives Asha nothing to push back against. Showing her the reasoning — the actual inputs that produced the conclusion — gives her the basis to agree with TALON, or to say it's wrong. <strong>That's a real decision. A confidence bar is not.</strong></p>
+        </div>
+      </div>
+
+      <!-- Pivot 3 -->
+      <div class="pivot">
+        <div class="pivot-header">
+          <div class="pivot-num">3</div>
+          <div>
+            <div class="pivot-title">Uniform density → progressive information scaling</div>
+            <div class="pivot-oneliner">Same ~120 text elements across every phase. Reading paragraphs of AI rationale during an active rescue is a design failure.</div>
+          </div>
+        </div>
+        <div class="pivot-body">
+          <!-- Diagram: Progressive density visual -->
+          <div class="diagram-ph" style="margin: 0 0 16px;">
+            <div class="diagram-ph-icon">📉</div>
+            <div class="diagram-ph-label">Diagram · 03</div>
+            <div class="diagram-ph-name">Progressive density — 4 panel states</div>
+            <div class="diagram-ph-note">Replace with: 4 panel screenshots side-by-side showing density drop from Scan (~120 elements) through Verify, Contain, to Rescue (~25 elements)</div>
+          </div>
+          <div class="ba">
+            <div class="ba-col before"><div class="ba-label">Before</div><div class="ba-text">Same density everywhere. Full paragraphs of TALON's reasoning visible during active evacuation.</div></div>
+            <div class="ba-col after"><div class="ba-label">After</div><div class="ba-text">Scan: verbose context. Contain: headlines + status dots. Rescue: zero prose, ~25 elements, large numbers, one log entry.</div></div>
+          </div>
+          <p class="pivot-reasoning">Under stress, people read numbers and spatial cues measurably faster than prose. The interface has to breathe with Asha's cognitive load. <strong>Every panel component needed three distinct render states</strong> — the Intel panel in Scan and the Intel panel in Rescue occupy the same screen position, but they have completely different contracts with the operator.</p>
+        </div>
+      </div>
+
+      <!-- Pivot 4 -->
+      <div class="pivot">
+        <div class="pivot-header">
+          <div class="pivot-num">4</div>
+          <div>
+            <div class="pivot-title">Action toolbox → consequence-tiered action bar</div>
+            <div class="pivot-oneliner">"Notify Authorities" sitting next to "Emergency Evacuate" in the same row. Proximity creates accidental authority.</div>
+          </div>
+        </div>
+        <div class="pivot-body">
+          <div class="pivot-visual">
+            <div class="pivot-visual-label">Visual reference · Pivot 04</div>
+            <div class="pivot-visual-ph">[ Insert: before/after action bar — flat row of all actions vs. tiered primary/secondary with chevron tray ]</div>
+          </div>
+          <div class="ba">
+            <div class="ba-col before"><div class="ba-label">Before</div><div class="ba-text">All actions in one scrolling row. Administrative tasks — the stuff that can wait — at the same visual weight as life-safety decisions.</div></div>
+            <div class="ba-col after"><div class="ba-label">After</div><div class="ba-text">Saving Lives > Staging Hardware > Filing Reports. Primary actions front and center. Secondary behind a chevron tray. In Rescue: no primary CTA at all.</div></div>
+          </div>
+          <p class="pivot-reasoning">The Rescue screen having no dominant button was a deliberate choice, and it's one I had to fight for internally. The instinct is always to give the operator <em>something</em> to do. But when the system is executing correctly, Asha's job is to supervise — not initiate. <strong>The absence of a button is the signal that everything is working.</strong></p>
+        </div>
+      </div>
+
+      <!-- Pivot 5 -->
+      <div class="pivot">
+        <div class="pivot-header">
+          <div class="pivot-num">5</div>
+          <div>
+            <div class="pivot-title">Free-text evacuation form → pre-staged team chips</div>
+            <div class="pivot-oneliner">The operator typing "Route A, 15 personnel" during peak stress. Wrong interaction model entirely.</div>
+          </div>
+        </div>
+        <div class="pivot-body">
+          <div class="pivot-visual">
+            <div class="pivot-visual-label">Visual reference · Pivot 05</div>
+            <div class="pivot-visual-ph">[ Insert: old free-text modal vs. new team chip selection with zone assignment ]</div>
+          </div>
+          <div class="ba">
+            <div class="ba-col before"><div class="ba-label">Before</div><div class="ba-text">Evacuation modal with HTML text inputs. Type the route. Type a headcount. "15 personnel" isn't how ground teams actually work.</div></div>
+            <div class="ba-col after"><div class="ba-label">After</div><div class="ba-text">Role-based team chips: Alpha Lead, Bravo, Charlie. Assign team to zone. System filters valid zones by team certification. Assignments made in Contain — not decided under Rescue pressure for the first time.</div></div>
+          </div>
+          <p class="pivot-reasoning">Typing during a stress spike forces translation from spatial reality into words. But the more important change is the pre-staging: <strong>by the time Asha reaches Rescue, the team assignments are already locked in from Contain.</strong> The evacuation confirmation becomes a review of a plan she already approved — not a cold first decision at the worst possible moment.</p>
+        </div>
+      </div>
+
+      <!-- Pivot 6 — includes AI Trust Framework -->
+      <div class="pivot">
+        <div class="pivot-header">
+          <div class="pivot-num">6</div>
+          <div>
+            <div class="pivot-title">Anonymous AI → TALON, accountable system agent</div>
+            <div class="pivot-oneliner">"AI Confidence 84%" is a black box. You can't audit "AI." You can audit TALON.</div>
+          </div>
+        </div>
+        <div class="pivot-body">
+          <div class="pivot-visual">
+            <div class="pivot-visual-label">Visual reference · Pivot 06</div>
+            <div class="pivot-visual-ph">[ Insert: activity log comparison — "AI: action" vs. "TALON · 03:47:18 UTC: corroboration threshold crossed" ]</div>
+          </div>
+          <div class="ba">
+            <div class="ba-col before"><div class="ba-label">Before</div><div class="ba-text">"AI Confidence," "AI Map," "AI Recommends." Generic labels. No attribution, no audit trail, no way to trace a decision back to its source.</div></div>
+            <div class="ba-col after"><div class="ba-label">After</div><div class="ba-text">TALON callsign. Every AI action logs separately from operator actions, in cyan. Aerospace nomenclature: Anomaly Validation, Telemetry Log, TALON Spatial Reconstruction.</div></div>
+          </div>
+          <p class="pivot-reasoning">This isn't branding. It's an accountability mechanism. When Asha is managing 47 households at 4 AM, she needs to know which decisions were hers and which were the system's — and so does the incident review six weeks later. <strong>If it sounds like a consumer chatbot, she won't trust it with human lives. And she shouldn't.</strong></p>
+
+          <p class="pivot-reasoning" style="margin-top: 14px;">I realised pretty early on that operators don't actually trust black-box percentages — they trust behaviour. So I built TALON's UI on four principles that earn trust under fire, rather than just claiming it:</p>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px;">
+            <div style="border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px;">
+              <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-4); margin-bottom: 6px;">Transparency</div>
+              <div style="font-size: 13.5px; color: var(--ink-2); line-height: 1.6;">TALON shows <em>why</em> it made a choice — satellite source, thermal confidence, wind vector — not just the conclusion. The reasoning is the interface.</div>
+            </div>
+            <div style="border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px;">
+              <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-4); margin-bottom: 6px;">Consistency</div>
+              <div style="font-size: 13.5px; color: var(--ink-2); line-height: 1.6;">The layout never jumps. Panels stay in place. Actions appear in the same location every phase. Under stress the brain relies on spatial memory — this UI cannot violate it.</div>
+            </div>
+            <div style="border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px;">
+              <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-4); margin-bottom: 6px;">Accountability</div>
+              <div style="font-size: 13.5px; color: var(--ink-2); line-height: 1.6;">TALON signs every autonomous action in the audit log. Human and machine decisions are always distinguishable, always reviewable, permanently on record.</div>
+            </div>
+            <div style="border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px;">
+              <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-4); margin-bottom: 6px;">Reversibility</div>
+              <div style="font-size: 13.5px; color: var(--ink-2); line-height: 1.6;">Every AI proposal has a one-tap Override. No TALON action is irreversible without explicit authorization. If it can't be undone, it can't be trusted.</div>
+            </div>
+          </div>
+          <p class="pivot-reasoning" style="margin-top: 14px; font-size: 13px; color: var(--ink-3);">Trust isn't a feature. It's the cumulative effect of every interaction behaving the way the operator expects — especially when the fire isn't.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div><!-- end .page (before dark flow section) -->
+
+<!-- ═══ 04 — 90-SECOND WINDOW ═══ -->
+<section class="flow-section section">
+  <div class="flow-header">
+    <div class="label">04 — The 90-Second Window</div>
+
+    <!-- Asha persona context -->
+    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: var(--radius); padding: 18px 22px; margin-bottom: 32px; display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center;">
+      <div style="width: 42px; height: 42px; border-radius: 50%; background: rgba(245,166,35,0.15); border: 1px solid rgba(245,166,35,0.25); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;">👩‍💻</div>
+      <div>
+        <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(245,166,35,0.6); margin-bottom: 5px;">Operator Persona</div>
+        <div style="font-size: 14px; font-weight: 600; color: rgba(232,237,244,0.85); margin-bottom: 4px;">Asha Rao — Regional Command Center Operator</div>
+        <div style="font-size: 13px; color: rgba(232,237,244,0.45); line-height: 1.6;">She isn't a pilot. She doesn't fly drones manually. Asha is the <strong style="color:rgba(232,237,244,0.7);">decision bridge</strong> between autonomous AI systems and the ground teams, fire departments, and evacuation routes they need to coordinate. Her job is to make three high-consequence decisions under time pressure — and then get out of the way so the system can execute. Night shift. Altadena sector. 03:47 AM.</div>
+      </div>
+    </div>
+
+    <h2 style="color:#E8EDF4;">Walk through it with Asha.<br><em style="color:rgba(232,237,244,0.4);">Phase by phase. Decision by decision.</em></h2>
+    <p>Four phases. Three operator decisions. Everything else is TALON's job. These are the short videos of the actual UI in motion — each one captures the key interaction moment of that phase.</p>
+  </div>
+
+  <!-- Timeline -->
+  <div class="flow-timeline">
+    <div class="timeline-step active" style="--phase-c:#2DD4A0;" onclick="goToPhase(0)">
+      <div class="timeline-dot"></div>
+      <div class="timeline-label">Scan</div>
+      <div class="timeline-time">0 – 15s</div>
+    </div>
+    <div class="timeline-step" style="--phase-c:#F5A623;" onclick="goToPhase(1)">
+      <div class="timeline-dot"></div>
+      <div class="timeline-label">Verify</div>
+      <div class="timeline-time">15 – 45s</div>
+    </div>
+    <div class="timeline-step" style="--phase-c:#E5533C;" onclick="goToPhase(2)">
+      <div class="timeline-dot"></div>
+      <div class="timeline-label">Contain</div>
+      <div class="timeline-time">45 – 75s</div>
+    </div>
+    <div class="timeline-step" style="--phase-c:#CC2200;" onclick="goToPhase(3)">
+      <div class="timeline-dot"></div>
+      <div class="timeline-label">Rescue</div>
+      <div class="timeline-time">75 – 90s</div>
+    </div>
+  </div>
+
+  <div class="phase-panels">
+
+    <!-- Phase 0: Scan / Alert -->
+    <div class="phase-panel active" id="pp-0">
+      <div class="phase-panel-header">
+        <span class="phase-tag" style="background:rgba(45,212,160,0.12);color:#2DD4A0;border:1px solid rgba(45,212,160,0.25);">Scan · Alert</span>
+        <span class="phase-timestamp">03:47:03 — 03:47:45 UTC</span>
+        <span class="phase-status">0 – 15 seconds</span>
+      </div>
+      <div class="phase-split">
+        <div class="phase-video" id="vid-0">
+          <div class="phase-video-placeholder">
+            <div class="phase-video-shimmer"></div>
+            <div class="phase-video-label">Phase 01 · Screen recording</div>
+            <div class="phase-video-name">Alert modal appearing<br>over live map</div>
+            <div class="phase-video-hint">[ Replace with looping .mp4 ]</div>
+            <div class="phase-video-lines"><div class="pvl" style="width:80%;"></div><div class="pvl" style="width:55%;"></div><div class="pvl" style="width:70%;"></div></div>
+          </div>
+        </div>
+        <div class="phase-narrative">
+          <div class="phase-beat">
+            <div class="beat-who talon"><div class="beat-who-dot"></div>TALON — working silently</div>
+            <div class="beat-story">At 03:47:03, a thermal sensor fires in Grid 4C. TALON doesn't alert Asha yet. First it checks satellite IR, ground sensors, the registered controlled burn database. Then it runs ignition probability classification — <strong>prior burn history for this grid, wind direction, thermal delta above the seasonal baseline.</strong> At 03:47:18, corroboration crosses the threshold. Now it's worth interrupting someone.</div>
+          </div>
+          <div class="phase-beat">
+            <div class="beat-who operator"><div class="beat-who-dot"></div>Asha — interrupted, but not lost</div>
+            <div class="beat-story">The alert arrives as a <strong>modal layer over the map she's already watching</strong> — not a new screen. Grid 4C is still visible. Scout-01's patrol route is still there. She sees TALON's reasoning: the contributing factors, not just a score. She can agree with it, or push back on it.</div>
+          </div>
+          <div class="phase-decision">
+            <div class="phase-decision-label">Asha decides</div>
+            <div class="phase-decision-paths">
+              <div class="decision-path"><div class="path-letter">A</div>Dispatch Scout-02 to Grid 4C — drone routes out, live feed begins</div>
+              <div class="path-or">or</div>
+              <div class="decision-path"><div class="path-letter">B</div>Dismiss + notify ground team — routes an alert to local fire dept or police for on-foot investigation</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phase 1: Verify -->
+    <div class="phase-panel" id="pp-1">
+      <div class="phase-panel-header">
+        <span class="phase-tag" style="background:rgba(245,166,35,0.12);color:#F5A623;border:1px solid rgba(245,166,35,0.25);">Verify</span>
+        <span class="phase-timestamp">03:47:45 — 03:48:22 UTC</span>
+        <span class="phase-status">15 – 45 seconds</span>
+      </div>
+      <div class="phase-split">
+        <div class="phase-video" id="vid-1">
+          <div class="phase-video-placeholder">
+            <div class="phase-video-shimmer"></div>
+            <div class="phase-video-label">Phase 02 · Screen recording</div>
+            <div class="phase-video-name">Alert folds to panel.<br>Drone ETA counting down.</div>
+            <div class="phase-video-hint">[ Replace with looping .mp4 ]</div>
+            <div class="phase-video-lines"><div class="pvl" style="width:60%;"></div><div class="pvl" style="width:40%;"></div></div>
+          </div>
+        </div>
+        <div class="phase-narrative">
+          <div class="phase-beat">
+            <div class="beat-who talon"><div class="beat-who-dot"></div>TALON — en route</div>
+            <div class="beat-story">The moment Asha dispatches, <strong>the alert modal folds into the left panel</strong> — a compact en-route card with a live ETA countdown. Scout-02 is moving on the map. The system is working. Asha doesn't need to watch it.</div>
+          </div>
+          <div class="phase-beat">
+            <div class="beat-who operator"><div class="beat-who-dot"></div>Asha — back to work, intentionally</div>
+            <div class="beat-story">This is the most deliberately designed moment in the system: <strong>Sentinel does not interrupt Asha while the drone travels.</strong> She's managing other zones. The AI is gathering evidence so her next decision is actually informed. When Scout-02 arrives and evidence crosses threshold, a second interrupt fires: <em>"Incident ready for assessment."</em></div>
+          </div>
+          <div class="phase-decision">
+            <div class="phase-decision-label">Asha decides</div>
+            <div class="phase-decision-paths">
+              <div class="decision-path"><div class="path-letter">A</div>Confirm active incident — escalate to Contain, full response begins</div>
+              <div class="path-or">or</div>
+              <div class="decision-path"><div class="path-letter">B</div>Mark as monitor-only — drone holds position, system watches, no deployment yet</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phase 2: Contain -->
+    <div class="phase-panel" id="pp-2">
+      <div class="phase-panel-header">
+        <span class="phase-tag" style="background:rgba(229,83,60,0.12);color:#E5533C;border:1px solid rgba(229,83,60,0.25);">Contain</span>
+        <span class="phase-timestamp">03:48:22 — 03:48:51 UTC</span>
+        <span class="phase-status">45 – 75 seconds</span>
+      </div>
+      <div class="phase-split">
+        <div class="phase-video" id="vid-2">
+          <div class="phase-video-placeholder">
+            <div class="phase-video-shimmer"></div>
+            <div class="phase-video-label">Phase 03 · Screen recording</div>
+            <div class="phase-video-name">Zone map activates.<br>PROPOSED labels. Hold to authorize.</div>
+            <div class="phase-video-hint">[ Replace with looping .mp4 ]</div>
+            <div class="phase-video-lines"><div class="pvl" style="width:90%;background:rgba(229,83,60,0.15);"></div><div class="pvl" style="width:65%;"></div></div>
+          </div>
+        </div>
+        <div class="phase-narrative">
+          <div class="phase-beat">
+            <div class="beat-who talon"><div class="beat-who-dot"></div>TALON — proposing</div>
+            <div class="beat-story">The map transforms. Zone-based terrain classification activates: <strong>Forest Zone, Buffer Zone, Residential Zone, Fire Zone</strong>, plus the fire spread estimate. TALON's proposed drone positions appear labeled PROPOSED — PENDING AUTHORIZATION. Ground team assignments staged per zone. One number surfaces in large type, unmissable: <strong>47 residential structures in the projected path.</strong></div>
+          </div>
+          <div class="phase-beat">
+            <div class="beat-who operator"><div class="beat-who-dot"></div>Asha — reviews, then commits physically</div>
+            <div class="beat-story">She reads the plan. If it looks right, she <strong>presses and holds AUTHORIZE for 2 seconds.</strong> That hold isn't friction — it's the decision. Escalating a response that affects 47 households requires a physical commitment, not a checkbox. If something's wrong, she taps Override.</div>
+          </div>
+          <div class="phase-decision">
+            <div class="phase-decision-label">Asha decides</div>
+            <div class="phase-decision-paths">
+              <div class="decision-path"><div class="path-letter">A</div>Press + hold AUTHORIZE (2s) — system executes the full deployment plan</div>
+              <div class="path-or">or</div>
+              <div class="decision-path"><div class="path-letter">B</div>Override — shifts to Manual Staging, Asha adjusts geometry, re-authorizes</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phase-aside">
+        <div class="phase-aside-icon">◎</div>
+        <div class="phase-aside-text"><strong>Considered, not shipped:</strong> An earlier model used concentric spread rings (15/30/60-min projections) as the primary Contain visualization. Kept as an operator-triggered overlay but defaulted to zone-based classification instead. Zones map directly to real operational units — teams, routes, ingress paths. Rings require interpretation. Under time pressure, zones win.</div>
+      </div>
+    </div>
+
+    <!-- Phase 3: Rescue -->
+    <div class="phase-panel" id="pp-3">
+      <div class="phase-panel-header">
+        <span class="phase-tag" style="background:rgba(204,34,0,0.12);color:#FF6644;border:1px solid rgba(204,34,0,0.25);">Rescue · Execution</span>
+        <span class="phase-timestamp">03:48:51 — 03:49:33 UTC</span>
+        <span class="phase-status">75 – 90 seconds</span>
+      </div>
+      <div class="phase-split">
+        <div class="phase-video" id="vid-3">
+          <div class="phase-video-placeholder">
+            <div class="phase-video-shimmer"></div>
+            <div class="phase-video-label">Phase 04 · Screen recording</div>
+            <div class="phase-video-name">Drones go live.<br>Clearance count ticking. No primary CTA.</div>
+            <div class="phase-video-hint">[ Replace with looping .mp4 ]</div>
+            <div class="phase-video-lines"><div class="pvl" style="width:100%;background:rgba(204,34,0,0.15);"></div></div>
+          </div>
+        </div>
+        <div class="phase-narrative">
+          <div class="phase-beat">
+            <div class="beat-who talon"><div class="beat-who-dot"></div>TALON — executing</div>
+            <div class="beat-story">Ghost drone icons go live on the map — they actually move. Ground teams confirmed on-scene via tracker. Drone escort activates on evacuation routes. Fire department ingress guidance keeps responders out of the spread zone. Structure clearance tracking: <strong>12 of 47.</strong></div>
+          </div>
+          <div class="phase-beat">
+            <div class="beat-who operator"><div class="beat-who-dot"></div>Asha — supervising</div>
+            <div class="beat-story">There's no dominant action button. <strong>That's intentional.</strong> Its absence is the signal: the system is executing correctly, no decision is needed right now. The right panel has become a pure exception feed — only items that require a call the system can't make. Asha handles exceptions. Not logistics.</div>
+          </div>
+          <div class="phase-decision">
+            <div class="phase-decision-label">Asha's role</div>
+            <div class="phase-decision-paths">
+              <div class="decision-path"><div class="path-letter">A</div>Activate drone guidance for residential evacuation when ground teams are confirmed on-scene</div>
+              <div class="path-or">then</div>
+              <div class="decision-path"><div class="path-letter">B</div>Supervise exceptions — intervene only when the system surfaces something it can't resolve alone</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phase nav -->
+    <div class="phase-nav">
+      <button class="phase-nav-btn" id="prev-btn" onclick="prevPhase()" disabled>← Previous</button>
+      <span class="phase-counter" id="phase-counter">Phase 1 of 4</span>
+      <button class="phase-nav-btn primary" id="next-btn" onclick="nextPhase()">Next phase →</button>
+    </div>
+
+  </div>
+</section>
+
+<div class="page">
+
+  <!-- ─── 05 VISUAL ARCHITECTURE ─── -->
+  <div class="section">
+    <div class="label">05 — Visual Architecture: Engineering "Visual Silence"</div>
+    <h2>Two layers. One rule: they must never compete.</h2>
+
+    <!-- System Architecture Diagram -->
+    <div class="diagram-ph" style="margin-bottom: 36px;">
+      <div class="diagram-ph-icon">⚡</div>
+      <div class="diagram-ph-label">Diagram · System Architecture</div>
+      <div class="diagram-ph-name">Inputs → TALON → Interface → Operator → Actions</div>
+      <div class="diagram-ph-note">Replace with: linear flow diagram showing sensor inputs feeding TALON, TALON surfacing structured proposals through the interface, operator making the decision gate, system executing authorised actions — with the authority boundary clearly marked</div>
+    </div>
+
+    <!-- Diagram: Isometric Stack -->
+    <div class="diagram-ph">
+      <div class="diagram-ph-icon">🗺️</div>
+      <div class="diagram-ph-label">Diagram · Isometric Layer Stack</div>
+      <div class="diagram-ph-name">Reality layer + Intelligence layer</div>
+      <div class="diagram-ph-note">Replace with: exploded isometric showing 3D terrain base (Reality) with 2D vector intelligence layer floating above — drones, zone boundaries, spread estimates as crisp geometry</div>
+    </div>
+
+    <p><strong>The map is Reality — 3D.</strong> Photorealistic terrain, fire volume, wind-constrained topography. Visceral and unpredictable, because it is. <strong>The UI is Intelligence — 2D.</strong> Drone positions, zones, spread estimates as scalable vectors floating above. Clean, crisp, instantly legible. Neither layer competes for the same visual depth plane — the operator can tell what is <em>happening</em> versus what the system is <em>proposing</em> to do about it, even half-asleep at 4 AM.</p>
+
+    <p>This split also directly handles the smoke degradation failure: because the Intelligence layer is independent of the camera feed, TALON falls back to LiDAR when smoke kills the optics — and Asha loses video without losing her spatial picture.</p>
+
+    <div class="map-concept">
+      <div class="map-layer-card">
+        <div class="map-layer-preview reality">
+          <div class="map-layer-img-label">Reality Layer</div>
+          <div class="map-layer-img-ph">[ Insert: 3D terrain base — California foothills at night ]</div>
+        </div>
+        <div class="map-layer-footer">
+          <strong>The Map is Reality — 3D</strong>
+          Photorealistic topography and fire volume. Communicates physical threat. This layer cannot be sterile.
+        </div>
+      </div>
+      <div class="map-layer-card">
+        <div class="map-layer-preview intel">
+          <div class="map-layer-img-label">Intelligence Layer</div>
+          <div class="map-layer-img-ph">[ Insert: 2D vector overlay — zones, drones, spread ]</div>
+        </div>
+        <div class="map-layer-footer">
+          <strong>The UI is Intelligence — 2D</strong>
+          Sharp, scalable vectors. Legible under any conditions. The structured system over the unpredictable world.
+        </div>
+      </div>
+    </div>
+
+    <!-- Visual Ergonomics — trimmed -->
+    <div class="label" style="margin-top: 40px;">Visual Ergonomics · A failure from testing</div>
+
+    <p>I used proportional fonts for all countdown timers in the early prototype. Looked refined in Figma. In live testing, the digits <strong>jumped horizontally every second</strong> as narrow and wide characters swapped in and out. Invisible on a static screen. Six hours into a night shift it causes real eye strain.</p>
+
+    <div class="hl hl-teal">
+      <strong>The fix:</strong> Switched all time-critical displays to <code style="font-size:12px;background:rgba(0,0,0,0.06);padding:1px 5px;border-radius:3px;">font-variant-numeric: tabular-nums</code>. Every digit takes identical horizontal space. The baseline never moves. <strong>A crisis UI cannot have moving baselines</strong> — and you'll never catch it unless the system is actually running.
+    </div>
+  </div>
+
+  <!-- ─── 06 DESIGNING FOR CHAOS ─── -->
+  <div class="section">
+    <div class="label">06 — Designing for Chaos</div>
+    <h2>When the happy path dies.</h2>
+
+    <p class="punchline">In aerospace, the "happy path" is a myth. A system designed only for perfect conditions is a liability.</p>
+
+    <p>A wildfire at 4 AM is not a controlled environment. Smoke severs drone feeds. The AI gets contradicting signals. Dozens of minor faults pile up at once. Each of these is a designed state — not an unhandled error. I designed for the chaos scenarios last, but they're actually where the most interesting product thinking happened. <strong>The way a system fails is the most honest signal of its design philosophy.</strong></p>
+
+    <div class="edge-list">
+
+      <!-- Chaos 1 -->
+      <div class="edge-card">
+        <div class="edge-head">
+          <div class="edge-icon" style="background:#E6F9FF;">📡</div>
+          <div class="edge-head-text">
+            <div class="edge-badge">Chaos 01 · Hardware</div>
+            <div class="edge-title">Signal degradation — the "blind" drone</div>
+          </div>
+        </div>
+        <div class="edge-body">
+          <div class="edge-reality">What happens</div>
+          <div class="edge-story" style="margin-bottom:14px;">Dense smoke and mountain terrain sever camera feeds at the exact moments the operator needs them most. Most systems respond with a "Connection Lost" modal and a gap in the map. The operator is flying blind at peak urgency, with a UI that's stopped being useful.</div>
+          <span class="edge-solution-label" style="background:#E6F9FF;color:#004050;">TALON's fallback</span>
+          <div class="edge-response">When a drone loses optical feed, <strong>the UI doesn't throw a blocking error.</strong> TALON falls back automatically to LiDAR + terrain model reconstruction. Asha loses live video — she keeps spatial awareness, drone position, and telemetry. The degraded state surfaces as a single status chip in the left panel. Not a modal, not an interruption. She can acknowledge it when cognitive load permits. The mission continues. This fallback is also why the 3D base layer exists in the first place — when the camera can't see through smoke, the terrain model has to carry the spatial picture alone.</div>
+        </div>
+      </div>
+
+      <!-- Chaos 2 -->
+      <div class="edge-card">
+        <div class="edge-head">
+          <div class="edge-icon" style="background:#FFF8EC;">⚠️</div>
+          <div class="edge-head-text">
+            <div class="edge-badge">Chaos 02 · AI Contradiction</div>
+            <div class="edge-title">Contradicting signals — when TALON says "I don't know"</div>
+          </div>
+        </div>
+        <div class="edge-body">
+          <div class="edge-reality">What happens</div>
+          <div class="edge-story" style="margin-bottom:14px;">The satellite feed reads "Active fire signature" at Grid 4C. The ground sensor at the same location reads "Clear." Two authoritative sources, directly contradicting each other. AI is usually presented as an oracle. This is the scenario that exposes the lie.</div>
+          <span class="edge-solution-label" style="background:#FFF8EC;color:#5C3300;">Designed response</span>
+          <div class="edge-response">TALON doesn't synthesize a false confidence score or pick a side. <strong>The UI shows both conflicting signals side by side.</strong> The recommendation field is left intentionally blank — TALON explicitly says nothing, because it doesn't have enough to say. The priority card reads: "Conflicting source data — operator judgment required." Asha breaks the tie. She has context TALON doesn't: whether that ground sensor has been unreliable lately, whether there was maintenance near that grid, whether the satellite pass is hours old. An AI that forces a recommendation when it genuinely doesn't know is more dangerous than one that admits uncertainty.</div>
+        </div>
+      </div>
+
+      <!-- Chaos 3 -->
+      <div class="edge-card">
+        <div class="edge-head">
+          <div class="edge-icon" style="background:#FFF0EE;">🌪️</div>
+          <div class="edge-head-text">
+            <div class="edge-badge">Chaos 03 · Real-Time Data Shift</div>
+            <div class="edge-title">The mid-decision confidence flip</div>
+          </div>
+        </div>
+        <div class="edge-body">
+          <div class="edge-reality">What happens</div>
+          <div class="edge-story" style="margin-bottom:14px;">Asha is hovering over AUTHORIZE CONTAINMENT. Confidence is at 88%. Her hand is essentially on the decision. Wind shifts. A new thermal reading comes in. TALON's confidence drops to 41% in three seconds. This is the most dangerous moment in the entire flow — a decision already in motion, interrupted by data that invalidates it.</div>
+          <span class="edge-solution-label" style="background:#FFF0EE;color:#6A1A0A;">Designed response</span>
+          <div class="edge-response"><strong>The UI does not throw a blocking error modal.</strong> A sudden panic modal at the moment of authorization causes Asha to make a worse decision, not a better one. Instead: the AUTHORIZE button instantly downgrades from amber to disabled grey. The priority card pulses a non-blocking warning: <em>"Data Shift: Review Required."</em> The map updates with the new wind vector and revised spread projection. Asha sees the changed picture. She can reassess and re-authorize when she's ready — or modify the plan. The system communicates urgency without manufacturing panic.</div>
+        </div>
+      </div>
+
+      <!-- Chaos 4: Compound scenario -->
+      <div class="edge-card">
+        <div class="edge-head">
+          <div class="edge-icon" style="background:#FFF0EE; font-size:15px;">💥</div>
+          <div class="edge-head-text">
+            <div class="edge-badge">Chaos 04 · Compound Failure</div>
+            <div class="edge-title">Everything breaks at once — confidence drops, drone fails, second alert arrives</div>
+          </div>
+        </div>
+        <div class="edge-body">
+          <div class="edge-reality">What happens</div>
+          <div class="edge-story" style="margin-bottom:14px;">At 03:49:12 — 21 seconds into Rescue — TALON's confidence drops from 84% to 39% due to a wind shift. Simultaneously, Scout-02 loses its feed (smoke cover). While Asha is processing both, a second thermal alert fires in Grid 6A, six kilometres north. Three things going wrong at the same time, in the phase specifically designed to have no primary action button.</div>
+          <span class="edge-solution-label" style="background:#FFF0EE;color:#6A1A0A;">Designed response</span>
+          <div class="edge-response">This is the scenario I thought hardest about. The temptation is to throw everything at the operator simultaneously — three alerts, three modals, maximum urgency. That's the design that gets people killed. Instead: <strong>the Exception Feed stacks the events ranked by consequence severity, not arrival time.</strong> Scout-02's degradation becomes a LiDAR fallback silently — it surfaces as a chip, not a modal. The confidence drop downgrades the Rescue action bar state visually. The new Grid 6A alert arrives as a second interrupt, but it cannot stack over the active Rescue phase — it queues. Asha handles the active crisis. The new incident waits in the priority feed with its own TALON pre-assessment ready for when she's free. The system serialises the chaos so the operator doesn't have to.</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Standalone decision card — operator dismissal scenario -->
+    <div class="chaos-decision">
+      <div class="chaos-decision-header">Design decision · What happens when the operator dismisses an alert and the fire spreads anyway</div>
+      <div class="chaos-decision-grid">
+        <div class="chaos-decision-col rejected">
+          <div class="chaos-decision-label">Rejected</div>
+          <div class="chaos-decision-text"><strong>The System Override.</strong> If Asha dismisses an alert and the fire spreads anyway, the system secretly re-activates the containment protocol without telling her.</div>
+        </div>
+        <div class="chaos-decision-col chosen">
+          <div class="chaos-decision-label">Chosen</div>
+          <div class="chaos-decision-text"><strong>Re-Escalation as a New Event.</strong> The spread is treated as a brand-new incident — interrupting Asha with a "Critical Update" alert and forcing a fresh, conscious decision.</div>
+        </div>
+        <div class="chaos-decision-col why">
+          <div class="chaos-decision-label">Why</div>
+          <div class="chaos-decision-text">If the system can secretly override Asha's call, then the system is the Captain and Asha is the illusion of control. The system can challenge her with new data. It cannot steal her authority.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Abort Mission -->
+    <div class="hl hl-red" style="margin-top: 16px;">
+      <strong>Last resort: ABORT MISSION</strong><br>
+      Every scenario above has a designed response. But some failures exceed the system's scope entirely — cascading hardware failure, total comms blackout, a situation TALON has no model for. ABORT MISSION is always in the action bar. Always one tap. Always the same position. No confirmation modal. When something is catastrophically wrong, Asha should not be hunting through menus to make it stop.
+    </div>
+  </div>
+
+  <!-- ─── 07 REFLECTION ─── -->
+  <div class="section">
+    <div class="label">07 — Reflection</div>
+    <h2>The honest version.</h2>
+
+    <p class="punchline">The 90-second claim is a hypothesis, not a proof.</p>
+
+    <p>I want to be straight about this. The binding constraint in wildfire response might not be the interface at all — it might be radio protocol between dispatch and field units, or network latency in smoke-heavy terrain, or the fact that TALON's classification model was trained on historical data that doesn't yet account for how fire behaves in a changing climate. I designed for the interface variable without validating whether it's actually the bottleneck. That's a real gap.</p>
+
+    <h3>What I'd do differently</h3>
+    <p>The override flow is the hardest part of this system and the part I'd go back and properly stress-test. It's where the human-AI authority boundary is most contested — the moment when Asha knows something TALON doesn't, and the system has to hand control back gracefully without aborting what's already in motion. I designed the clean version of that interaction. I didn't put it in front of real dispatchers. That's where Sentinel is most likely to break, and it's exactly where I'd spend the next iteration.</p>
+
+    <div class="hl hl-amber">
+      <strong>What I'd actually measure:</strong> Time from alert interrupt to operator decision. Decision accuracy — how often dismissed alerts became real incidents. Operator override rate — too low might mean Asha trusts TALON more than she should. Exception acknowledgment lag — how long non-critical faults sit unread before compounding.
+    </div>
+
+    <h3>What comes after</h3>
+    <p>Sentinel was designed for single-incident command. The real next problem is multi-incident coordination — simultaneous fires across sectors, parallel command contexts, operator handoffs mid-crisis. The underlying architecture could support it; the interface doesn't yet. And honestly? The version I'd really love to design is the full state-of-emergency mode. Multiple simultaneous crises, coordinating across agencies, everything happening at once. Basically zombie-apocalypse-level coordination. That's the problem that actually excites me next.</p>
+
+    <div class="pull-quote">
+      <p>"I started designing screens. I ended up designing a decision-making system under time pressure. Those are not the same thing — and every pivot in this case study is the exact moment I noticed the difference."</p>
+    </div>
+  </div>
+
+</div><!-- end .page -->
+
+<!-- ─── FOOTER ─── -->
+<div class="footer">
+  <div class="footer-punchline">The interface disappears during action. What remains is exactly the decision the operator needs to make — nothing more.</div>
+  <div class="footer-meta">FlytBase Sentinel &nbsp;·&nbsp; Design Fusion S3, Runner-up &nbsp;·&nbsp; End-to-end product design &nbsp;·&nbsp; 2025</div>
+</div>
+
+<script>
+/* ─── Phase navigation ─── */
+let currentPhase = 0;
+const totalPhases = 4;
+
+function goToPhase(i) {
+  currentPhase = i;
+  document.querySelectorAll('.phase-panel').forEach((p, idx) => { p.classList.toggle('active', idx === i); });
+  document.querySelectorAll('.timeline-step').forEach((s, idx) => { s.classList.toggle('active', idx === i); });
+  document.getElementById('prev-btn').disabled = i === 0;
+  document.getElementById('next-btn').disabled = i === totalPhases - 1;
+  document.getElementById('phase-counter').textContent = `Phase ${i+1} of ${totalPhases}`;
+  const vid = document.querySelector(`#pp-${i} video`);
+  if (vid) vid.play().catch(() => {});
+}
+
+function nextPhase() { if (currentPhase < totalPhases - 1) goToPhase(currentPhase + 1); }
+function prevPhase() { if (currentPhase > 0) goToPhase(currentPhase - 1); }
+
+/* ─── IntersectionObserver for videos ─── */
+if ('IntersectionObserver' in window) {
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      const vid = entry.target.querySelector('video');
+      if (!vid) return;
+      entry.isIntersecting ? vid.play().catch(()=>{}) : vid.pause();
+    });
+  }, { threshold: 0.4 });
+  document.querySelectorAll('.phase-video').forEach(el => obs.observe(el));
+}
+
+goToPhase(0);
+</script>
+
+</body>
+</html>

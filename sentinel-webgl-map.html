@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sentinel — Wildfire Command Map</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #030b14; }
+    canvas { display: block; width: 100% !important; height: 100% !important; cursor: grab; }
+    #loading {
+      position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+      color: #1e90ff; font-family: monospace; font-size: 13px; letter-spacing: 0.2em;
+      background: #030b14; z-index: 10; transition: opacity 0.6s ease;
+    }
+  </style>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.164.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="loading">RECONSTRUCTING TERRAIN…</div>
+  <canvas id="c"></canvas>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+    import { SimplexNoise } from 'three/addons/math/SimplexNoise.js';
+    import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // COLOR CONSTANTS
+    // ═══════════════════════════════════════════════════════════════════════════
+    const COLORS = {
+      background:           0x030a14,
+      fog:                  0x0b1828,
+      ambientLight:         0x0a1830,
+      terrainBase:          0x101d2a,
+      terrainMid:           0x101d2a,
+      terrainPeak:          0x101d2a,
+      buildingBody:         0x14283a,
+      buildingBodyAlt:      0x18304a,
+      buildingEdge:         0x2b7fd0,
+      buildingEdgeOpacity:  0.15,
+      roadLine:             0x1f9fd0,
+      roadLineOpacity:      0.22,
+      roadSurface:          0x0a131e,
+      buildingTop:          0x1a3550,
+      fireCore:             0xff1800,
+      fireMid:              0xff5500,
+      fireTip:              0xffaa00,
+      fireEmber:            0xffdd44,
+      fireEmissive:         0xff4400,
+      smokeDark:            0x101828,
+      smokeMid:             0x182030,
+      fireLightColor:       0xff6600,
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SCENE CONFIG  — the "data input" layer (world coordinates per region).
+    // These are the integration points: zones / drones / routes get placed against
+    // these same world coordinates so overlays sit exactly on the rendered scene.
+    // ═══════════════════════════════════════════════════════════════════════════
+    const SCENE_CONFIG = {
+      terrainWidth: 400, terrainDepth: 350, terrainSegments: 240, terrainMaxHeight: 90,
+      terrainNoiseScale: 0.012, terrainNoiseOctaves: 4,
+      peakX: -25, peakZ: -95, peakFalloff: 0.6,
+
+      cityXMin: -150, cityXMax: 100, cityZMin: 8, cityZMax: 150,
+      cityBlockSize: 11, cityBuildingDensity: 0.74,
+
+      wuiZMin: -32, wuiZMax: 8, wuiBuildingDensity: 0.16,
+
+      fireOriginX: -10, fireOriginZ: -62, fireOriginY: 0,
+      fireMainBranches: 5, fireSubBranches: 4,
+      fireBranchLength: 26, fireBranchLengthSub: 11,
+      fireBranchAngleSpread: 40, fireTubeRadiusBase: 0.9, fireTubeRadiusTip: 0.32, fireTubeSegments: 8,
+
+      fireParticleCount: 950, fireParticleRadius: 18, fireParticleMinSize: 0.35, fireParticleMaxSize: 1.6,
+
+      smokeSpriteCount: 50, smokeSpriteMinScale: 10, smokeSpriteMaxScale: 26, smokeDriftSpeed: 0.02,
+
+      ambientIntensity: 0.42,
+      fireLight1Intensity: 55, fireLight1Distance: 85,
+      fireLight2Intensity: 32, fireLight2Distance: 55,
+      fireLight3Intensity: 22, fireLight3Distance: 42,
+
+      cameraFOV: 50, cameraPosX: 30, cameraPosY: 120, cameraPosZ: 190,
+      cameraTargetX: -10, cameraTargetY: 6, cameraTargetZ: -28,
+      orbitDamping: 0.06, orbitMinPolarAngle: 22, orbitMaxPolarAngle: 74,
+      orbitMinDist: 90, orbitMaxDist: 430, orbitAutoRotateSpeed: 0.06,
+
+      bloomThreshold: 0.3, bloomStrength: 1.0, bloomRadius: 0.6,
+    };
+
+    const DEG = Math.PI / 180;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RENDERER
+    // ═══════════════════════════════════════════════════════════════════════════
+    const renderer = new THREE.WebGLRenderer({
+      canvas: document.getElementById('c'),
+      antialias: true, alpha: false, powerPreference: 'high-performance',
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(COLORS.background, 1);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.LinearToneMapping;
+    renderer.toneMappingExposure = 0.85;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SCENE + CAMERA
+    // ═══════════════════════════════════════════════════════════════════════════
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(COLORS.background);
+    scene.fog = new THREE.FogExp2(COLORS.fog, 0.0016);
+
+    const camera = new THREE.PerspectiveCamera(
+      SCENE_CONFIG.cameraFOV, window.innerWidth / window.innerHeight, 1, 2000);
+    camera.position.set(SCENE_CONFIG.cameraPosX, SCENE_CONFIG.cameraPosY, SCENE_CONFIG.cameraPosZ);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = SCENE_CONFIG.orbitDamping;
+    controls.target.set(SCENE_CONFIG.cameraTargetX, SCENE_CONFIG.cameraTargetY, SCENE_CONFIG.cameraTargetZ);
+    controls.minPolarAngle = SCENE_CONFIG.orbitMinPolarAngle * DEG;
+    controls.maxPolarAngle = SCENE_CONFIG.orbitMaxPolarAngle * DEG;
+    controls.minDistance = SCENE_CONFIG.orbitMinDist;
+    controls.maxDistance = SCENE_CONFIG.orbitMaxDist;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = SCENE_CONFIG.orbitAutoRotateSpeed;
+
+    let resumeTimer = null;
+    renderer.domElement.addEventListener('pointerdown', () => {
+      controls.autoRotate = false;
+      if (resumeTimer) clearTimeout(resumeTimer);
+    });
+    renderer.domElement.addEventListener('pointerup', () => {
+      if (resumeTimer) clearTimeout(resumeTimer);
+      resumeTimer = setTimeout(() => { controls.autoRotate = true; }, 4000);
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // POST-PROCESSING (bloom is the most critical effect — fire emits light)
+    // ═══════════════════════════════════════════════════════════════════════════
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloom = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      SCENE_CONFIG.bloomStrength, SCENE_CONFIG.bloomRadius, SCENE_CONFIG.bloomThreshold);
+    composer.addPass(bloom);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TERRAIN HEIGHT FIELD  (shared by mesh + fire/building placement)
+    // TODO [DATA INTEGRATION]: replace with USGS 3DEP LiDAR DEM (GeoTIFF → Float32Array)
+    // ═══════════════════════════════════════════════════════════════════════════
+    const simplex = new SimplexNoise();
+
+    function rawNoise(x, z) {
+      let n = 0, amp = 1, freq = SCENE_CONFIG.terrainNoiseScale, max = 0;
+      for (let o = 0; o < SCENE_CONFIG.terrainNoiseOctaves; o++) {
+        n += amp * (simplex.noise(x * freq + 100, z * freq - 100) * 0.5 + 0.5);
+        max += amp; amp *= 0.5; freq *= 2.0;
+      }
+      return n / max; // 0..1
+    }
+
+    function terrainHeightAt(x, z) {
+      // flat city foreground
+      if (z >= SCENE_CONFIG.wuiZMax) return 0;
+      const n = rawNoise(x, z);
+      // gaussian envelope concentrates the high peak in the background
+      const dx = x - SCENE_CONFIG.peakX, dz = z - SCENE_CONFIG.peakZ;
+      const sigma = SCENE_CONFIG.terrainWidth * SCENE_CONFIG.peakFalloff * 0.5;
+      const g = Math.exp(-(dx * dx + dz * dz) / (2 * sigma * sigma));
+      // ridges everywhere (0.4) + concentrated peak (0.6)
+      let h = n * SCENE_CONFIG.terrainMaxHeight * (0.4 + 0.6 * g);
+      // back-of-scene gets generally taller
+      const backBias = THREE.MathUtils.clamp((SCENE_CONFIG.wuiZMin - z) / (SCENE_CONFIG.terrainDepth * 0.5), 0, 1);
+      h *= 0.55 + 0.45 * backBias;
+      // WUI ramp: gradual rise from flat city into the mountain
+      if (z > SCENE_CONFIG.wuiZMin) {
+        const t = (SCENE_CONFIG.wuiZMax - z) / (SCENE_CONFIG.wuiZMax - SCENE_CONFIG.wuiZMin); // 0→1
+        h = Math.min(h, 16) * THREE.MathUtils.smoothstep(t, 0, 1);
+      }
+      return h;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ZONE 3: TERRAIN MESH
+    // ═══════════════════════════════════════════════════════════════════════════
+    function buildTerrain() {
+      const geo = new THREE.PlaneGeometry(
+        SCENE_CONFIG.terrainWidth, SCENE_CONFIG.terrainDepth,
+        SCENE_CONFIG.terrainSegments, SCENE_CONFIG.terrainSegments);
+      geo.rotateX(-Math.PI / 2);
+      const pos = geo.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        pos.setY(i, terrainHeightAt(pos.getX(i), pos.getZ(i)));
+      }
+      geo.computeVertexNormals();
+      // single flat matte color — relief comes only from light, never a color ramp
+      const mat = new THREE.MeshStandardMaterial({
+        color: COLORS.terrainBase, roughness: 1.0, metalness: 0.0, flatShading: false,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.receiveShadow = true;
+      mesh.castShadow = true;
+      scene.add(mesh);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ZONE 1 + 2: URBAN GRID + WUI  (merged geometry for performance)
+    // TODO [DATA INTEGRATION]: replace with OSM/Mapbox building footprints
+    // ═══════════════════════════════════════════════════════════════════════════
+    function rand(a, b) { return a + Math.random() * (b - a); }
+
+    function coloredBox(w, h, d, x, y, z, bodyColor) {
+      const g = new THREE.BoxGeometry(w, h, d);
+      const norm = g.attributes.normal;
+      const cols = [];
+      const body = new THREE.Color(bodyColor);
+      const top = new THREE.Color(COLORS.buildingTop);
+      for (let i = 0; i < norm.count; i++) {
+        const ny = norm.getY(i);
+        if (ny > 0.5) cols.push(top.r, top.g, top.b);
+        else cols.push(body.r, body.g, body.b);
+      }
+      g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+      g.translate(x, y, z);
+      return g;
+    }
+
+    // City is a strict block-and-road grid. Buildings only sit where terrain is
+    // flat (hard exclusion from the slope); density falls off toward the mountain.
+    const BLOCK_SIZE = 9, ROAD_WIDTH = 2.0, CELL_STRIDE = BLOCK_SIZE + ROAD_WIDTH; // 11
+    const CITY_Z_BACK = -12;   // city stops here; terrain rises beyond it
+    const TERRAIN_LIMIT = 3.0; // skip any block whose ground is above this
+
+    function buildCity() {
+      const cfg = SCENE_CONFIG;
+      const xMin = cfg.cityXMin, xMax = cfg.cityXMax, zFront = cfg.cityZMax;
+      const bodyGeos = [], edgeGeos = [];
+
+      for (let bx = xMin; bx < xMax; bx += CELL_STRIDE) {
+        for (let bz = CITY_Z_BACK; bz < zFront; bz += CELL_STRIDE) {
+          const cx = bx + BLOCK_SIZE / 2, cz = bz + BLOCK_SIZE / 2;
+          if (terrainHeightAt(cx, cz) > TERRAIN_LIMIT) continue;        // never on the slope
+          // denser in the central foreground, sparser toward mountain / edges
+          const distCenter = Math.abs(bx - (xMin + xMax) / 2) / (xMax - xMin);
+          const towardMountain = THREE.MathUtils.clamp((zFront - bz) / (zFront - CITY_Z_BACK), 0, 1);
+          const density = 0.94 - distCenter * 0.35 - towardMountain * 0.45;
+          if (Math.random() > density) continue;
+
+          const count = Math.floor(Math.random() * 3) + 2; // 2–4 buildings per block
+          for (let b = 0; b < count; b++) {
+            const w = THREE.MathUtils.randFloat(1.8, 4.0);
+            const d = THREE.MathUtils.randFloat(1.5, 3.5);
+            const h = THREE.MathUtils.randFloat(0.8, 4.2);
+            const pad = 0.7;
+            const ox = THREE.MathUtils.randFloat(pad, Math.max(pad, BLOCK_SIZE - w - pad));
+            const oz = THREE.MathUtils.randFloat(pad, Math.max(pad, BLOCK_SIZE - d - pad));
+            const wx = bx + ox + w / 2, wz = bz + oz + d / 2;
+            const gy = terrainHeightAt(wx, wz);
+            const bodyColor = Math.random() > 0.5 ? COLORS.buildingBody : COLORS.buildingBodyAlt;
+            bodyGeos.push(coloredBox(w, h, d, wx, gy + h / 2, wz, bodyColor));
+            const eg = new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, d), 30);
+            eg.translate(wx, gy + h / 2, wz);
+            edgeGeos.push(eg);
+          }
+        }
+      }
+
+      if (bodyGeos.length) {
+        const merged = BufferGeometryUtils.mergeGeometries(bodyGeos, false);
+        const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.98, metalness: 0.0 });
+        const mesh = new THREE.Mesh(merged, mat);
+        mesh.castShadow = true; mesh.receiveShadow = true;
+        scene.add(mesh);
+      }
+      if (edgeGeos.length) {
+        const mergedE = BufferGeometryUtils.mergeGeometries(edgeGeos, false);
+        scene.add(new THREE.LineSegments(mergedE, new THREE.LineBasicMaterial({
+          color: COLORS.buildingEdge, transparent: true, opacity: COLORS.buildingEdgeOpacity, depthWrite: false,
+        })));
+      }
+
+      // Asphalt ground base under the whole city footprint
+      const ground = new THREE.Mesh(
+        new THREE.PlaneGeometry(xMax - xMin, zFront - CITY_Z_BACK),
+        new THREE.MeshStandardMaterial({ color: COLORS.roadSurface, roughness: 1.0, metalness: 0.0 }));
+      ground.rotation.x = -Math.PI / 2;
+      ground.position.set((xMin + xMax) / 2, 0.02, (CITY_Z_BACK + zFront) / 2);
+      ground.receiveShadow = true;
+      scene.add(ground);
+
+      // Road grid lines along every block boundary
+      const rp = [], y = 0.08;
+      for (let z = CITY_Z_BACK; z <= zFront; z += CELL_STRIDE) rp.push(xMin, y, z, xMax, y, z);
+      for (let x = xMin; x <= xMax; x += CELL_STRIDE) rp.push(x, y, CITY_Z_BACK, x, y, zFront);
+      const rgeo = new THREE.BufferGeometry();
+      rgeo.setAttribute('position', new THREE.Float32BufferAttribute(rp, 3));
+      scene.add(new THREE.LineSegments(rgeo, new THREE.LineBasicMaterial({
+        color: COLORS.roadLine, transparent: true, opacity: COLORS.roadLineOpacity, depthWrite: false,
+      })));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ZONE 4: FIRE — branching tube geometry + particles + ember sprites
+    // TODO [DATA INTEGRATION]: replace with NIFC/FIRMS active fire perimeter GeoJSON
+    // ═══════════════════════════════════════════════════════════════════════════
+    const fireBranchPoints = []; // sampled points for particle/light placement
+
+    function makeTube(from, to, rBase, rTip) {
+      const mid1 = from.clone().lerp(to, 0.33).add(new THREE.Vector3(rand(-2.5, 2.5), rand(0, 2), rand(-2.5, 2.5)));
+      const mid2 = from.clone().lerp(to, 0.66).add(new THREE.Vector3(rand(-2.5, 2.5), rand(0, 1.5), rand(-2.5, 2.5)));
+      const curve = new THREE.CatmullRomCurve3([from, mid1, mid2, to]);
+      for (let s = 0; s <= 4; s++) fireBranchPoints.push(curve.getPoint(s / 4));
+      const r = (rBase + rTip) / 2;
+      return new THREE.TubeGeometry(curve, 14, r, SCENE_CONFIG.fireTubeSegments, false);
+    }
+
+    function buildFire() {
+      const cfg = SCENE_CONFIG;
+      const ox = cfg.fireOriginX, oz = cfg.fireOriginZ;
+      const oy = terrainHeightAt(ox, oz);
+      const origin = new THREE.Vector3(ox, oy + 0.4, oz);
+      cfg.fireOriginY = oy;
+
+      const glowGeos = [], coreGeos = [];
+
+      function addBranch(from, dirDeg, length, depth) {
+        if (depth <= 0) return;
+        const a = dirDeg * DEG;
+        // spread mostly downhill (toward +z / the city) with lateral fan
+        const dir = new THREE.Vector3(Math.sin(a), 0, Math.cos(a)).normalize();
+        const ex = from.x + dir.x * length;
+        const ez = from.z + dir.z * length;
+        const ey = terrainHeightAt(ex, ez) + 0.4;
+        const to = new THREE.Vector3(ex, ey, ez);
+        const rB = cfg.fireTubeRadiusBase * (depth / 3 + 0.4);
+        const rT = cfg.fireTubeRadiusTip * (depth / 3 + 0.4);
+        glowGeos.push(makeTube(from, to, rB * 1.9, rT * 1.9));
+        coreGeos.push(makeTube(from, to, rB, rT));
+        // sub-branches
+        const subs = depth === 3 ? cfg.fireSubBranches : 2;
+        for (let s = 0; s < subs; s++) {
+          const f = from.clone().lerp(to, rand(0.35, 0.85));
+          const na = dirDeg + rand(-cfg.fireBranchAngleSpread, cfg.fireBranchAngleSpread);
+          addBranch(f, na, length * 0.5, depth - 1);
+        }
+      }
+
+      // main branches fan downhill toward the city (+z), spread ±70°
+      const baseDeg = 0; // 0° → +z (downhill, toward city/foreground)
+      for (let m = 0; m < cfg.fireMainBranches; m++) {
+        const spread = THREE.MathUtils.lerp(-70, 70, m / (cfg.fireMainBranches - 1));
+        addBranch(origin, baseDeg + spread, cfg.fireBranchLength, 3);
+      }
+
+      const glowMat = new THREE.MeshStandardMaterial({
+        color: COLORS.fireMid, emissive: COLORS.fireEmissive, emissiveIntensity: 0.9,
+        transparent: true, opacity: 0.45, roughness: 0.6, metalness: 0.0, depthWrite: false,
+      });
+      const coreMat = new THREE.MeshStandardMaterial({
+        color: COLORS.fireCore, emissive: COLORS.fireCore, emissiveIntensity: 1.3,
+        roughness: 0.4, metalness: 0.0,
+      });
+      if (glowGeos.length) scene.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(glowGeos, false), glowMat));
+      if (coreGeos.length) scene.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(coreGeos, false), coreMat));
+
+      return origin;
+    }
+
+    // ─── Fire particles ──────────────────────────────────────────────────────
+    let fireParticles, fireBasePos;
+    function buildFireParticles() {
+      const cfg = SCENE_CONFIG;
+      const n = cfg.fireParticleCount;
+      const geo = new THREE.BufferGeometry();
+      const positions = new Float32Array(n * 3);
+      const colors = new Float32Array(n * 3);
+      const sizes = new Float32Array(n);
+      fireBasePos = new Float32Array(n * 3);
+      const palette = [COLORS.fireCore, COLORS.fireMid, COLORS.fireTip, COLORS.fireEmber].map(c => new THREE.Color(c));
+      for (let i = 0; i < n; i++) {
+        const anchor = fireBranchPoints.length
+          ? fireBranchPoints[Math.floor(Math.random() * fireBranchPoints.length)]
+          : new THREE.Vector3(cfg.fireOriginX, cfg.fireOriginY, cfg.fireOriginZ);
+        const px = anchor.x + rand(-3, 3);
+        const py = anchor.y + rand(0, 4);
+        const pz = anchor.z + rand(-3, 3);
+        positions[i * 3] = px; positions[i * 3 + 1] = py; positions[i * 3 + 2] = pz;
+        fireBasePos[i * 3] = px; fireBasePos[i * 3 + 1] = py; fireBasePos[i * 3 + 2] = pz;
+        const c = palette[Math.floor(Math.random() * palette.length)];
+        colors[i * 3] = c.r; colors[i * 3 + 1] = c.g; colors[i * 3 + 2] = c.b;
+        sizes[i] = rand(cfg.fireParticleMinSize, cfg.fireParticleMaxSize);
+      }
+      geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+      const mat = new THREE.PointsMaterial({
+        size: 1.3, sizeAttenuation: true, vertexColors: true,
+        transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending,
+      });
+      fireParticles = new THREE.Points(geo, mat);
+      scene.add(fireParticles);
+    }
+
+    // ─── Sprite textures (canvas-generated) ──────────────────────────────────
+    function radialTexture(size, inner, outer) {
+      const cv = document.createElement('canvas'); cv.width = cv.height = size;
+      const ctx = cv.getContext('2d');
+      const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+      g.addColorStop(0, inner); g.addColorStop(1, outer);
+      ctx.fillStyle = g; ctx.fillRect(0, 0, size, size);
+      const tex = new THREE.CanvasTexture(cv);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    let emberSprites = [];
+    function buildEmbers() {
+      const tex = radialTexture(32, 'rgba(255,220,100,1)', 'rgba(255,80,0,0)');
+      for (let i = 0; i < 22; i++) {
+        const anchor = fireBranchPoints[Math.floor(Math.random() * fireBranchPoints.length)] ||
+          new THREE.Vector3(SCENE_CONFIG.fireOriginX, SCENE_CONFIG.fireOriginY, SCENE_CONFIG.fireOriginZ);
+        const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+        const sp = new THREE.Sprite(mat);
+        sp.position.set(anchor.x + rand(-4, 4), anchor.y + rand(0, 3), anchor.z + rand(-4, 4));
+        const s = rand(1.5, 4); sp.scale.set(s, s, s);
+        sp.userData = { baseY: sp.position.y, phase: rand(0, 6.28), baseX: sp.position.x };
+        scene.add(sp); emberSprites.push(sp);
+      }
+    }
+
+    // ─── Smoke plume ─────────────────────────────────────────────────────────
+    let smokeSprites = [];
+    function buildSmoke() {
+      const cfg = SCENE_CONFIG;
+      const tex = radialTexture(64, 'rgba(24,32,50,0.6)', 'rgba(12,18,32,0)');
+      for (let i = 0; i < cfg.smokeSpriteCount; i++) {
+        const mat = new THREE.SpriteMaterial({
+          map: tex, transparent: true, opacity: rand(0.25, 0.5),
+          depthWrite: false, blending: THREE.NormalBlending, color: new THREE.Color(COLORS.smokeDark),
+        });
+        const sp = new THREE.Sprite(mat);
+        const y = cfg.fireOriginY + rand(12, 62);
+        sp.position.set(cfg.fireOriginX + rand(-12, 12), y, cfg.fireOriginZ + rand(-8, 8));
+        const s = rand(cfg.smokeSpriteMinScale, cfg.smokeSpriteMaxScale);
+        sp.scale.set(s, s, s);
+        sp.userData = { phase: rand(0, 6.28), baseX: sp.position.x };
+        scene.add(sp); smokeSprites.push(sp);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LIGHTING
+    // ═══════════════════════════════════════════════════════════════════════════
+    let fireLight1, fireLight2, fireLight3;
+    function buildLights(origin) {
+      scene.add(new THREE.AmbientLight(COLORS.ambientLight, SCENE_CONFIG.ambientIntensity));
+      // Cold moonlight key from upper-left-front — gives the mountain its relief.
+      // (No hemisphere light: keeps the scene flat + matte, per the reference.)
+      const moon = new THREE.DirectionalLight(0x8aa2c4, 2.4);
+      moon.position.set(-60, 150, 120);
+      scene.add(moon);
+      const moonFill = new THREE.DirectionalLight(0x223a52, 0.35);
+      moonFill.position.set(-70, 60, 80);
+      scene.add(moonFill);
+
+      const tips = fireBranchPoints.length
+        ? [fireBranchPoints[Math.floor(fireBranchPoints.length * 0.5)], fireBranchPoints[fireBranchPoints.length - 1]]
+        : [origin, origin];
+
+      fireLight1 = new THREE.PointLight(COLORS.fireLightColor, SCENE_CONFIG.fireLight1Intensity, SCENE_CONFIG.fireLight1Distance, 2);
+      fireLight1.position.copy(origin); fireLight1.castShadow = true; scene.add(fireLight1);
+      fireLight2 = new THREE.PointLight(COLORS.fireLightColor, SCENE_CONFIG.fireLight2Intensity, SCENE_CONFIG.fireLight2Distance, 2);
+      fireLight2.position.copy(tips[0]); scene.add(fireLight2);
+      fireLight3 = new THREE.PointLight(COLORS.fireLightColor, SCENE_CONFIG.fireLight3Intensity, SCENE_CONFIG.fireLight3Distance, 2);
+      fireLight3.position.copy(tips[1]); scene.add(fireLight3);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BUILD
+    // ═══════════════════════════════════════════════════════════════════════════
+    buildTerrain();
+    buildCity();
+    const fireOrigin = buildFire();
+    buildFireParticles();
+    buildEmbers();
+    buildSmoke();
+    buildLights(fireOrigin);
+
+    const loadingEl = document.getElementById('loading');
+    loadingEl.style.opacity = '0';
+    setTimeout(() => loadingEl.remove(), 700);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ANIMATION
+    // ═══════════════════════════════════════════════════════════════════════════
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = clock.getDelta();
+      const t = clock.getElapsedTime();
+
+      // Fire particles are STATIC — a calm thermal-reading scatter, not a storm
+      // (per patch: a command-center fire glows, it does not flashbang the scene).
+
+      // embers
+      for (const sp of emberSprites) {
+        sp.position.y += 0.9 * dt;
+        sp.position.x = sp.userData.baseX + Math.sin(t * 1.5 + sp.userData.phase) * 0.6;
+        if (sp.position.y > sp.userData.baseY + 18) sp.position.y = sp.userData.baseY;
+      }
+
+      // smoke rises + expands + sways
+      for (const sp of smokeSprites) {
+        sp.position.y += SCENE_CONFIG.smokeDriftSpeed * 60 * dt;
+        sp.position.x = sp.userData.baseX + Math.sin(t * 0.4 + sp.userData.phase) * 3;
+        sp.scale.multiplyScalar(1 + 0.04 * dt);
+        if (sp.position.y > SCENE_CONFIG.fireOriginY + 82) {
+          sp.position.y = SCENE_CONFIG.fireOriginY + 14;
+          const s = rand(SCENE_CONFIG.smokeSpriteMinScale, SCENE_CONFIG.smokeSpriteMaxScale);
+          sp.scale.set(s, s, s);
+        }
+      }
+
+      // fire light flicker
+      if (fireLight1) fireLight1.intensity = SCENE_CONFIG.fireLight1Intensity + Math.sin(t * 3.7) * 8;
+      if (fireLight2) fireLight2.intensity = SCENE_CONFIG.fireLight2Intensity + Math.sin(t * 2.9 + 1.2) * 5;
+      if (fireLight3) fireLight3.intensity = SCENE_CONFIG.fireLight3Intensity + Math.sin(t * 4.3 + 2.1) * 4;
+
+      controls.update();
+      composer.render();
+    }
+    animate();
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RESIZE
+    // ═══════════════════════════════════════════════════════════════════════════
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      composer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // TODO [FEATURE]: drone swarm layer (FlytBase telemetry → sprites at world coords)
+    // TODO [FEATURE]: zone region polygons projected onto terrain (SCENE_CONFIG coords)
+    // TODO [FEATURE]: evacuation / responder route polylines on the road grid
+    // TODO [PERFORMANCE]: InstancedMesh for buildings if count grows past ~500
+    // ───────────────────────────────────────────────────────────────────────────
+  </script>
+</body>
+</html>

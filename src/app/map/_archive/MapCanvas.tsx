@@ -1,15 +1,15 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import svgPaths from "./mapSvgPaths";
-import mapBackdrop from "../../assets/sentinel-map-overhaul.png";
-import mapPreIncident from "../../assets/map-preincident.png";
-import droneThermalFeed from "../../assets/drone-thermal-feed.png";
-import droneNvgFeed from "../../assets/drone-nvg-feed.png";
-import droneThermalRes from "../../assets/drone-thermal-residential.png";
-import droneLowlight from "../../assets/drone-lowlight-road.png";
+import mapBackdrop from "../../../assets/sentinel-map-overhaul.png";
+import mapPreIncident from "../../../assets/map-preincident.png";
+import droneThermalFeed from "../../../assets/drone-thermal-feed.png";
+import droneNvgFeed from "../../../assets/drone-nvg-feed.png";
+import droneThermalRes from "../../../assets/drone-thermal-residential.png";
+import droneLowlight from "../../../assets/drone-lowlight-road.png";
 import { MapBackground } from "./MapBackground";
-import { OperationalIcon } from "./OperationalIcon";
-import { RouteArrowDefs, RouteLine } from "./RouteLine";
-import { getOperationalException } from "../domain/exceptions";
+import { OperationalIcon } from "../../components/OperationalIcon";
+import { RouteArrowDefs, RouteLine } from "../../components/RouteLine";
+import { getOperationalException } from "../../domain/exceptions";
 import {
   ANOMALY,
   EVACUATION_ROUTES,
@@ -17,8 +17,8 @@ import {
   TERRAIN_MODEL_STATUS,
   getZoneLabel,
   ZONES,
-} from "../mockData";
-import { DroneMissionType, SelectedEntity, ShellState, T, font, motion, typeScale, radius } from "../tokens";
+} from "../../mockData";
+import { DroneMissionType, SelectedEntity, ShellState, T, font, motion, typeScale, radius } from "../../tokens";
 
 // ─── Props interface (unchanged — consumed by SentinelShell) ────────────────
 interface MapCanvasProps {

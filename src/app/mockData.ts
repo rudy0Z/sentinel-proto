@@ -11,6 +11,7 @@ import type {
   RescueProgress,
   SceneId,
 } from "./tokens";
+import { T } from "./tokens";
 
 export interface ZoneData {
   id: string;
@@ -184,7 +185,7 @@ export const ZONES: ZoneData[] = [
     label: "Buffer Zone 2",
     shortLabel: "Buffer Zone 2",
     category: "buffer",
-    boundaryColor: "#00C8FF",
+    boundaryColor: T.cyan,
     polygon: "0,78 124,64 220,86 336,70 522,92 580,208 476,308 302,332 108,286 0,304",
     center: { x: 184, y: 142 },
     risk: "This western buffer is a passive edge today, but it should remain clear for any alternate evacuation swing.",
@@ -202,7 +203,7 @@ export const ZONES: ZoneData[] = [
     label: "Buffer Zone 1",
     shortLabel: "Buffer Zone 1",
     category: "buffer",
-    boundaryColor: "#00C8FF",
+    boundaryColor: T.cyan,
     polygon: "1332,84 1518,108 1696,84 1696,418 1580,396 1488,340 1398,298 1314,352 1282,250",
     center: { x: 1486, y: 154 },
     risk: "This is still the cleanest responder ingress edge and the best lane for relay coverage if the ridge pushes southeast.",
@@ -254,9 +255,9 @@ export const ZONES: ZoneData[] = [
 ];
 
 export const SPREAD_RINGS: SpreadRing[] = [
-  { label: "15 MIN", minutes: 15, radius: 118, color: "#E5533C", dash: "8 6" },
-  { label: "30 MIN", minutes: 30, radius: 196, color: "#F5A623", dash: "8 6" },
-  { label: "60 MIN", minutes: 60, radius: 292, color: "#8899AA", dash: "6 7" },
+  { label: "15 MIN", minutes: 15, radius: 118, color: T.red, dash: "8 6" },
+  { label: "30 MIN", minutes: 30, radius: 196, color: T.amber, dash: "8 6" },
+  { label: "60 MIN", minutes: 60, radius: 292, color: T.textMuted, dash: "6 7" },
 ];
 
 export const EVACUATION_ROUTES: RoutePath[] = [
@@ -486,6 +487,8 @@ const BASE_TEAMS: GroundTeamStatus[] = [
     linkedZoneId: "buffer-east",
     availability: "staged",
     vitals: "HR 98 · VIS 250m",
+    x: 530,
+    y: 616,
   },
   {
     id: "bravo",
@@ -497,6 +500,8 @@ const BASE_TEAMS: GroundTeamStatus[] = [
     linkedZoneId: "residential-south",
     availability: "deployed",
     vitals: "HR 165 · VIS 5m",
+    x: 950,
+    y: 640,
   },
   {
     id: "charlie",
@@ -508,6 +513,8 @@ const BASE_TEAMS: GroundTeamStatus[] = [
     linkedZoneId: "buffer-east",
     availability: "available",
     vitals: "HR 112 · VIS 120m",
+    x: 1188,
+    y: 468,
   },
 ];
 

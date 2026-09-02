@@ -206,8 +206,8 @@ function getChartCopy(scene: SceneId): ChartCopy {
       return {
         label: "Contested watch — reduced weighting",
         statusLabel: "OPERATOR CLOSED",
-        statusColor: "#00C8FF",
-        thermalColor: "#00C8FF",
+        statusColor: T.cyan,
+        thermalColor: T.cyan,
         moistureColor: "#7A8BA0",
         moistureMetric: "-11%",
       };
@@ -227,7 +227,7 @@ function getChartCopy(scene: SceneId): ChartCopy {
         statusLabel: "QUIET WATCH",
         statusColor: "#2DD4A0",
         thermalColor: "#2DD4A0",
-        moistureColor: "#00C8FF",
+        moistureColor: T.cyan,
         moistureMetric: "-2%",
       };
     case "contain-recommended":
@@ -818,10 +818,26 @@ function ToolCallRow({ task }: { task: TalonAgentTask }) {
   );
 }
 
+/*
+ * One agent, as a genuine summary row.
+ *
+ * This used to render the agent's current task, its input badges, AND its
+ * output/blocker line *inside the collapsed header* — so a "collapsed" card was
+ * still 145–199px and ten of them pushed the rail to ~3,300px of content in a
+ * ~676px box. Disclosure that doesn't actually withhold anything isn't
+ * disclosure. The header is now one scannable line (status · name · gate ·
+ * confidence); everything else lives behind the chevron. Nothing was removed —
+ * it moved to where it was supposed to be.
+ *
+ * The category badge is deliberately gone from the row: these cards are already
+ * grouped *by* category ("Intelligence · 3 agents"), so repeating it on every
+ * child was redundant and it was what squeezed the name into an ellipsis.
+ */
+const AGENT_ROW_H = 44;
+
 function AgentWorkforceCard({ task }: { task: TalonAgentTask }) {
   const [expanded, setExpanded] = useState(false);
   const color = getAgentStatusColor(task.status);
-  const hasDetails = task.toolCalls.length > 0 || task.dependencies.length > 0 || Boolean(task.description);
 
   return (
     <div style={{ border: `1px solid ${border.soft}`, background: surface.inset, borderRadius: radius.control, overflow: "hidden" }}>
@@ -829,67 +845,74 @@ function AgentWorkforceCard({ task }: { task: TalonAgentTask }) {
         type="button"
         onClick={() => setExpanded((v) => !v)}
         aria-expanded={expanded}
+        aria-label={`${task.agentName}. ${task.status}. ${expanded ? "Hide" : "Show"} detail`}
         style={{
           width: "100%",
-          display: "grid",
-          gridTemplateColumns: "1fr auto",
-          alignItems: "start",
+          minHeight: AGENT_ROW_H,
+          display: "flex",
+          alignItems: "center",
           gap: space.sm,
-          padding: `${space.sm}px ${space.md}px`,
+          padding: `0 ${space.md}px`,
           border: "none",
           background: "transparent",
           color: T.textPrimary,
-          cursor: hasDetails ? "pointer" : "default",
+          cursor: "pointer",
           textAlign: "left",
         }}
       >
-        <div style={{ minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: space.sm, minWidth: 0 }}>
-            <StatusDot status={task.status} />
-            <span style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textPrimary, fontWeight: typeWeight.semibold, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {task.agentName}
-            </span>
-            <CategoryBadge category={task.category} />
-          </div>
-          <div style={{ marginTop: space.xs, fontFamily: font.sans, fontSize: typeScale.caption, color: T.textSecondary, lineHeight: 1.35 }}>
-            {task.currentTask}
-          </div>
-          <div style={{ marginTop: space.sm, display: "flex", flexWrap: "wrap", gap: space.xs }}>
-            {task.inputs.slice(0, 4).map((input) => (
-              <InputBadge key={input} label={input} />
-            ))}
-          </div>
-          <div style={{ marginTop: space.sm, fontFamily: font.sans, fontSize: typeScale.caption, color: task.blocker ? T.amber : T.textMuted, lineHeight: 1.35 }}>
-            {task.blocker ?? task.output ?? task.shortLabel}
-          </div>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: space.sm }}>
-          <div style={{ display: "flex", alignItems: "center", gap: space.xs }}>
-            {task.requiresHumanGate && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: space.xs, fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.amber, letterSpacing: tracking.telemetry, textTransform: "uppercase" }}>
-                <LockKeyhole size={space.md} color={T.amber} strokeWidth={space.xs} />
-                Gate
-              </span>
-            )}
-            <StatusBadge status={task.status} />
-          </div>
-          {task.confidence !== undefined && task.status !== "queued" && (
-            <span style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color, fontWeight: typeWeight.semibold }}>
-              {task.confidence}%
-            </span>
-          )}
-          {hasDetails && (
-            expanded ? (
-              <ChevronDown size={space.lg} color={T.textMuted} strokeWidth={space.xs} />
-            ) : (
-              <ChevronRight size={space.lg} color={T.textMuted} strokeWidth={space.xs} />
-            )
-          )}
-        </div>
+        <StatusDot status={task.status} />
+        <span
+          style={{
+            flex: 1,
+            minWidth: 0,
+            fontFamily: font.sans,
+            fontSize: typeScale.label,
+            color: T.textPrimary,
+            fontWeight: typeWeight.semibold,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {task.agentName}
+        </span>
+        {task.requiresHumanGate && (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: space.xs, fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.amber, letterSpacing: tracking.telemetry, textTransform: "uppercase", flexShrink: 0 }}>
+            <LockKeyhole size={space.md} color={T.amber} strokeWidth={space.xs} />
+            Gate
+          </span>
+        )}
+        <StatusBadge status={task.status} />
+        {task.confidence !== undefined && task.status !== "queued" && (
+          <span style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color, fontWeight: typeWeight.semibold, flexShrink: 0 }}>
+            {task.confidence}%
+          </span>
+        )}
+        {expanded ? (
+          <ChevronDown size={space.lg} color={T.textMuted} strokeWidth={space.xs} />
+        ) : (
+          <ChevronRight size={space.lg} color={T.textMuted} strokeWidth={space.xs} />
+        )}
       </button>
 
       {expanded && (
-        <div style={{ borderTop: `1px solid ${border.soft}`, padding: `${space.sm}px ${space.md}px ${space.sm}px`, display: "flex", flexDirection: "column", gap: space.sm, animation: "slideInUp 140ms ease" }}>
+        <div style={{ borderTop: `1px solid ${border.soft}`, padding: `${space.sm}px ${space.md}px`, display: "flex", flexDirection: "column", gap: space.sm, animation: "slideInUp 140ms ease" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: space.sm }}>
+            <CategoryBadge category={task.category} />
+          </div>
+          <div style={{ fontFamily: font.sans, fontSize: typeScale.caption, color: T.textSecondary, lineHeight: 1.35 }}>
+            {task.currentTask}
+          </div>
+          {task.inputs.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: space.xs }}>
+              {task.inputs.slice(0, 4).map((input) => (
+                <InputBadge key={input} label={input} />
+              ))}
+            </div>
+          )}
+          <div style={{ fontFamily: font.sans, fontSize: typeScale.caption, color: task.blocker ? T.amber : T.textMuted, lineHeight: 1.35 }}>
+            {task.blocker ?? task.output ?? task.shortLabel}
+          </div>
           <ToolCallRow task={task} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: space.sm }}>
             <div style={{ fontFamily: font.sans, fontSize: typeScale.caption, color: T.textMuted, lineHeight: 1.4 }}>
@@ -1496,15 +1519,26 @@ function IntelligenceBrief({
 
 // ─── Progressive rail sections (single navigation layer — no nested tabs) ─────
 
+/*
+ * A rail section is a persistent summary row plus a disclosure.
+ *
+ * The summary must be load-bearing: it is what remains on screen when the
+ * section is shut, and the section is shut by default precisely so the rail
+ * stays inside its own height. If a state matters (a human gate, a blocker),
+ * the row says so in its own colour — demoting the detail must never demote
+ * the signal. `attention` is what makes collapsing safe.
+ */
 function RailSection({
   title,
   summary,
   defaultOpen = false,
+  attention = false,
   children,
 }: {
   title: string;
   summary?: string;
   defaultOpen?: boolean;
+  attention?: boolean;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -1529,11 +1563,19 @@ function RailSection({
         }}
       >
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.semibold, color: T.textMuted }}>
-            {title}
+          <div style={{ display: "flex", alignItems: "center", gap: space.sm }}>
+            <span style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.semibold, color: attention ? T.amber : T.textMuted }}>
+              {title}
+            </span>
+            {attention && !open ? (
+              <span
+                aria-hidden="true"
+                style={{ width: 5, height: 5, borderRadius: radius.pill, background: T.amber, flexShrink: 0 }}
+              />
+            ) : null}
           </div>
           {summary ? (
-            <div style={{ fontFamily: font.sans, fontSize: typeScale.caption, color: T.textMuted, marginTop: space.xs }}>
+            <div style={{ fontFamily: font.sans, fontSize: typeScale.caption, color: attention ? T.amber : T.textMuted, marginTop: space.xs }}>
               {summary}
             </div>
           ) : null}
@@ -1558,7 +1600,8 @@ export function TalonCopilotPanel({ state }: TalonCopilotPanelProps) {
   const blockedAgents = agentTasks.filter((t) => t.status === "blocked").length;
   const humanGatedTasks = agentTasks.filter((t) => t.requiresHumanGate || t.status === "blocked").length;
   const evidenceSummary = `${evidenceSources.filter((s) => s.status === "active").length} active · ${pendingSources.length} aligning`;
-  const workforceSummary = `${runningAgents} active${blockedAgents ? ` · ${blockedAgents} gated` : ""}`;
+  /* Gated work is the reason to open this section, so the row must name it. */
+  const workforceSummary = `${runningAgents} active${humanGatedTasks ? ` · ${humanGatedTasks} awaiting human` : ""}`;
 
   return (
     <div
@@ -1646,7 +1689,18 @@ export function TalonCopilotPanel({ state }: TalonCopilotPanelProps) {
           </div>
         </RailSection>
 
-        <RailSection title="Workforce" summary={workforceSummary} defaultOpen={humanGatedTasks > 0}>
+        {/*
+          Workforce stays shut by default. Open it carries ~1,500px into a
+          ~676px rail, which is how ~80% of TALON's reasoning ended up
+          permanently below the fold. The gate count is already reported in the
+          brief above ("Agent relay · N gated") and again on this row, in amber,
+          so collapsing costs the operator no signal — only scrolling.
+        */}
+        <RailSection
+          title="Workforce"
+          summary={workforceSummary}
+          attention={humanGatedTasks > 0}
+        >
           <TalonWorkforceView evidenceSources={evidenceSources} agentTasks={agentTasks} scene={state.scene} />
         </RailSection>
       </div>

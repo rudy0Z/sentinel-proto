@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FlytBase Sentinel — Case Study · Rudy</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-font-smoothing:antialiased;scroll-behavior:smooth}
+
+:root{
+  --bg:       #060A0E;
+  --bg-2:     #0D1520;
+  --bg-3:     #131F2E;
+  --ink:      #E0E6EC;
+  --ink-2:    #8AA3B5;
+  --ink-3:    #4A6478;
+  --teal:     #2DD4A0;
+  --teal-dim: rgba(45,212,160,.15);
+  --teal-bg:  rgba(45,212,160,.07);
+  --cyan:     #00C8FF;
+  --cyan-bg:  rgba(0,200,255,.08);
+  --amber:    #F5A623;
+  --amber-bg: rgba(245,166,35,.08);
+  --red:      #E5533C;
+  --red-bg:   rgba(229,83,60,.08);
+  --border:   #101820;
+  --border-hi:rgba(255,255,255,.10);
+  --display:  'Bricolage Grotesque', system-ui, sans-serif;
+  --body:     'Plus Jakarta Sans', system-ui, sans-serif;
+  --mono:     'JetBrains Mono', monospace;
+}
+
+body{font-family:var(--body);background:var(--bg);color:var(--ink);font-size:14px;line-height:1.65;}
+
+/* ─── PROGRESS ─── */
+#progress{position:fixed;top:0;left:0;height:2px;width:0%;background:linear-gradient(90deg,var(--teal),var(--cyan));z-index:300;transition:width .06s linear;}
+
+/* ─── NAV ─── */
+.pf-back{position:fixed;top:22px;left:28px;z-index:200;display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);text-decoration:none;transition:color .18s;}
+.pf-back:hover{color:var(--ink)}
+.pf-back svg{width:13px;height:13px}
+.sec-nav{position:fixed;right:22px;top:50%;transform:translateY(-50%);z-index:200;display:flex;flex-direction:column;gap:10px;}
+.sec-nav-dot{width:5px;height:5px;border-radius:50%;background:var(--ink-3);cursor:pointer;transition:background .2s,transform .2s;}
+.sec-nav-dot.active{background:var(--teal);transform:scale(1.5);}
+@media(max-width:900px){.sec-nav{display:none;}}
+
+/* ─── PANEL ─── */
+.panel{padding:80px 64px;border-bottom:1px solid var(--border);}
+.panel--alt{background:var(--bg-2);}
+.panel--dark{background:var(--bg-3);}
+.panel:last-of-type{border-bottom:none;}
+.panel-inner{max-width:1080px;margin:0 auto;}
+@media(max-width:900px){.panel{padding:56px 24px;}}
+
+/* ─── SECTION LABEL ─── */
+.sec-eyebrow{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);margin-bottom:20px;}
+.sec-eyebrow::before{content:'';width:18px;height:1px;background:var(--teal);flex-shrink:0;}
+
+/* ─── TYPE SCALE (strict 5 sizes) ─── */
+.h1{font-family:var(--display);font-size:clamp(42px,5.5vw,72px);font-weight:800;line-height:1.0;letter-spacing:-.04em;color:var(--ink);}
+.h2{font-family:var(--display);font-size:clamp(28px,3vw,40px);font-weight:700;line-height:1.1;letter-spacing:-.03em;color:var(--ink);margin-bottom:10px;}
+.h2 em{font-style:normal;color:var(--ink-2);font-weight:400;}
+.h3{font-family:var(--display);font-size:15px;font-weight:700;line-height:1.3;color:var(--ink);}
+.body{font-size:13px;color:var(--ink-2);line-height:1.75;}
+.label{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;}
+
+/* ─── HERO ─── */
+.hero{background:var(--bg);padding:0;border-bottom:1px solid var(--border);overflow:hidden;position:relative;}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 55% 45% at 80% 20%,rgba(45,212,160,.06) 0%,transparent 65%);pointer-events:none;}
+.hero-inner{position:relative;max-width:1080px;margin:0 auto;padding:110px 64px 76px;}
+.hero-eyebrow{display:flex;gap:18px;font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin-bottom:32px;}
+.hero-hook{font-size:16px;color:var(--ink-2);line-height:1.8;max-width:560px;margin:18px 0 44px;}
+.hero-hook strong{color:var(--ink);font-weight:600;}
+.hero-meta{display:flex;flex-wrap:wrap;gap:0;border-top:1px solid var(--border);padding-top:24px;}
+.hm{padding-right:24px;margin-right:24px;border-right:1px solid var(--border);}
+.hm:last-child{border-right:none;margin-right:0;}
+.hm-l{font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin-bottom:3px;}
+.hm-v{font-size:12px;font-weight:500;color:var(--ink-2);}
+.proto-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--teal-dim);color:var(--teal);font-size:12px;font-weight:600;text-decoration:none;padding:9px 16px;border-radius:6px;margin-bottom:40px;transition:background .18s;}
+.proto-btn:hover{background:var(--teal-bg);}
+.proto-btn svg{width:11px;height:11px;}
+@media(max-width:900px){.hero-inner{padding:80px 24px 56px;}.hm{border-right:none;}}
+
+/* ─── VIDEO ─── */
+.video-wrap{max-width:1080px;margin:0 auto;padding:0 64px 64px;}
+.video-label{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);display:flex;align-items:center;gap:10px;padding-top:48px;margin-bottom:14px;}
+.video-label::before{content:'';width:18px;height:1px;background:var(--teal);}
+.video-ratio{position:relative;padding-top:52.25%;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.video-ratio iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
+.video-note{margin-top:10px;font-size:12px;color:var(--ink-3);}
+.video-note a{color:var(--teal);text-decoration:none;font-weight:600;}
+@media(max-width:900px){.video-wrap{padding:0 24px 48px;}}
+
+/* ─── SCREEN PLACEHOLDER ─── */
+.screen-ph{background:var(--bg-2);border:1px solid var(--border);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:28px;text-align:center;}
+.screen-ph-tag{font-family:var(--mono);font-size:8px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);}
+.screen-ph-name{font-size:13px;font-weight:600;color:var(--ink-3);}
+.screen-ph-path{font-family:var(--mono);font-size:9px;color:var(--ink-3);margin-top:2px;}
+
+/* ─── NUMBERS ─── */
+.numbers{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:32px;}
+.num{padding:28px 24px;border-right:1px solid var(--border);}
+.num:last-child{border-right:none;}
+.num-val{font-family:var(--display);font-size:clamp(36px,3.5vw,52px);font-weight:800;line-height:1;margin-bottom:8px;letter-spacing:-.03em;}
+.num-val.neg{color:var(--red);}
+.num-val.pos{color:var(--teal);}
+.num-val.neu{color:var(--ink);}
+.num-desc{font-size:12px;color:var(--ink-2);line-height:1.55;}
+@media(max-width:900px){.numbers{grid-template-columns:1fr;}.num{border-right:none;border-bottom:1px solid var(--border);}.num:last-child{border-bottom:none;}}
+
+/* ─── CALLOUT CARDS ─── */
+.callout{border-radius:8px;padding:16px 20px;margin-bottom:16px;}
+.callout.root{background:var(--bg-3);border:1px solid var(--border);}
+.callout.insight{border-left:2px solid var(--teal);background:var(--teal-bg);}
+.callout.amber{border-left:2px solid var(--amber);background:var(--amber-bg);}
+.callout-label{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px;}
+.callout.root .callout-label{color:var(--amber);}
+.callout.insight .callout-label{color:var(--teal);}
+.callout-text{font-size:13px;color:var(--ink-2);line-height:1.7;}
+.callout-text strong{color:var(--ink);}
+
+/* ─── TWO-PHASE ─── */
+.two-phase{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:32px;}
+.tp{padding:22px 24px;}
+.tp:first-child{border-right:1px solid var(--border);}
+.tp-badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:4px;margin-bottom:12px;}
+.tp-badge.a{background:var(--teal-bg);color:var(--teal);border:1px solid var(--teal-dim);}
+.tp-badge.b{background:var(--amber-bg);color:var(--amber);border:1px solid rgba(245,166,35,.2);}
+.tp-focus{font-size:11px;font-weight:600;margin-bottom:8px;}
+.tp.a .tp-focus{color:var(--teal);}
+.tp.b .tp-focus{color:var(--amber);}
+@media(max-width:900px){.two-phase{grid-template-columns:1fr;}.tp:first-child{border-right:none;border-bottom:1px solid var(--border);}}
+
+/* ─── AGENT PIPELINE ─── */
+.pipeline-label{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin-bottom:12px;}
+.pipeline{display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.agent{flex:1;padding:14px 12px;border-right:1px solid var(--border);}
+.agent:last-child{border-right:none;}
+.agent-num{font-family:var(--mono);font-size:9px;color:var(--ink-3);margin-bottom:6px;}
+.agent-dot{width:5px;height:5px;border-radius:50%;background:var(--cyan);margin-bottom:7px;box-shadow:0 0 5px rgba(0,200,255,.5);}
+.agent-name{font-size:11px;font-weight:700;color:var(--ink);line-height:1.3;margin-bottom:3px;}
+.agent-desc{font-size:10px;color:var(--ink-2);line-height:1.45;}
+.agent-gate{font-family:var(--mono);font-size:8px;color:var(--amber);margin-top:6px;}
+@media(max-width:900px){.pipeline{flex-direction:column;}.agent{border-right:none;border-bottom:1px solid var(--border);}.agent:last-child{border-bottom:none;}}
+
+/* ─── PHASE CARDS ─── */
+.phases{display:flex;flex-direction:column;gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-top:8px;}
+.phase{border-bottom:1px solid var(--border);}
+.phase:last-child{border-bottom:none;}
+.phase-head{display:grid;grid-template-columns:130px 1fr;border-bottom:1px solid var(--border);}
+.phase-id{padding:16px;background:var(--bg-2);border-right:1px solid var(--border);display:flex;flex-direction:column;justify-content:center;}
+.phase-dot{width:7px;height:7px;border-radius:50%;margin-bottom:7px;}
+.phase-name-text{font-family:var(--display);font-size:13px;font-weight:700;color:var(--ink);margin-bottom:2px;}
+.phase-time{font-family:var(--mono);font-size:9px;color:var(--ink-3);}
+.phase-summary{padding:16px;font-size:13px;color:var(--ink);font-weight:500;display:flex;align-items:center;}
+.phase-body{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--border);}
+.phase-col{padding:14px 16px;}
+.phase-col:first-child{border-right:1px solid var(--border);}
+.phase-col-label{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px;}
+.phase-screen-wrap{background:var(--bg);}
+@media(max-width:900px){.phase-head{grid-template-columns:100px 1fr;}.phase-body{grid-template-columns:1fr;}.phase-col:first-child{border-right:none;border-bottom:1px solid var(--border);}}
+
+/* ─── DECISION CARDS ─── */
+.decisions-list{display:flex;flex-direction:column;gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.dc{border-bottom:1px solid var(--border);}
+.dc:last-child{border-bottom:none;}
+.dc-header{padding:18px 22px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:36px 1fr auto;gap:12px;align-items:start;}
+.dc-num{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--teal);}
+.dc-before{font-size:12px;color:var(--ink-2);margin-top:4px;font-style:italic;line-height:1.55;}
+.dc-tag{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;padding:3px 9px;border-radius:3px;white-space:nowrap;margin-top:2px;}
+.dc-tag.pivot{background:var(--teal-bg);color:var(--teal);border:1px solid var(--teal-dim);}
+.dc-tag.gov{background:var(--red-bg);color:var(--red);border:1px solid rgba(229,83,60,.18);}
+.dc-tag.trust{background:var(--cyan-bg);color:var(--cyan);border:1px solid rgba(0,200,255,.18);}
+.dc-tag.infra{background:var(--amber-bg);color:var(--amber);border:1px solid rgba(245,166,35,.18);}
+.dc-tag.ux{background:rgba(59,130,246,.08);color:#6fa3f7;border:1px solid rgba(59,130,246,.18);}
+.dc-options{padding:0;border-bottom:1px solid var(--border);}
+.dc-option{display:grid;grid-template-columns:32px 1fr;gap:0;border-bottom:1px solid var(--border);padding:12px 22px;align-items:start;}
+.dc-option:last-child{border-bottom:none;}
+.dc-opt-badge{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.06em;padding:3px 7px;border-radius:3px;margin-top:1px;text-align:center;}
+.dc-opt-badge.rej{background:rgba(229,83,60,.1);color:var(--red);}
+.dc-opt-badge.cho{background:var(--teal-bg);color:var(--teal);}
+.dc-opt-body{padding-left:14px;}
+.dc-opt-title{font-size:12px;font-weight:600;color:var(--ink);margin-bottom:2px;}
+.dc-opt-reason{font-size:11px;color:var(--ink-3);line-height:1.5;}
+.dc-option.chosen .dc-opt-title{color:var(--teal);}
+.dc-option.rejected{opacity:.7;}
+.dc-tradeoff{padding:12px 22px;background:var(--amber-bg);border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:baseline;}
+.dc-tradeoff-label{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--amber);flex-shrink:0;}
+.dc-tradeoff-text{font-size:12px;color:var(--ink-2);line-height:1.6;}
+.dc-tradeoff-text strong{color:var(--ink);}
+.dc-result{padding:12px 22px;font-size:12px;color:var(--ink-2);line-height:1.6;background:var(--teal-bg);}
+.dc-result strong{color:var(--teal);}
+@media(max-width:900px){.dc-header{grid-template-columns:28px 1fr;}.dc-tag{display:none;}}
+
+/* ─── FAILURE STATES ─── */
+.fs-list{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.fs{border-bottom:1px solid var(--border);}
+.fs:last-child{border-bottom:none;}
+.fs-top{padding:14px 20px;background:var(--bg-2);border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:14px;}
+.fs-id{font-family:var(--mono);font-size:9px;font-weight:600;color:var(--ink-3);flex-shrink:0;padding-top:2px;}
+.fs-top-body{flex:1;}
+.fs-fs-name{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:3px;}
+.fs-trigger{font-family:var(--mono);font-size:10px;color:var(--amber);line-height:1.5;}
+.fs-severity{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;padding:3px 8px;border-radius:3px;flex-shrink:0;}
+.fs-severity.crit{background:var(--red-bg);color:var(--red);border:1px solid rgba(229,83,60,.18);}
+.fs-severity.caut{background:var(--amber-bg);color:var(--amber);border:1px solid rgba(245,166,35,.18);}
+.fs-severity.auto{background:var(--cyan-bg);color:var(--cyan);border:1px solid rgba(0,200,255,.18);}
+.fs-screen-area{border-bottom:1px solid var(--border);}
+.fs-bottom{display:grid;grid-template-columns:1fr 1fr 1fr;}
+.fs-col{padding:12px 16px;border-right:1px solid var(--border);}
+.fs-col:last-child{border-right:none;}
+.fs-col-label{font-family:var(--mono);font-size:8px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px;}
+.fs-item{display:flex;gap:7px;font-size:11px;color:var(--ink-2);line-height:1.5;margin-bottom:4px;}
+.fs-item::before{content:'→';color:var(--teal);flex-shrink:0;font-size:10px;}
+.fs-audit-line{font-family:var(--mono);font-size:9px;color:var(--teal);background:var(--teal-bg);padding:6px 8px;border-radius:4px;margin-top:6px;line-height:1.5;}
+@media(max-width:900px){.fs-bottom{grid-template-columns:1fr;}.fs-col{border-right:none;border-bottom:1px solid var(--border);}.fs-col:last-child{border-bottom:none;}}
+
+/* ─── ITERATION ─── */
+.iter{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.iter-card{border-right:1px solid var(--border);}
+.iter-card:last-child{border-right:none;}
+.iter-head{padding:12px 16px;background:var(--bg-2);border-bottom:1px solid var(--border);}
+.iter-version{font-family:var(--mono);font-size:9px;color:var(--red);margin-bottom:3px;}
+.iter-screen-area{border-bottom:1px solid var(--border);}
+.iter-why{padding:14px 16px;}
+.iter-why-label{font-family:var(--mono);font-size:8px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--red);margin-bottom:5px;}
+@media(max-width:900px){.iter{grid-template-columns:1fr;}.iter-card{border-right:none;border-bottom:1px solid var(--border);}.iter-card:last-child{border-bottom:none;}}
+
+/* ─── DESIGN SYSTEM ─── */
+.ds-row{margin-bottom:32px;}
+.ds-row-label{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin-bottom:14px;}
+.ds-flex{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start;}
+.ds-box{background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;min-width:155px;}
+.ds-box-label{font-family:var(--mono);font-size:8px;color:var(--ink-3);margin-bottom:9px;}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:7px;font-family:var(--body);font-size:12px;font-weight:700;padding:9px 16px;border-radius:6px;cursor:pointer;border:none;}
+.btn-primary{background:var(--teal);color:#060A0E;}
+.btn-caution{background:transparent;border:1px solid var(--amber);color:var(--amber);}
+.btn-disabled{background:var(--bg-3);color:var(--ink-3);border:1px solid var(--border);}
+.btn-danger{background:var(--red-bg);border:1px solid rgba(229,83,60,.25);color:var(--red);}
+
+/* Evidence chips */
+.ev{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;font-weight:600;padding:3px 9px;border-radius:4px;}
+.ev-dot{width:4px;height:4px;border-radius:50%;flex-shrink:0;}
+.ev.conf{background:var(--teal-bg);color:var(--teal);border:1px solid var(--teal-dim);}
+.ev.conf .ev-dot{background:var(--teal);}
+.ev.conflict{background:var(--red-bg);color:var(--red);border:1px solid rgba(229,83,60,.18);}
+.ev.conflict .ev-dot{background:var(--red);}
+.ev.pend{background:rgba(255,255,255,.04);color:var(--ink-3);border:1px solid var(--border-hi);}
+.ev.pend .ev-dot{background:var(--ink-3);}
+.ev.ai{background:var(--cyan-bg);color:var(--cyan);border:1px solid rgba(0,200,255,.18);}
+.ev.ai .ev-dot{background:var(--cyan);}
+
+/* Alert strips */
+.al{padding:9px 13px;border-radius:5px;font-family:var(--mono);font-size:10px;font-weight:600;display:flex;align-items:center;gap:8px;}
+.al.info{background:var(--teal-bg);color:var(--teal);border:1px solid var(--teal-dim);}
+.al.warn{background:var(--amber-bg);color:var(--amber);border:1px solid rgba(245,166,35,.2);}
+.al.crit{background:var(--red-bg);color:var(--red);border:1px solid rgba(229,83,60,.18);}
+.al.fail{background:var(--red-bg);color:var(--red);border-top:2px solid var(--red);border-radius:0;padding:9px 16px;}
+
+/* Confidence bars */
+.cbar{display:flex;flex-direction:column;gap:4px;width:100%;}
+.cbar-row{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--ink-3);}
+.cbar-track{height:3px;background:var(--bg-3);border-radius:2px;overflow:hidden;}
+.cbar-fill{height:100%;border-radius:2px;}
+.cbar-fill.h{background:var(--teal);width:87%;}
+.cbar-fill.m{background:var(--amber);width:54%;}
+.cbar-fill.l{background:var(--red);width:23%;}
+
+/* Type specimens */
+.type-pair{background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:18px 20px;margin-bottom:10px;}
+.type-pair-meta{font-family:var(--mono);font-size:8px;color:var(--ink-3);margin-top:6px;}
+
+/* Swatches */
+.swatches{display:flex;flex-wrap:wrap;gap:8px;}
+.sw{min-width:72px;}
+.sw-block{height:32px;border-radius:5px;border:1px solid rgba(255,255,255,.05);margin-bottom:5px;}
+.sw-name{font-family:var(--mono);font-size:9px;color:var(--ink-3);}
+.sw-hex{font-family:var(--mono);font-size:8px;color:var(--ink-3);}
+.sw-use{font-family:var(--mono);font-size:8px;color:var(--ink-3);margin-top:1px;}
+
+/* ─── METRICS ─── */
+.metrics-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.metric{padding:22px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);}
+.metric:nth-child(2n){border-right:none;}
+.metric:nth-child(n+3){border-bottom:none;}
+.metric-type{font-family:var(--mono);font-size:8px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:4px;}
+.metric-name{font-family:var(--display);font-size:16px;font-weight:700;color:var(--ink);margin-bottom:6px;}
+@media(max-width:900px){.metrics-grid{grid-template-columns:1fr;}.metric{border-right:none;}}
+
+/* ─── REFLECTION ─── */
+.ref-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;}
+.ref-card{border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.ref-head{padding:9px 15px;font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;border-bottom:1px solid var(--border);}
+.ref-head.warn{color:var(--red);background:var(--red-bg);}
+.ref-head.note{color:var(--teal);background:var(--teal-bg);}
+.ref-body{padding:14px 15px;font-size:12px;color:var(--ink-2);line-height:1.7;}
+@media(max-width:900px){.ref-grid{grid-template-columns:1fr;}}
+
+/* ─── PULLQUOTE ─── */
+.pullquote{font-family:var(--display);font-size:clamp(18px,2.2vw,26px);font-weight:700;color:var(--ink);line-height:1.4;letter-spacing:-.02em;border-left:3px solid var(--teal);padding-left:24px;margin-top:40px;max-width:680px;}
+.pullquote em{font-style:normal;color:var(--teal);}
+
+/* ─── CTA ─── */
+.cta-inner{max-width:1080px;margin:0 auto;padding:72px 64px;}
+.cta-actions{display:flex;align-items:center;gap:14px;margin-top:28px;}
+.cta-btn{display:inline-flex;align-items:center;gap:8px;background:var(--teal);color:#060A0E;text-decoration:none;font-size:13px;font-weight:700;padding:12px 20px;border-radius:7px;transition:opacity .18s,transform .15s;}
+.cta-btn:hover{opacity:.87;transform:translateY(-2px);}
+.cta-btn svg{width:11px;height:11px;}
+.cta-ghost{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border-hi);color:var(--ink-2);text-decoration:none;font-size:13px;font-weight:600;padding:12px 20px;border-radius:7px;transition:border-color .18s,color .18s;}
+.cta-ghost:hover{border-color:var(--border-hi);color:var(--ink);}
+@media(max-width:900px){.cta-inner{padding:52px 24px;}.cta-actions{flex-direction:column;align-items:flex-start;}}
+
+/* ─── PROJECT NAV ─── */
+.pnav{border-top:1px solid var(--border);}
+.pnav-inner{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:0;background:var(--border);}
+.pnav-card{background:var(--bg);padding:24px 32px;text-decoration:none;color:inherit;transition:background .18s;}
+.pnav-card:hover{background:var(--bg-2);}
+.pnav-card.r{text-align:right;}
+.pnav-dir{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);}
+.pnav-title{font-family:var(--display);font-size:18px;font-weight:700;color:var(--ink-2);margin-top:2px;letter-spacing:-.01em;}
+@media(max-width:900px){.pnav-inner{grid-template-columns:1fr;}}
+
+/* ─── REVEAL ─── */
+.r{opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .5s ease;}
+.r.v{opacity:1;transform:none;}
+.d1{transition-delay:.07s;}.d2{transition-delay:.14s;}.d3{transition-delay:.21s;}
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+
+<a class="pf-back" href="index.html">
+  <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 16 16"><path d="M10 3L5 8l5 5"/></svg>
+  Portfolio
+</a>
+
+<nav class="sec-nav">
+  <div class="sec-nav-dot active" data-s="hero"></div>
+  <div class="sec-nav-dot" data-s="context"></div>
+  <div class="sec-nav-dot" data-s="architecture"></div>
+  <div class="sec-nav-dot" data-s="flow"></div>
+  <div class="sec-nav-dot" data-s="decisions"></div>
+  <div class="sec-nav-dot" data-s="failure"></div>
+  <div class="sec-nav-dot" data-s="iteration"></div>
+  <div class="sec-nav-dot" data-s="system"></div>
+  <div class="sec-nav-dot" data-s="outcomes"></div>
+</nav>
+
+
+<!-- ════════════════════════════
+  HERO
+════════════════════════════ -->
+<section id="hero" class="hero">
+  <div class="hero-inner">
+    <div class="hero-eyebrow">
+      <span>FlytBase Sentinel</span>
+      <span>Wildfire Command AI</span>
+      <span>Design Fusion S3 · Runner-up · 2025</span>
+    </div>
+
+    <h1 class="h1">The hardware could<br>respond in 30 seconds.<br><span style="color:var(--teal)">The interface took 48 minutes.</span></h1>
+
+    <p class="hero-hook">A wildfire sector lead managing autonomous drone fleets shouldn't spend 48 minutes manually cross-referencing sensors before authorizing a response. <strong>Sentinel compresses the detection-to-escalation window to 90 seconds — through governed AI, not by removing the human from the decision.</strong></p>
+
+    <a class="proto-btn" href="https://sentinel-proto.vercel.app/" target="_blank" rel="noopener">
+      <svg fill="none" viewBox="0 0 12 12" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><circle cx="6" cy="6" r="5"/><path d="M4 6l4-2.5v5z" fill="currentColor" stroke="none"/></svg>
+      Live prototype
+    </a>
+
+    <div class="hero-meta">
+      <div class="hm"><div class="hm-l">Role</div><div class="hm-v">End-to-end product design</div></div>
+      <div class="hm"><div class="hm-l">Platform</div><div class="hm-v">Desktop command center</div></div>
+      <div class="hm"><div class="hm-l">Stack</div><div class="hm-v">React · Vite · TypeScript</div></div>
+      <div class="hm"><div class="hm-l">Status</div><div class="hm-v">Shipped prototype · Competition runner-up</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- PROTOTYPE WALKTHROUGH -->
+<div class="video-wrap">
+  <div class="video-label">Prototype Walkthrough</div>
+  <div class="video-ratio">
+    <iframe src="https://player.vimeo.com/video/1185308256?fl=tl&fe=ec" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share" allowfullscreen title="FlytBase Sentinel walkthrough"></iframe>
+  </div>
+  <p class="video-note">Interactive prototype: <a href="https://sentinel-proto.vercel.app/" target="_blank">sentinel-proto.vercel.app</a></p>
+</div>
+
+
+<!-- ════════════════════════════
+  §1  CONTEXT
+════════════════════════════ -->
+<section id="context" class="panel panel--alt r">
+  <div class="panel-inner">
+    <div class="sec-eyebrow">§01 · Business Context</div>
+    <h2 class="h2">Wildfire response fails at the interface, <em>not the hardware.</em></h2>
+
+    <div class="numbers r d1">
+      <div class="num">
+        <div class="num-val neg">48 min</div>
+        <div class="num-desc">Average time from anomaly detection to first authorized action — spent manually assembling context across three disconnected systems.</div>
+      </div>
+      <div class="num">
+        <div class="num-val pos">90 sec</div>
+        <div class="num-desc">Target: detection to verified authority escalation via the AUD-90-0847 packet. Containment planning follows after the notification is sent.</div>
+      </div>
+      <div class="num">
+        <div class="num-val neu">3</div>
+        <div class="num-desc">Human decision gates in the entire Intelligence phase. Everything else is TALON-governed — with full audit trail.</div>
+      </div>
+    </div>
+
+    <div class="callout root r d1">
+      <div class="callout-label">The Problem</div>
+      <div class="callout-text">Sector leads must manually cross-reference <strong>thermal sensors, satellite IR, and municipal burn-permit records</strong> to verify a single anomaly. The drone fleet is ready to deploy within seconds. The operator is still building a picture. That assembly cost — not hardware latency — is the 48 minutes.</div>
+    </div>
+
+    <div class="callout insight r d2">
+      <div class="callout-label">Validation</div>
+      <div class="callout-text">Design simulation against documented emergency dispatch protocols. The 48-minute baseline represents the manual information assembly time. The 90-second target is simulation-validated — not field-measured. <strong>Section 7 addresses this gap directly.</strong></div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════
+  §2  SYSTEM ARCHITECTURE
+════════════════════════════ -->
+<section id="architecture" class="panel r">
+  <div class="panel-inner">
+    <div class="sec-eyebrow">§02 · System Architecture</div>
+    <h2 class="h2">Two phases. One persistent map. <em>Seven agents handling everything the operator shouldn't have to.</em></h2>
+    <p class="body" style="max-width:580px;margin-bottom:28px;">The interface collapses four procedural stages into two cognitive modes — with a hard transition at authority notification. The layout stays constant. The information density adjusts automatically.</p>
+
+    <div class="two-phase r d1">
+      <div class="tp a">
+        <div class="tp-badge a">Phase A · Intelligence</div>
+        <div class="tp-focus">Is this real, dangerous, and authority-notifiable?</div>
+        <p class="body">0–90 seconds. Operator assesses anomalies, dispatches verification scouts, resolves any permit conflicts, and sends the escalation packet. Interface: verbose, rich context, every evidence source visible.</p>
+      </div>
+      <div class="tp b">
+        <div class="tp-badge b">Phase B · Operations</div>
+        <div class="tp-focus">Coordinate resources. Evacuate. Supervise containment.</div>
+        <p class="body">Post-notification. Drone missions executing, evacuation active, biometric feeds live. Interface: compact single-line telemetry only — no prose, exception-only alerts.</p>
+      </div>
+    </div>
+
+    <div class="r d2">
+      <div class="pipeline-label">TALON Agentic Pipeline — 7 Supervised Background Agents</div>
+      <div class="pipeline">
+        <div class="agent"><div class="agent-num">01</div><div class="agent-dot"></div><div class="agent-name">Sensor Fusion</div><div class="agent-desc">Aggregates thermal, satellite IR &amp; drone telemetry into a confidence score</div></div>
+        <div class="agent"><div class="agent-num">02</div><div class="agent-dot"></div><div class="agent-name">Fire Behavior</div><div class="agent-desc">Maps spread rate from wind vectors, humidity &amp; fuel load profiles</div></div>
+        <div class="agent"><div class="agent-num">03</div><div class="agent-dot"></div><div class="agent-name">Values at Risk</div><div class="agent-desc">Calculates structure exposures &amp; civilian populations in fire path</div><div class="agent-gate">→ HUMAN GATE</div></div>
+        <div class="agent"><div class="agent-num">04</div><div class="agent-dot"></div><div class="agent-name">Resource Readiness</div><div class="agent-desc">Monitors fleet battery levels, signal quality &amp; ground team status</div></div>
+        <div class="agent"><div class="agent-num">05</div><div class="agent-dot"></div><div class="agent-name">Notification Brief</div><div class="agent-desc">Assembles the AUD-90-0847 dispatch packet for authority gate</div><div class="agent-gate">→ HUMAN GATE</div></div>
+        <div class="agent"><div class="agent-num">06</div><div class="agent-dot"></div><div class="agent-name">Operations Planner</div><div class="agent-desc">Recalculates routing on manual overrides; pre-computes alternate plans</div></div>
+        <div class="agent"><div class="agent-num">07</div><div class="agent-dot"></div><div class="agent-name">Governance</div><div class="agent-desc">Seals cryptographic audit receipts for all operator &amp; TALON actions</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════
+  §3  90-SECOND FLOW
+════════════════════════════ -->
+<section id="flow" class="panel panel--alt r">
+  <div class="panel-inner">
+    <div class="sec-eyebrow">§03 · The 90-Second Flow</div>
+    <h2 class="h2">TALON surfaces decisions. <em>Asha makes them.</em></h2>
+    <p class="body" style="max-width:540px;margin-bottom:24px;">Four phases. TALON works silently between them. Each operator interrupt fires only when there's a real decision to make — not a status update to acknowledge.</p>
+
+    <div class="phases r d1">
+
+      <!-- SCAN -->
+      <div class="phase">
+        <div class="phase-head">
+          <div class="phase-id">
+            <div class="phase-dot" style="background:var(--teal);box-shadow:0 0 5px rgba(45,212,160,.4);"></div>
+            <div class="phase-name-text">Scan</div>
+            <div class="phase-time">0 – 15 sec</div>
+          </div>
+          <div class="phase-summary">TALON detects thermal anomaly. Asha reads the pre-assembled brief. One decision: dispatch Scout-02 or dismiss.</div>
+        </div>
+        <div class="phase-body">
+          <div class="phase-col">
+            <div class="phase-col-label">System</div>
+            <p class="body">Sensor Fusion assembles the brief before the first interrupt fires. No context switch, no raw feeds — just a decision-ready picture.</p>
+          </div>
+          <div class="phase-col">
+            <div class="phase-col-label">Operator</div>
+            <p class="body">Asha reviews the brief without leaving the map canvas. Single primary action: Dispatch Scout-02.</p>
+          </div>
+        </div>
+        <div class="phase-screen-wrap">
+          <div class="screen-ph" style="border-radius:0;border:none;min-height:200px;"><div class="screen-ph-tag">Phase: Scan</div><div class="screen-ph-name">Anomaly Alert — Evidence Brief Overlay</div><div class="screen-ph-path">assets/sentinel/phase-scan.png</div></div>
+        </div>
+      </div>
+
+      <!-- VERIFY -->
+      <div class="phase">
+        <div class="phase-head">
+          <div class="phase-id">
+            <div class="phase-dot" style="background:var(--cyan);box-shadow:0 0 5px rgba(0,200,255,.4);"></div>
+            <div class="phase-name-text">Verify</div>
+            <div class="phase-time">15 – 45 sec</div>
+          </div>
+          <div class="phase-summary">Scout en route. TALON fuses thermal, LiDAR, and moisture data. Interface goes quiet — no spurious updates.</div>
+        </div>
+        <div class="phase-body">
+          <div class="phase-col">
+            <div class="phase-col-label">System</div>
+            <p class="body">Fire Behavior and Values at Risk agents run in background. TALON interrupts only when evidence crosses threshold — minimum three independent sensor confirmations.</p>
+          </div>
+          <div class="phase-col">
+            <div class="phase-col-label">Operator</div>
+            <p class="body">Asha continues monitoring other zones. If a permit conflict surfaces, the <strong>Forced Calibrator gate</strong> fires (see FS-01). Otherwise, second interrupt arrives with converged evidence.</p>
+          </div>
+        </div>
+        <div class="phase-screen-wrap">
+          <div class="screen-ph" style="border-radius:0;border:none;min-height:200px;"><div class="screen-ph-tag">Phase: Verify · TALON Active</div><div class="screen-ph-name">Scout En Route — Agent Pipeline Visible</div><div class="screen-ph-path">assets/sentinel/phase-verify.png</div></div>
+        </div>
+      </div>
+
+      <!-- ESCALATE -->
+      <div class="phase">
+        <div class="phase-head">
+          <div class="phase-id">
+            <div class="phase-dot" style="background:var(--amber);box-shadow:0 0 5px rgba(245,166,35,.35);"></div>
+            <div class="phase-name-text">Escalate</div>
+            <div class="phase-time">45 – 90 sec</div>
+          </div>
+          <div class="phase-summary">Converged evidence. AUD-90-0847 packet assembled. Asha reviews the evidence matrix and authorizes the notification to civil authorities.</div>
+        </div>
+        <div class="phase-body">
+          <div class="phase-col">
+            <div class="phase-col-label">System</div>
+            <p class="body">Evidence matrix shows each contributing sensor as a labeled chip — not a single confidence percentage. Structures at risk displayed prominently. All elements marked PENDING AUTHORIZATION.</p>
+          </div>
+          <div class="phase-col">
+            <div class="phase-col-label">Operator</div>
+            <p class="body">Asha reviews the evidence, not a black-box score. Clicks "Notify Authorities." Timer stops. Interface transitions to Phase B.</p>
+          </div>
+        </div>
+        <div class="phase-screen-wrap">
+          <div class="screen-ph" style="border-radius:0;border:none;min-height:200px;"><div class="screen-ph-tag">Phase: Escalate · AUD-90-0847</div><div class="screen-ph-name">Evidence Matrix + Dispatch Authorization</div><div class="screen-ph-path">assets/sentinel/phase-escalate.png</div></div>
+        </div>
+      </div>
+
+      <!-- OPERATIONS -->
+      <div class="phase">
+        <div class="phase-head">
+          <div class="phase-id">
+            <div class="phase-dot" style="background:var(--red);box-shadow:0 0 5px rgba(229,83,60,.35);"></div>
+            <div class="phase-name-text">Operations</div>
+            <div class="phase-time">Post-90 sec</div>
+          </div>
+          <div class="phase-summary">System executes. Interface strips to essentials. Asha supervises — the absent action button is the signal everything is proceeding correctly.</div>
+        </div>
+        <div class="phase-body">
+          <div class="phase-col">
+            <div class="phase-col-label">System</div>
+            <p class="body">Left panel morphs from detailed cards to compact single-line telemetry strips. Ground crew biometric feeds go live. TALON handles routing, Asha handles exceptions.</p>
+          </div>
+          <div class="phase-col">
+            <div class="phase-col-label">Operator</div>
+            <p class="body">Drag-and-drop asset repositioning available on the map canvas. Exceptions are the only thing that surfaces. No primary action buttons — the system is in execution mode.</p>
+          </div>
+        </div>
+        <div class="phase-screen-wrap">
+          <div class="screen-ph" style="border-radius:0 0 10px 10px;border:none;border-top:1px solid var(--border);min-height:200px;"><div class="screen-ph-tag">Phase: Operations · Compact Mode</div><div class="screen-ph-name">Dense Telemetry + Exception Feed</div><div class="screen-ph-path">assets/sentinel/phase-operations.png</div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════
+  §4  DECISION STORIES
+════════════════════════════ -->
+<section id="decisions" class="panel r">
+  <div class="panel-inner">
+    <div class="sec-eyebrow">§04 · Design Decisions</div>
+    <h2 class="h2">Five decisions that defined the system. <em>Each one was a real trade-off.</em></h2>
+
+    <div class="decisions-list r d1">
+
+      <!-- D-01 -->
+      <div class="dc">
+        <div class="dc-header">
+          <div class="dc-num">D-01</div>
+          <div>
+            <div class="h3">Why the 90 seconds ends at escalation, not containment</div>
+            <div class="dc-before">V1 claimed full containment in 90 seconds — including staging, evacuation, and residential clearance. No incident commander would authorize tactical deployment before basic verification.</div>
+          </div>
+          <span class="dc-tag pivot">Core Pivot</span>
+        </div>
+        <div class="dc-options">
+          <div class="dc-option rejected">
+            <span class="dc-opt-badge rej">A</span>
+            <div class="dc-opt-body"><div class="dc-opt-title">Keep "containment in 90 seconds"</div><div class="dc-opt-reason">Rejected — operationally impossible before incident verification</div></div>
+          </div>
+          <div class="dc-option rejected">
+            <span class="dc-opt-badge rej">B</span>
+            <div class="dc-opt-body"><div class="dc-opt-title">Full AI autonomy, remove the human gate</div><div class="dc-opt-reason">Rejected — illegal for airspace operations over occupied residential areas</div></div>
+          </div>
+          <div class="dc-option chosen">
+            <span class="dc-opt-badge cho">C</span>
+            <div class="dc-opt-body"><div class="dc-opt-title">90 seconds ends at verified authority escalation</div><div class="dc-opt-reason">AUD-90-0847 packet dispatched. Containment staging begins in Phase B.</div></div>
+          </div>
+        </div>
+        <div class="dc-tradeoff">
+          <div class="dc-tradeoff-label">Trade-off</div>
+          <div class="dc-tradeoff-text">Lost the flashier demo metric. <strong>Gained a claim that survives a conversation with a real emergency dispatcher.</strong></div>
+        </div>
+        <div class="dc-result"><strong>Result:</strong> The 90-second timer stops when Asha clicks "Notify Authorities." No artificial pressure on the operations that follow.</div>
+      </div>
+
+      <!-- D-02 FORCED CALIBRATOR -->
+      <div class="dc">
+        <div class="dc-header">
+          <div class="dc-num">D-02</div>
+          <div>
+            <div class="h3">The mandatory 6-second friction — designing against automation bias</div>
+            <div class="dc-before">Under time pressure, operators rubber-stamp AI recommendations to reduce cognitive load. In wildfire dispatch, that produces false-positive drone deployments over occupied residential areas at 3 AM.</div>
+          </div>
+          <span class="dc-tag gov">Failure Handling</span>
+        </div>
+        <div class="dc-options">
+          <div class="dc-option rejected">
+            <span class="dc-opt-badge rej">A</span>
+            <div class="dc-opt-body"><div class="dc-opt-title">Silent background resolution</div><div class="dc-opt-reason">Rejected — sensor lag creates a window where the AI resolves the wrong state without Asha knowing</div></div>
+          </div>
+          <div class="dc-option rejected">
+            <span class="dc-opt-badge rej">B</span>
+            <div class="dc-opt-body"><div class="dc-opt-title">Full modal block until satellite IR resolves</div><div class="dc-opt-reason">Rejected — blocking the map canvas during a size-up is a design failure of its own kind</div></div>
+          </div>
+          <div class="dc-option chosen">
+            <span class="dc-opt-badge cho">C</span>
+            <div class="dc-opt-body"><div class="dc-opt-title">High-contrast warning + mandatory checkbox — the Forced Calibrator</div><div class="dc-opt-reason">Locks primary CTAs, requires explicit permit verification. Map canvas stays fully visible throughout.</div></div>
+          </div>
+        </div>
+        <div class="dc-tradeoff">
+          <div class="dc-tradeoff-label">Trade-off</div>
+          <div class="dc-tradeoff-text">4–6 seconds of mandatory friction on every permit conflict. <strong>Accepted because a false-positive drone deployment over residential housing is the failure this friction prevents.</strong></div>
+        </div>
+        <div class="dc-result"><strong>Result:</strong> The Forced Calibrator is the only intentional speed penalty in the system. Every other interaction minimizes latency — this one deliberately imposes it.</div>
+      </div>
+
+      <!-- D-03 EVIDENCE MATRIX -->
+      <div class="dc">
+        <div class="dc-header">
+          <div class="dc-num">D-03</div>
+          <div>
+            <div class="h3">Evidence matrix over confidence score — giving operators something to argue with</div>
+            <div class="dc-before">TALON surfaced a single percentage: "87% ignition probability." Operators could accept or reject — but had nothing concrete to evaluate, interrogate, or push back on.</div>
+          </div>
+          <span class="dc-tag trust">AI Trust</span>
+        </div>
+        <div class="dc-options">
+          <div class="dc-option rejected">
+            <span class="dc-opt-badge rej">A</span>
+            <div class="dc-opt-body"><div class="dc-opt-title">Single confidence percentage</div><div class="dc-opt-reason">Rejected — a score that can't be interrogated collapses the operator into a rubber stamp</div></div>
+          </div>
+          <div class="dc-option rejected">
+            <span class="dc-opt-badge rej">B</span>
+            <div class="dc-opt-body"><div class="dc-opt-title">Score + paragraph explanation</div><div class="dc-opt-reason">Rejected — prose doesn't map to fast yes/no evaluation under a 90-second constraint</div></div>
+          </div>
+          <div class="dc-option chosen">
+            <span class="dc-opt-badge cho">C</span>
+            <div class="dc-opt-body"><div class="dc-opt-title">Evidence matrix — individual chips per source</div><div class="dc-opt-reason">Thermal delta, LiDAR, satellite IR, burn permit status — each labeled, each showing its own confirmation state.</div></div>
+          </div>
+        </div>
+        <div class="dc-tradeoff">
+          <div class="dc-tradeoff-label">Trade-off</div>
+          <div class="dc-tradeoff-text">Costs more screen real estate than a percentage. <strong>Accepted because operators who understand which signal is uncertain make better overrides — and correct overrides improve the AI over time.</strong></div>
+        </div>
+        <div class="dc-result"><strong>Result:</strong> If TALON is wrong, Asha knows exactly which sensor to scrutinize — not just that "the AI seems less confident."</div>
+      </div>
+
+      <!-- D-04 CELL FAILBACK -->
+      <div class="dc">
+        <div class="dc-header">
+          <div class="dc-num">D-04</div>
+          <div>
+            <div class="h3">LiDAR vectors over HD video — designing for real infrastructure</div>
+            <div class="dc-before">Remote wildfire perimeters run on degraded cell, not fiber. At 340ms latency, HD video streams saturate the bandwidth. Standard interfaces freeze behind loading spinners.</div>
+          </div>
+          <span class="dc-tag infra">Infrastructure</span>
+        </div>
+        <div class="dc-options">
+          <div class="dc-option rejected">
+            <span class="dc-opt-badge rej">A</span>
+            <div class="dc-opt-body"><div class="dc-opt-title">Loading rings — wait for the feed to buffer</div><div class="dc-opt-reason">Rejected — a frozen interface during active rescue is operationally worse than no interface</div></div>
+          </div>
+          <div class="dc-option rejected">
+            <span class="dc-opt-badge rej">B</span>
+            <div class="dc-opt-body"><div class="dc-opt-title">Radio-only fallback — disable all telemetry</div><div class="dc-opt-reason">Rejected — complete loss of spatial awareness; falls back to 1970s emergency response capability</div></div>
+          </div>
+          <div class="dc-option chosen">
+            <span class="dc-opt-badge cho">C</span>
+            <div class="dc-opt-body"><div class="dc-opt-title">LiDAR vector mode — drop HD, keep coordinates</div><div class="dc-opt-reason">Satellite opacity → 0.04. HD video dropped. Lightweight vector-drawn spatial paths prioritized.</div></div>
+          </div>
+        </div>
+        <div class="dc-tradeoff">
+          <div class="dc-tradeoff-label">Trade-off</div>
+          <div class="dc-tradeoff-text">Operator loses raw video feeds. <strong>Accepted because spatial coordinate accuracy under degraded cell is more operationally valuable than high-fidelity video arriving 30 seconds late.</strong></div>
+        </div>
+        <div class="dc-result"><strong>Result:</strong> Under simulated 340ms degradation, full spatial awareness retained. Zero interface lockup. Designed for Bharat-scale connectivity reality.</div>
+      </div>
+
+      <!-- D-05 DENSITY SCALING -->
+      <div class="dc">
+        <div class="dc-header">
+          <div class="dc-num">D-05</div>
+          <div>
+            <div class="h3">The interface simplifies as the emergency peaks</div>
+            <div class="dc-before">The same information density across all four phases — including during peak Operations when the operator's cognitive capacity is most constrained.</div>
+          </div>
+          <span class="dc-tag ux">Cognitive Load</span>
+        </div>
+        <div class="dc-options">
+          <div class="dc-option rejected">
+            <span class="dc-opt-badge rej">A</span>
+            <div class="dc-opt-body"><div class="dc-opt-title">Separate screen layout per phase</div><div class="dc-opt-reason">Rejected — forces spatial reorientation at exactly the wrong moment</div></div>
+          </div>
+          <div class="dc-option rejected">
+            <span class="dc-opt-badge rej">B</span>
+            <div class="dc-opt-body"><div class="dc-opt-title">User-controlled density toggle</div><div class="dc-opt-reason">Rejected — adds a preference decision during active emergency coordination</div></div>
+          </div>
+          <div class="dc-option chosen">
+            <span class="dc-opt-badge cho">C</span>
+            <div class="dc-opt-body"><div class="dc-opt-title">Automatic density scaling on phase transition</div><div class="dc-opt-reason">Same layout grid. Verbose cards in Phase A → compact single-line strips in Phase B. No reorientation.</div></div>
+          </div>
+        </div>
+        <div class="dc-tradeoff">
+          <div class="dc-tradeoff-label">Trade-off</div>
+          <div class="dc-tradeoff-text">Removes operator agency over their information view. <strong>Accepted because cognitive capacity shrinks under load — one fewer decision is a feature, not a limitation.</strong></div>
+        </div>
+        <div class="dc-result"><strong>Result:</strong> Same grid. Different density. The operator's spatial model never resets across the entire incident lifecycle.</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════
+  §5  FAILURE STATES
+════════════════════════════ -->
+<section id="failure" class="panel panel--alt r">
+  <div class="panel-inner">
+    <div class="sec-eyebrow">§05 · Failure States &amp; Edge Cases</div>
+    <h2 class="h2">Six ways the system breaks. <em>Each one surfaces the problem as information, not a dead end.</em></h2>
+
+    <div class="fs-list r d1">
+
+      <!-- FS-01 -->
+      <div class="fs">
+        <div class="fs-top">
+          <div class="fs-id">FS-01</div>
+          <div class="fs-top-body">
+            <div class="fs-fs-name">Forced Calibrator — Automation Bias Gate</div>
+            <div class="fs-trigger">TRIGGER · Thermal anomaly ≥ threshold detected, but active municipal burn permit exists in the same sector grid reference</div>
+          </div>
+          <span class="fs-severity crit">Critical Gate</span>
+        </div>
+        <div class="fs-screen-area">
+          <div class="screen-ph" style="border-radius:0;border:none;min-height:190px;"><div class="screen-ph-tag">FS-01 · Source Disagreement Active</div><div class="screen-ph-name">Forced Calibrator — ActionBar Locked</div><div class="screen-ph-path">assets/sentinel/fs-01-calibrator.png</div></div>
+        </div>
+        <div class="fs-bottom">
+          <div class="fs-col">
+            <div class="fs-col-label">User-Visible Signal</div>
+            <div class="fs-item">Red warning strip in ActionBar: "SOURCE DISAGREEMENT"</div>
+            <div class="fs-item">Primary CTAs disabled — hover reveals "Blocked by source conflict"</div>
+            <div class="fs-item">Map canvas stays fully visible throughout</div>
+          </div>
+          <div class="fs-col">
+            <div class="fs-col-label">Recovery Path</div>
+            <div class="fs-item">Open linked permit panel and review the sector database</div>
+            <div class="fs-item">Check the verification checkbox: "I have verified burn permits for this sector"</div>
+            <div class="fs-item">Checkbox unlocks all primary CTAs immediately</div>
+          </div>
+          <div class="fs-col">
+            <div class="fs-col-label">Accountability</div>
+            <div class="fs-audit">CALIBRATOR · A. Rao verified GRID-7B · CTAs unlocked T+06s · Appended to AUDIT-AUD-90-0847</div>
+            <p class="body" style="margin-top:8px;font-size:11px;">Every calibrator event is logged. False-positive prevention is auditable.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- FS-02 -->
+      <div class="fs">
+        <div class="fs-top">
+          <div class="fs-id">FS-02</div>
+          <div class="fs-top-body">
+            <div class="fs-fs-name">Cell Failback — LiDAR Vector Mode</div>
+            <div class="fs-trigger">TRIGGER · Cell latency exceeds 300ms SLA (340ms recorded) — HD streaming bandwidth no longer viable</div>
+          </div>
+          <span class="fs-severity caut">Infrastructure</span>
+        </div>
+        <div class="fs-screen-area">
+          <div class="screen-ph" style="border-radius:0;border:none;min-height:190px;"><div class="screen-ph-tag">FS-02 · Failback Active · 340ms</div><div class="screen-ph-name">LiDAR Vector Mode — HD Dropped</div><div class="screen-ph-path">assets/sentinel/fs-02-cellfailback.png</div></div>
+        </div>
+        <div class="fs-bottom">
+          <div class="fs-col">
+            <div class="fs-col-label">User-Visible Signal</div>
+            <div class="fs-item">Red latency banner under navbar: "CELL FAILBACK · 340ms · HD dropped"</div>
+            <div class="fs-item">Satellite map fades to 0.04 opacity automatically</div>
+            <div class="fs-item">Drone camera panels: "HD VIDEO DROPPED" overlay</div>
+          </div>
+          <div class="fs-col">
+            <div class="fs-col-label">Recovery Path</div>
+            <div class="fs-item">Continue on LiDAR vectors — full spatial awareness retained</div>
+            <div class="fs-item">Request satellite uplink via TALON panel</div>
+            <div class="fs-item">Auto-recovery when latency drops below 280ms</div>
+          </div>
+          <div class="fs-col">
+            <div class="fs-col-label">Accountability</div>
+            <div class="fs-audit">CELL-FAILBACK-340 · Satellite shed · LiDAR active · All coords logged in vector-mode</div>
+            <p class="body" style="margin-top:8px;font-size:11px;">Decisions made in failback are clearly distinguished in the audit log.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- FS-03 -->
+      <div class="fs">
+        <div class="fs-top">
+          <div class="fs-id">FS-03</div>
+          <div class="fs-top-body">
+            <div class="fs-fs-name">Signal Degradation — Blind Drone</div>
+            <div class="fs-trigger">TRIGGER · Dense smoke column severs Scout-02 camera feed mid-verification — TALON initiates LiDAR fallback autonomously</div>
+          </div>
+          <span class="fs-severity auto">Auto Recovery</span>
+        </div>
+        <div class="fs-screen-area">
+          <div class="screen-ph" style="border-radius:0;border:none;min-height:190px;"><div class="screen-ph-tag">FS-03 · Camera Lost · LiDAR Active</div><div class="screen-ph-name">Blind Drone — Left Panel Status</div><div class="screen-ph-path">assets/sentinel/fs-03-blinddrone.png</div></div>
+        </div>
+        <div class="fs-bottom">
+          <div class="fs-col">
+            <div class="fs-col-label">User-Visible Signal</div>
+            <div class="fs-item">Amber chip on Scout-02 panel: "CAM LOST · LIDAR ACTIVE"</div>
+            <div class="fs-item">Camera panel transitions to LiDAR terrain wireframe</div>
+            <div class="fs-item">Drone position on map canvas stays live</div>
+          </div>
+          <div class="fs-col">
+            <div class="fs-col-label">Recovery Path</div>
+            <div class="fs-item">No action required — mission continues on LiDAR</div>
+            <div class="fs-item">TALON flags if LiDAR confidence drops below threshold</div>
+            <div class="fs-item">Operator may manually recall if visual confirmation is needed</div>
+          </div>
+          <div class="fs-col">
+            <div class="fs-col-label">Accountability</div>
+            <div class="fs-audit">SCOUT-02 · CAM-LOSS T+34s · LiDAR fallback auto-initiated · Logged as TALON-action</div>
+            <p class="body" style="margin-top:8px;font-size:11px;">System actions (cyan) are distinct from operator actions (white) in the audit trail.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- FS-04 -->
+      <div class="fs">
+        <div class="fs-top">
+          <div class="fs-id">FS-04</div>
+          <div class="fs-top-body">
+            <div class="fs-fs-name">Autonomous Battery Handoff</div>
+            <div class="fs-trigger">TRIGGER · Lidar-02 battery at 14% during active operations — the one hardcoded scenario where TALON acts without asking first</div>
+          </div>
+          <span class="fs-severity auto">Autonomous Action</span>
+        </div>
+        <div class="fs-screen-area">
+          <div class="screen-ph" style="border-radius:0;border:none;min-height:190px;"><div class="screen-ph-tag">FS-04 · Autonomous Swap</div><div class="screen-ph-name">Battery Handoff — Floating Interrupt</div><div class="screen-ph-path">assets/sentinel/fs-04-battery.png</div></div>
+        </div>
+        <div class="fs-bottom">
+          <div class="fs-col">
+            <div class="fs-col-label">User-Visible Signal</div>
+            <div class="fs-item">Floating interrupt: "RECALLING: Lidar-02 · TAKING OVER: Scout-03"</div>
+            <div class="fs-item">Not a modal — does not require dismissal. TALON narrates the action live.</div>
+            <div class="fs-item">Both drone positions visible on map mid-transition</div>
+          </div>
+          <div class="fs-col">
+            <div class="fs-col-label">Recovery Path</div>
+            <div class="fs-item">Accept: no action — TALON completes the swap in ~18 seconds</div>
+            <div class="fs-item">Override: tap interrupt to reassign Scout-03 before swap completes</div>
+            <div class="fs-item">Abort-mission available at any point</div>
+          </div>
+          <div class="fs-col">
+            <div class="fs-col-label">Accountability</div>
+            <div class="fs-audit">TALON-AUTO · Lidar-02 RECALL 14% · Scout-03 INBOUND · A. Rao notified · Logged as TALON-action</div>
+            <p class="body" style="margin-top:8px;font-size:11px;">Battery handoffs are the only hardcoded TALON autonomy. All other consequential actions require operator approval.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- FS-05 -->
+      <div class="fs">
+        <div class="fs-top">
+          <div class="fs-id">FS-05</div>
+          <div class="fs-top-body">
+            <div class="fs-fs-name">Operator Plan Override</div>
+            <div class="fs-trigger">TRIGGER · Asha rejects TALON's recommended containment plan — wind shift or on-ground visual cue not captured by sensors</div>
+          </div>
+          <span class="fs-severity caut">Human Override</span>
+        </div>
+        <div class="fs-screen-area">
+          <div class="screen-ph" style="border-radius:0;border:none;min-height:190px;"><div class="screen-ph-tag">FS-05 · Override Active</div><div class="screen-ph-name">Override — Reason Chips + Alternate Plan</div><div class="screen-ph-path">assets/sentinel/fs-05-override.png</div></div>
+        </div>
+        <div class="fs-bottom">
+          <div class="fs-col">
+            <div class="fs-col-label">User-Visible Signal</div>
+            <div class="fs-item">Override reason chips: Wind shift · Sensor uncertainty · Ground crew position · Other</div>
+            <div class="fs-item">Pre-computed alternate plan displayed immediately — no blank fields, no re-entry</div>
+          </div>
+          <div class="fs-col">
+            <div class="fs-col-label">Recovery Path</div>
+            <div class="fs-item">Select override reason via one-tap pill chip</div>
+            <div class="fs-item">Review and authorize alternate plan — same ActionBar, no context switch</div>
+            <div class="fs-item">Voice input available if no pre-computed plan fits</div>
+          </div>
+          <div class="fs-col">
+            <div class="fs-col-label">Accountability</div>
+            <div class="fs-audit">OVERRIDE · A. Rao · Reason: Wind shift · Alt-plan-B authorized · T+02s to re-authorization · OVERRIDE-0847-B</div>
+            <p class="body" style="margin-top:8px;font-size:11px;">Override reason is mandatory. No silent deviations from TALON's recommendation.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- FS-06 -->
+      <div class="fs">
+        <div class="fs-top">
+          <div class="fs-id">FS-06</div>
+          <div class="fs-top-body">
+            <div class="fs-fs-name">Shift Handover — Command Authority Transfer</div>
+            <div class="fs-trigger">TRIGGER · Active incident spans a shift boundary — A. Rao must transfer to R. Sharma without interrupting live drone flight loops</div>
+          </div>
+          <span class="fs-severity auto">Governance</span>
+        </div>
+        <div class="fs-screen-area">
+          <div class="screen-ph" style="border-radius:0;border:none;min-height:190px;"><div class="screen-ph-tag">FS-06 · Handover Gate</div><div class="screen-ph-name">Telemetry Summary + PIN Validation</div><div class="screen-ph-path">assets/sentinel/fs-06-handover.png</div></div>
+        </div>
+        <div class="fs-bottom">
+          <div class="fs-col">
+            <div class="fs-col-label">User-Visible Signal</div>
+            <div class="fs-item">Transfer overlay with full incident telemetry: drone count + missions, wind vectors, evacuation routes</div>
+            <div class="fs-item">Drone operations continue uninterrupted behind the overlay</div>
+          </div>
+          <div class="fs-col">
+            <div class="fs-col-label">Recovery Path</div>
+            <div class="fs-item">Incoming lead reviews full incident summary</div>
+            <div class="fs-item">PIN entry confirms informed receipt and transfers command authority</div>
+            <div class="fs-item">Navbar operator name updates live: A. Rao → R. Sharma</div>
+          </div>
+          <div class="fs-col">
+            <div class="fs-col-label">Accountability</div>
+            <div class="fs-audit">AUTHORITY-TRANSFER · A. Rao → R. Sharma · PIN-8842 · Cryptographic receipt: AUDIT-8842</div>
+            <p class="body" style="margin-top:8px;font-size:11px;">Incoming operator cannot claim they were unaware of any active asset or evacuation status.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════
+  §6  ITERATION ARCHIVE
+════════════════════════════ -->
+<section id="iteration" class="panel r">
+  <div class="panel-inner">
+    <div class="sec-eyebrow">§06 · Iteration Archive</div>
+    <h2 class="h2">What I threw away, <em>and why it mattered.</em></h2>
+
+    <div class="iter r d1">
+      <div class="iter-card">
+        <div class="iter-head">
+          <div class="iter-version">V0.1 — REJECTED</div>
+          <div class="h3">The Slider Escalation Model</div>
+        </div>
+        <div class="iter-screen-area">
+          <div class="screen-ph" style="border-radius:0;border:none;min-height:170px;"><div class="screen-ph-tag">V0.1 Wireframe</div><div class="screen-ph-name">Slider: Assess → Contain → Rescue</div><div class="screen-ph-path">assets/sentinel/iter-v01-slider.png</div></div>
+        </div>
+        <div class="iter-why">
+          <div class="iter-why-label">Why it failed</div>
+          <p class="body">A gesture is not a decision. Operators who tested it reported feeling like they were adjusting a volume knob rather than authorizing drone deployment over occupied residential areas. The slider eliminated the moment of conscious approval entirely.</p>
+        </div>
+      </div>
+      <div class="iter-card">
+        <div class="iter-head">
+          <div class="iter-version">V1 CLAIM — REJECTED</div>
+          <div class="h3">"Containment Authorized in 90 Seconds"</div>
+        </div>
+        <div class="iter-screen-area">
+          <div class="screen-ph" style="border-radius:0;border:none;min-height:170px;"><div class="screen-ph-tag">V1 Timeline Framing</div><div class="screen-ph-name">Original 90s — Full Containment Claim</div><div class="screen-ph-path">assets/sentinel/iter-v01-90claim.png</div></div>
+        </div>
+        <div class="iter-why">
+          <div class="iter-why-label">Why it failed</div>
+          <p class="body">Staging containment lines requires a sized-up incident. Evacuating residents requires knowing where the fire is going. Neither can precede basic verification. Fixing the claim forced a structural rethink of what the 90 seconds was actually measuring.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════
+  §7  DESIGN SYSTEM
+════════════════════════════ -->
+<section id="system" class="panel panel--alt r">
+  <div class="panel-inner">
+    <div class="sec-eyebrow">§07 · UI System</div>
+    <h2 class="h2">Components rendered from the <em>production token system.</em></h2>
+    <p class="body" style="max-width:560px;margin-bottom:36px;">Every element below runs from the same CSS variables as the live prototype — not screenshots. States are built into the component logic.</p>
+
+    <!-- BUTTONS -->
+    <div class="ds-row r d1">
+      <div class="ds-row-label">Action Buttons — States</div>
+      <div class="ds-flex">
+        <div class="ds-box"><div class="ds-box-label">Primary / Dispatch</div><button class="btn btn-primary">Dispatch Scout-02</button></div>
+        <div class="ds-box"><div class="ds-box-label">Caution / Override</div><button class="btn btn-caution">Override Plan</button></div>
+        <div class="ds-box"><div class="ds-box-label">Disabled / Gate Active</div><button class="btn btn-disabled" disabled>Confirm Incident</button></div>
+        <div class="ds-box"><div class="ds-box-label">Critical / Stand Down</div><button class="btn btn-danger">Stand Down Mission</button></div>
+      </div>
+    </div>
+
+    <!-- EVIDENCE CHIPS -->
+    <div class="ds-row r d1">
+      <div class="ds-row-label">Evidence Source Chips — Confirmation States</div>
+      <div class="ds-flex">
+        <div class="ev conf"><span class="ev-dot"></span>Thermal Delta +14°C</div>
+        <div class="ev conf"><span class="ev-dot"></span>LiDAR Confirmed</div>
+        <div class="ev conflict"><span class="ev-dot"></span>Burn Permit Active</div>
+        <div class="ev pend"><span class="ev-dot"></span>Satellite IR Pending</div>
+        <div class="ev ai"><span class="ev-dot"></span>TALON Inference</div>
+      </div>
+    </div>
+
+    <!-- ALERTS -->
+    <div class="ds-row r d2">
+      <div class="ds-row-label">Alert Strips — Severity Levels</div>
+      <div style="display:flex;flex-direction:column;gap:6px;max-width:620px;">
+        <div class="al info">✓ Scout-02 launched · En route to Grid-7B · ETA 28s</div>
+        <div class="al warn">⚠ Wind vector shifted 24° since last calculation — recalculating</div>
+        <div class="al crit">⊗ SOURCE DISAGREEMENT · Thermal anomaly vs. active burn permit · Action locked</div>
+        <div class="al fail">CELL FAILBACK · 340ms · HD video dropped · Operating via LiDAR vectors</div>
+      </div>
+    </div>
+
+    <!-- CONFIDENCE -->
+    <div class="ds-row r d2">
+      <div class="ds-row-label">AI Confidence Indicators</div>
+      <div class="ds-flex">
+        <div class="ds-box" style="min-width:190px;"><div class="ds-box-label">High · Thermal + LiDAR + Satellite</div>
+          <div class="cbar"><div class="cbar-row"><span>3-source confirmed</span><span style="color:var(--teal)">87%</span></div><div class="cbar-track"><div class="cbar-fill h"></div></div></div>
+        </div>
+        <div class="ds-box" style="min-width:190px;"><div class="ds-box-label">Medium · Thermal only · IR pending</div>
+          <div class="cbar"><div class="cbar-row"><span>Partial confirmation</span><span style="color:var(--amber)">54%</span></div><div class="cbar-track"><div class="cbar-fill m"></div></div></div>
+        </div>
+        <div class="ds-box" style="min-width:190px;"><div class="ds-box-label">Low · Permit conflict active</div>
+          <div class="cbar"><div class="cbar-row"><span>Source disagreement</span><span style="color:var(--red)">23%</span></div><div class="cbar-track"><div class="cbar-fill l"></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TYPE -->
+    <div class="ds-row r d2">
+      <div class="ds-row-label">Typography — Semantic Separation</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="type-pair">
+          <div style="font-family:var(--display);font-size:24px;font-weight:700;line-height:1.1;">Bricolage Grotesque 700</div>
+          <div class="type-pair-meta">Headlines · Phase names · Decision titles</div>
+        </div>
+        <div class="type-pair">
+          <div style="font-family:var(--body);font-size:13px;color:var(--ink-2);line-height:1.7;">Plus Jakarta Sans 400 — Operator warnings, rationales, system explanations. Optimized for reading under stress.</div>
+          <div class="type-pair-meta">Body text · Descriptions · Warnings</div>
+        </div>
+        <div class="type-pair">
+          <div style="font-family:var(--mono);font-size:12px;color:var(--teal);">37.4538°N · 122.1817°W · T+34.2s · SCOUT-02</div>
+          <div class="type-pair-meta">JetBrains Mono — Coordinates · Timestamps · Audit entries</div>
+        </div>
+        <div class="type-pair">
+          <div style="font-family:var(--display);font-size:40px;font-weight:800;color:var(--red);line-height:1;letter-spacing:-.03em;">47</div>
+          <div class="type-pair-meta">Bricolage 800 — Critical numerics: structures at risk, battery %, ETA</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COLORS -->
+    <div class="ds-row r d2">
+      <div class="ds-row-label">Semantic Color System</div>
+      <div class="swatches">
+        <div class="sw"><div class="sw-block" style="background:#2DD4A0;"></div><div class="sw-name">Teal</div><div class="sw-hex">#2DD4A0</div><div class="sw-use">Active · Confirmed · Chosen</div></div>
+        <div class="sw"><div class="sw-block" style="background:#00C8FF;"></div><div class="sw-name">Cyan</div><div class="sw-hex">#00C8FF</div><div class="sw-use">TALON · AI processes</div></div>
+        <div class="sw"><div class="sw-block" style="background:#F5A623;"></div><div class="sw-name">Amber</div><div class="sw-hex">#F5A623</div><div class="sw-use">Caution · Human gates</div></div>
+        <div class="sw"><div class="sw-block" style="background:#E5533C;"></div><div class="sw-name">Red</div><div class="sw-hex">#E5533C</div><div class="sw-use">Critical · Rejected</div></div>
+        <div class="sw"><div class="sw-block" style="background:rgba(8,16,28,.55);backdrop-filter:blur(28px);border:1px solid rgba(255,255,255,.1);"></div><div class="sw-name">Glass</div><div class="sw-hex">GLASS token</div><div class="sw-use">Panel depth overlay</div></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ════════════════════════════
+  §8  OUTCOMES + REFLECTION
+════════════════════════════ -->
+<section id="outcomes" class="panel r">
+  <div class="panel-inner">
+    <div class="sec-eyebrow">§08 · Outcomes &amp; Reflection</div>
+    <h2 class="h2">What I'd measure. <em>And what I'd change.</em></h2>
+
+    <div class="metrics-grid r d1">
+      <div class="metric">
+        <div class="metric-type">Core Validation</div>
+        <div class="metric-name">Time to first decision</div>
+        <p class="body">From alert to dispatch action. Target: under 15 seconds. Failure mode: operators re-reading the brief because it doesn't surface the right information first.</p>
+      </div>
+      <div class="metric">
+        <div class="metric-type">Safety Signal</div>
+        <div class="metric-name">Dismissed alert accuracy</div>
+        <p class="body">What percentage of dismissed alerts became real incidents? Anything above 2% triggers immediate system review. The goal is accurate dismissals, not zero.</p>
+      </div>
+      <div class="metric">
+        <div class="metric-type">Trust Calibration</div>
+        <div class="metric-name">Operator override rate</div>
+        <p class="body">Target: 15–40%. Too low suggests rubber-stamping. Too high suggests TALON's plans aren't worth acting on. Both are system failures.</p>
+      </div>
+      <div class="metric">
+        <div class="metric-type">Governance Check</div>
+        <div class="metric-name">Calibrator false-positive rate</div>
+        <p class="body">How often does the Forced Calibrator fire on a genuine fire? Measures permit database coverage quality. Friction should be proportional to real conflict probability.</p>
+      </div>
+    </div>
+
+    <div class="ref-grid r d2">
+      <div class="ref-card">
+        <div class="ref-head warn">What still needs field validation</div>
+        <div class="ref-body">The 90-second target is a design simulation estimate — not measured data from trained dispatchers under real conditions. Whether the Forced Calibrator's friction is acceptable under actual emergency pressure requires testing I haven't done. TALON agent latency under real sensor disagreements is also untested.</div>
+      </div>
+      <div class="ref-card">
+        <div class="ref-head note">If I rebuilt this tomorrow</div>
+        <div class="ref-body">Less time on the Operations phase density transitions, more time testing the evidence matrix with actual operators — specifically whether chip-based sensor presentation maps to how dispatchers actually think, or whether the mental model doesn't match. Voice correction also needed more iterations than it got.</div>
+      </div>
+    </div>
+
+    <div class="pullquote r d3">
+      If the system can secretly override Asha,<br><em>Asha is the illusion of control.</em>
+    </div>
+  </div>
+</section>
+
+
+<!-- CTA -->
+<section class="panel panel--dark">
+  <div class="cta-inner">
+    <div class="sec-eyebrow">Prototype</div>
+    <h2 class="h2">Try the live build.</h2>
+    <p class="body" style="max-width:500px;">The full React/Vite prototype is deployed — all six failure states, the TALON pipeline, progressive density scaling, and the shift handover gate are interactive. This is the actual implementation, not a Figma mirror.</p>
+    <div class="cta-actions">
+      <a class="cta-btn" href="https://sentinel-proto.vercel.app/" target="_blank" rel="noopener">
+        Open prototype
+        <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M2 7h10M8 3l4 4-4 4"/></svg>
+      </a>
+      <a class="cta-ghost" href="index.html">← All projects</a>
+    </div>
+  </div>
+</section>
+
+<!-- PROJECT NAV -->
+<div class="pnav">
+  <div class="pnav-inner">
+    <a class="pnav-card" href="feulai-overview-v6.html">
+      <div class="pnav-dir">← Previous</div>
+      <div class="pnav-title">Feul.AI</div>
+    </a>
+    <a class="pnav-card r" href="lokai-overview-v6.html">
+      <div class="pnav-dir">Next →</div>
+      <div class="pnav-title">LokAI</div>
+    </a>
+  </div>
+</div>
+
+<script>
+const bar = document.getElementById('progress');
+window.addEventListener('scroll', () => {
+  bar.style.width = (window.scrollY / (document.body.scrollHeight - window.innerHeight) * 100) + '%';
+}, { passive: true });
+
+const io = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('v'); io.unobserve(e.target); } });
+}, { threshold: 0.05 });
+document.querySelectorAll('.r').forEach(el => io.observe(el));
+
+const secs = ['hero','context','architecture','flow','decisions','failure','iteration','system','outcomes'];
+const dots = document.querySelectorAll('.sec-nav-dot');
+const sio = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      const idx = secs.indexOf(e.target.id);
+      dots.forEach((d,i) => d.classList.toggle('active', i === idx));
+    }
+  });
+}, { threshold: 0.35 });
+secs.forEach(id => { const el = document.getElementById(id); if(el) sio.observe(el); });
+dots.forEach((d,i) => d.addEventListener('click', () => {
+  const el = document.getElementById(secs[i]);
+  if(el) el.scrollIntoView({ behavior:'smooth', block:'start' });
+}));
+</script>
+</body>
+</html>

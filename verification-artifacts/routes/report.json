@@ -1,0 +1,424 @@
+[
+  {
+    "name": "scene-baseline",
+    "route": "/?scene=baseline",
+    "width": 1920,
+    "height": 1080,
+    "capture": true,
+    "metrics": {
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "reviewDockCount": 1,
+      "droneMarkers": 10,
+      "modalCount": 0
+    },
+    "contractFailures": [],
+    "accessibilityViolations": [],
+    "consoleErrors": []
+  },
+  {
+    "name": "scene-alert-command",
+    "route": "/?scene=alert-command",
+    "width": 1920,
+    "height": 1080,
+    "capture": true,
+    "metrics": {
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "reviewDockCount": 1,
+      "droneMarkers": 10,
+      "modalCount": 0
+    },
+    "contractFailures": [],
+    "accessibilityViolations": [],
+    "consoleErrors": []
+  },
+  {
+    "name": "scene-investigation-pending",
+    "route": "/?scene=investigation-pending",
+    "width": 1920,
+    "height": 1080,
+    "capture": true,
+    "metrics": {
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "reviewDockCount": 1,
+      "droneMarkers": 10,
+      "modalCount": 0
+    },
+    "contractFailures": [],
+    "accessibilityViolations": [],
+    "consoleErrors": []
+  },
+  {
+    "name": "scene-verify-active",
+    "route": "/?scene=verify-active",
+    "width": 1920,
+    "height": 1080,
+    "capture": true,
+    "metrics": {
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "reviewDockCount": 1,
+      "droneMarkers": 10,
+      "modalCount": 0
+    },
+    "contractFailures": [],
+    "accessibilityViolations": [],
+    "consoleErrors": []
+  },
+  {
+    "name": "scene-authority-notification-ready",
+    "route": "/?scene=authority-notification-ready",
+    "width": 1920,
+    "height": 1080,
+    "capture": true,
+    "metrics": {
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "reviewDockCount": 1,
+      "droneMarkers": 10,
+      "modalCount": 0
+    },
+    "contractFailures": [],
+    "accessibilityViolations": [],
+    "consoleErrors": []
+  },
+  {
+    "name": "scene-contain-recommended",
+    "route": "/?scene=contain-recommended",
+    "width": 1920,
+    "height": 1080,
+    "capture": true,
+    "metrics": {
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "reviewDockCount": 1,
+      "droneMarkers": 13,
+      "modalCount": 0
+    },
+    "contractFailures": [],
+    "accessibilityViolations": [],
+    "consoleErrors": []
+  },
+  {
+    "name": "scene-contain-alternate",
+    "route": "/?scene=contain-alternate",
+    "width": 1920,
+    "height": 1080,
+    "capture": true,
+    "metrics": {
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "reviewDockCount": 1,
+      "droneMarkers": 13,
+      "modalCount": 0
+    },
+    "contractFailures": [],
+    "accessibilityViolations": [],
+    "consoleErrors": []
+  },
+  {
+    "name": "scene-contain-degraded",
+    "route": "/?scene=contain-degraded",
+    "width": 1920,
+    "height": 1080,
+    "capture": true,
+    "metrics": {
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "reviewDockCount": 1,
+      "droneMarkers": 13,
+      "modalCount": 0
+    },
+    "contractFailures": [],
+    "accessibilityViolations": [],
+    "consoleErrors": []
+  },
+  {
+    "name": "scene-rescue-nominal",
+    "route": "/?scene=rescue-nominal",
+    "width": 1920,
+    "height": 1080,
+    "capture": true,
+    "metrics": {
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "reviewDockCount": 1,
+      "droneMarkers": 13,
+      "modalCount": 0
+    },
+    "contractFailures": [],
+    "accessibilityViolations": [],
+    "consoleErrors": []
+  },
+  {
+    "name": "scene-rescue-signal-degraded",
+    "route": "/?scene=rescue-signal-degraded",
+    "width": 1920,
+    "height": 1080,
+    "capture": true,
+    "metrics": {
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "reviewDockCount": 1,
+      "droneMarkers": 13,
+      "modalCount": 0
+    },
+    "contractFailures": [],
+    "accessibilityViolations": [],
+    "consoleErrors": []
+  },
+  {
+    "name": "scene-monitoring-contested",
+    "route": "/?scene=monitoring-contested",
+    "width": 1920,
+    "height": 1080,
+    "capture": true,
+    "metrics": {
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "reviewDockCount": 1,
+      "droneMarkers": 10,
+      "modalCount": 0
+    },
+    "contractFailures": [],
+    "accessibilityViolations": [],
+    "consoleErrors": []
+  },
+  {
+    "name": "scene-talon-reraise",
+    "route": "/?scene=talon-reraise",
+    "width": 1920,
+    "height": 1080,
+    "capture": true,
+    "metrics": {
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "reviewDockCount": 1,
+      "droneMarkers": 10,
+      "modalCount": 0
+    },
+    "contractFailures": [],
+    "accessibilityViolations": [],
+    "consoleErrors": []
+  },
+  {
+    "name": "scene-rescue-battery-critical",
+    "route": "/?scene=rescue-battery-critical",
+    "width": 1920,
+    "height": 1080,
+    "capture": true,
+    "metrics": {
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "reviewDockCount": 1,
+      "droneMarkers": 13,
+      "modalCount": 0
+    },
+    "contractFailures": [],
+    "accessibilityViolations": [],
+    "consoleErrors": []
+  },
+  {
+    "name": "scene-satellite-feed-loss",
+    "route": "/?scene=satellite-feed-loss",
+    "width": 1920,
+    "height": 1080,
+    "capture": true,
+    "metrics": {
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "reviewDockCount": 1,
+      "droneMarkers": 13,
+      "modalCount": 0
+    },
+    "contractFailures": [],
+    "accessibilityViolations": [],
+    "consoleErrors": []
+  },
+  {
+    "name": "scene-infrastructure-total-loss",
+    "route": "/?scene=infrastructure-total-loss",
+    "width": 1920,
+    "height": 1080,
+    "capture": true,
+    "metrics": {
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "reviewDockCount": 1,
+      "droneMarkers": 13,
+      "modalCount": 0
+    },
+    "contractFailures": [],
+    "accessibilityViolations": [],
+    "consoleErrors": []
+  },
+  {
+    "name": "scene-network-degraded",
+    "route": "/?scene=network-degraded",
+    "width": 1920,
+    "height": 1080,
+    "capture": true,
+    "metrics": {
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "reviewDockCount": 1,
+      "droneMarkers": 13,
+      "modalCount": 0
+    },
+    "contractFailures": [],
+    "accessibilityViolations": [],
+    "consoleErrors": []
+  },
+  {
+    "name": "core-verify-active",
+    "route": "/?scene=verify-active&core=1",
+    "width": 1920,
+    "height": 1080,
+    "core": true,
+    "capture": true,
+    "metrics": {
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "reviewDockCount": 0,
+      "droneMarkers": 10,
+      "modalCount": 0
+    },
+    "contractFailures": [],
+    "accessibilityViolations": [],
+    "consoleErrors": []
+  },
+  {
+    "name": "core-contested",
+    "route": "/?scene=monitoring-contested&core=1",
+    "width": 1920,
+    "height": 1080,
+    "core": true,
+    "capture": true,
+    "metrics": {
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "reviewDockCount": 0,
+      "droneMarkers": 10,
+      "modalCount": 0
+    },
+    "contractFailures": [],
+    "accessibilityViolations": [],
+    "consoleErrors": []
+  },
+  {
+    "name": "core-authority",
+    "route": "/?scene=authority-notification-ready&core=1",
+    "width": 1920,
+    "height": 1080,
+    "core": true,
+    "capture": true,
+    "metrics": {
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "reviewDockCount": 0,
+      "droneMarkers": 10,
+      "modalCount": 0
+    },
+    "contractFailures": [],
+    "accessibilityViolations": [],
+    "consoleErrors": []
+  },
+  {
+    "name": "core-network",
+    "route": "/?scene=network-degraded&core=1",
+    "width": 1920,
+    "height": 1080,
+    "core": true,
+    "capture": true,
+    "metrics": {
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "reviewDockCount": 0,
+      "droneMarkers": 13,
+      "modalCount": 0
+    },
+    "contractFailures": [],
+    "accessibilityViolations": [],
+    "consoleErrors": []
+  },
+  {
+    "name": "embed-contain",
+    "route": "/?scene=contain-recommended&embed=1",
+    "width": 1920,
+    "height": 1080,
+    "core": true,
+    "capture": true,
+    "metrics": {
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "reviewDockCount": 0,
+      "droneMarkers": 13,
+      "modalCount": 0
+    },
+    "contractFailures": [],
+    "accessibilityViolations": [],
+    "consoleErrors": []
+  },
+  {
+    "name": "reduced-motion-contain",
+    "route": "/?scene=contain-recommended&core=1",
+    "width": 1920,
+    "height": 1080,
+    "core": true,
+    "reducedMotion": true,
+    "capture": true,
+    "metrics": {
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "reviewDockCount": 0,
+      "droneMarkers": 13,
+      "modalCount": 0
+    },
+    "contractFailures": [],
+    "accessibilityViolations": [],
+    "consoleErrors": []
+  },
+  {
+    "name": "escalation-direct",
+    "route": "/?escalation=1&core=1",
+    "width": 1920,
+    "height": 1080,
+    "core": true,
+    "capture": true,
+    "metrics": {
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "horizontalOverflow": false,
+      "reviewDockCount": 0,
+      "droneMarkers": 10,
+      "modalCount": 0
+    },
+    "contractFailures": [],
+    "accessibilityViolations": [],
+    "consoleErrors": []
+  }
+]

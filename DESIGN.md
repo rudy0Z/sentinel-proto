@@ -18,14 +18,48 @@ The finish pass reduces decorative AI signals and increases clarity, consistency
 
 ### TALON Convergence Gate
 
-The TALON mark uses three sensor vectors resolving into a guarded centre. It communicates evidence convergence plus a human gate. It is not a bird, claw, eye, sparkle, or generic glowing orb.
+The mark is a three-bladed **aperture** around a guarded centre, with three source vectors entering through the gaps. Aperture/reticle geometry is instrument language — optics, sensors, targeting — and it is rotationally symmetric, so it reads as a system rather than an emblem. It is not a bird, claw, eye, shield, badge, sparkle, or generic glowing orb.
 
-The mark is single-colour. State changes appear on its perimeter:
+The aperture is load-bearing, not decorative: **the blades physically close over the core at a human gate and hold there.** A particle orb can show an AI thinking; it cannot show an AI being stopped, which is the one thing Sentinel's mark must be able to say.
+
+The mark is single-colour. Colour carries session state on the perimeter; geometry carries it through motion. Never both plus a glow.
 
 - Cyan: watching or ready.
 - Red: listening.
 - Amber: checking evidence.
 - Teal: recommendation ready or completed.
+
+**One motion grammar, eight signatures** (`TalonMark` + `talon.css`). Every state animates the same three parts — perimeter ring, source vectors, aperture blades — so the mark reads as one instrument changing behaviour, never eight different loaders:
+
+| State | Signature |
+| --- | --- |
+| `watching` | perimeter breathes; geometry still |
+| `listening` | amplitude ripples outward on the perimeter |
+| `searching` | evidence streams inward along the source vectors |
+| `solving` | vectors solidify; the core commits |
+| `gated` | **blades close over the core and hold** |
+| `executing` | steady supervised rotation |
+| `blocked` | one vector severed; aperture cannot resolve |
+| `receipt` | blades open; core settles solid |
+
+Under `prefers-reduced-motion` the mark keeps its *static state geometry* — a closed aperture still reads as gated — and stops all looping motion.
+
+### TALON command surface — two axes on a fixed centre
+
+The command surface has **one still centre (the orb) and two axes**. Nothing floats detached; everything TALON needs is the orb extending on one of the two axes. There is no wrapping "dock" box — the orb is a lit object, not a chip inside a container.
+
+- **The orb is fixed dead-centre** (`1fr auto 1fr` frame) and never moves. It reads as a lit instrument, not a hole in the map: a radial-lit core, a full-strength state ring, and a dark keyline that separates it from map texture (a separation stroke, never a decorative glow).
+- **Vertical axis — TALON's voice.** When TALON speaks (watching posture, reasoning, a gate, a source conflict, or the full session), a panel **rises from behind the orb, bottom-to-top** (`talon-rise`, `transform-origin: bottom`), connected to the orb by a short stem. The ambient voice (`.talon-voice`) and the expanded session (`.talon-session__surface`) are **the same surface at two depths** — same position, same material — never two different cards.
+- **Horizontal axis — the operator's commands.** Actions **bloom sideways** out of the orb: forward commands right (`commandBloomRight`), decline/hold left (`commandBloomLeft`), each growing from the orb-side edge. Danger stays in its own menu, never a bloom. A gated forward command still shows (dimmed) on the right so the operator sees what clearing the gate unlocks.
+- **The calibrator is a confirm control inside the voice panel**, not a form checkbox in a detached card — the conflict and the control that clears it live in the same surface.
+- Critically damped throughout — no bounce, wobble, or droplet on an authorization surface. Commands are clickable from the first frame; motion never gates input.
+- A grounding gradient (backdrop only — no edge, no radius, never a material) seats the whole zone so it does not dissolve into live map texture.
+- Agent labels landing in the surface's footprint are suppressed (`COMMAND_DOCK_ZONE`); the marker and inspector still carry identity.
+- One material, one border, one radius across the voice panel, session, and action pills — the surface never nests a box inside a box.
+
+### TALON replies
+
+Synthesized answers reveal word-by-word (`TalonStream`) so a recommendation reads as reasoning arriving rather than a lookup returning. The reveal is opacity-only with the full text in the DOM from frame one, so assistive tech and copy/paste are never gated on it, and reduced motion renders instantly. Fast and monotone by contract — an operator must never wait on an animation to read a recommendation.
 
 ### Command Picture
 
@@ -67,13 +101,14 @@ Components bind to semantic roles from `tokens.ts`.
 
 ### Operational colour
 
-- Cyan: telemetry, focus, TALON readiness, selected spatial object.
+- Cyan: telemetry, focus, TALON readiness, selected spatial object. Calibrated to `#1CB8E6` (instrument cyan) — never pure-neon; it leads the whole cyan family via `tint()`.
 - Amber: uncertainty, source conflict, pending human judgment.
 - Red: danger, destructive action, blocked life-safety condition.
-- Teal: verified, safe, complete, receipt written.
-- Yellow: secondary warning where amber is already carrying a decision state.
+- Teal: verified, safe, complete, receipt written. The "done" colour — cyan never carries completion.
+- Yellow: ground-team / ingress-guidance routes, advisory exceptions, stale sources. Distinct from amber's decision-state role.
+- **Fire** (`#FF6B4A`) is the diegetic light source, not an operational accent. Fire (and the LiDAR sweep during active verification) are the ONLY elements permitted to emit light/bloom — this is the single earned exception to the no-glow rule. Everything else is edge-lit.
 
-Only one operational colour leads a component. State always includes text or an icon.
+Only one operational colour leads a component. State always includes text or an icon. Keep chrome neutral so the one accent lands (the Linear discipline).
 
 ## 5. Typography
 
@@ -93,9 +128,18 @@ Only one operational colour leads a component. State always includes text or an 
 - Control: 12px / 16px, 600.
 - Label: 11px / 15px, 600.
 - Metadata: 10px / 14px, 500 mono.
+- Metric: 32px / 36px, 700 — the panel focal read.
 - Map label: 10px minimum at 1280px.
 
-Essential information is never 9px. Uppercase and tracked text are reserved for short telemetry codes, alert classes, and audit identifiers. Use `tracking.telemetry` (0.06em), `tracking.eyebrow` (0.1em), or `tracking.tight` (−0.01em) — free-form letter-spacing is a review failure.
+Essential information is never 9px (this includes ternary/expression sizes — `fontSize: compact ? 9 : 10` is forbidden). The mid-band 13/14/15 each carry one unambiguous job: title 13 is being retired, brand 14 is the wordmark only, panel-title 15 is panel headers.
+
+**Focal contract (load-bearing for the ~0.65× embed downscale).** Every panel renders exactly ONE ≥26px read — `metric` (data) or `display` (title). No size between 18 and 26 competes beneath it. A 32px anchor survives downscale at ~20–24px while 12px labels honestly recede; this is the primary cure for the "no focal point / generic" read.
+
+**Optical tracking law** (benchmarked against Linear + IBM Carbon — bind these via `typeStyle`, never free-form; free-form letter-spacing is a review failure):
+- `tracking.displayTight` (−0.02em): ≥26px display/metric — large type reads intentional, not loose.
+- `tracking.tight` (−0.01em): 14–18px headings/brand.
+- `tracking.fine` (+0.01em): 10–13px body/label — slight positive tracking for legibility at density.
+- `tracking.telemetry` (0.06em) / `tracking.eyebrow` (0.1em): uppercase codes and section eyebrows only.
 
 ## 6. Spacing and geometry
 
@@ -108,6 +152,8 @@ The base unit is 4px. Legal steps only: **4 | 8 | 12 | 16 | 20 | 24 | 32**.
 - Panel gap: 20px (`space.xl`).
 - Major transition: 24px (`space["2xl"]`).
 - Section break: 32px (`space["3xl"]`).
+
+**Vertical rhythm.** Line-heights are chosen optically for readability (12/18 = 1.5 is correct; do NOT blanket-snap line-heights to a 4px baseline). Instead govern *section* spacing: stacked panel sections use `panel.sectionGap` (12) and `panel.itemGap` (8) consistently, and section blocks land on an 8px interval. Ad-hoc vertical margins between panel sections are a review failure — use the `panel.*` tokens.
 
 ### Radius
 

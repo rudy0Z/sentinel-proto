@@ -25,6 +25,9 @@ export function EntryScreen({ onBeginScenario, onExploreFree }: { onBeginScenari
         <div style={{ fontFamily: font.sans, fontSize: typeStyle.panelTitle.size, color: T.textSecondary, lineHeight: 1.7, maxWidth: 340 }}>
           Wildfire response command interface.<br />AI proposes. Operator authorizes.
         </div>
+        <div style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: T.textMuted, letterSpacing: tracking.telemetry, maxWidth: 360 }}>
+          Portfolio stills / share link: append ?core=1 (hides Review Dock). Evaluators: Explore freely.
+        </div>
         <div style={{ display: "flex", flexDirection: "column", gap: space.sm, width: "100%", maxWidth: 260, marginTop: space.md }}>
           <button
             type="button"

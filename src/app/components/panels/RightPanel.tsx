@@ -314,7 +314,15 @@ function OperationsPriorityPanel({
         />
       </Section>
 
-      <Section label="Operations Trend">
+      {/*
+        Trend, plan comparison, and observed outcome are inspection-only — real
+        content the operator can drill into, not something they need shouting
+        at them alongside the route/priority list they're actually acting on.
+        Defaulting these shut is the same fix that solved the TALON rail
+        overflow: nothing is removed, the rail just stops being seven
+        equally-loud sections at once.
+      */}
+      <Section label="Operations Trend" defaultOpen={false} summary={`${pct}% cleared, trending ${remaining > 30 ? "behind" : "on pace"}`}>
         {/* Ends on `pct` — the same number the progress readout shows. */}
         <MiniTrend
           label="Cleared structures"
@@ -324,11 +332,11 @@ function OperationsPriorityPanel({
         />
       </Section>
 
-      <Section label="Plan Comparison">
+      <Section label="Plan Comparison" defaultOpen={false} summary={state.planVariant === "alternate" ? "Alternate plan active" : "Recommended plan active"}>
         <ContainmentPlanComparison activeVariant={state.planVariant} />
       </Section>
 
-      <Section label="Observed Outcome">
+      <Section label="Observed Outcome" defaultOpen={false} summary="Latest authorized action vs. expected result">
         <ActionOutcomeVerification verification={state.recentActionVerification} />
       </Section>
 

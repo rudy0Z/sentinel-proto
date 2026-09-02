@@ -40,7 +40,7 @@ const LEGEND_ITEMS = [
   {
     id: "route",
     label: "Routing line",
-    detail: "Solid white is guided egress; dashed yellow is responder ingress.",
+    detail: "Solid white is guided egress; dashed yellow is responder ingress; cyan dash is scout investigation.",
     swatch: (
       <span aria-hidden="true" style={{ position: "relative", width: 24, height: 14, flexShrink: 0 }}>
         <span style={{ position: "absolute", left: 0, right: 0, top: 4, borderTop: "2px solid rgba(255,255,255,0.9)" }} />
@@ -71,7 +71,7 @@ const LEGEND_ITEMS = [
   {
     id: "uncertainty",
     label: "Uncertainty envelope",
-    detail: "Amber dotted outline is an added safety margin from degraded evidence, not fire spread.",
+    detail: "Amber dotted outline widens automatically when evidence degrades; operators can also nudge it with Zone Envelope ±.",
     swatch: (
       <span
         aria-hidden="true"

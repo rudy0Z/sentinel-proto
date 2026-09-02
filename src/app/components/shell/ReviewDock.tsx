@@ -49,7 +49,17 @@ export function ReviewDock({
             <div style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textMuted, marginTop: 1 }}>Prototype only · {REVIEW_SCENES.length} scenes</div>
           </div>
         ) : (
-          <span style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.textMuted, letterSpacing: tracking.telemetry, textTransform: "uppercase" }}>Review</span>
+          <span style={{ display: "flex", alignItems: "center", gap: space.xs, fontFamily: font.mono, fontSize: typeScale.label, color: T.cyan, letterSpacing: tracking.telemetry, textTransform: "uppercase" }}>
+            {/* A muted grey "Review" label was reading as inert chrome against a dark
+                map corner — the operator's own report was "I can't find this anywhere."
+                Cyan + a small glyph makes it read as a live control, not furniture,
+                without turning a dev utility into a product feature. */}
+            <svg width="11" height="11" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <rect x="1.5" y="1.5" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="1.4" />
+              <path d="M4.5 5h5M4.5 7.2h5M4.5 9.4h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+            </svg>
+            Scenes
+          </span>
         )}
         <button
           type="button"
@@ -59,9 +69,9 @@ export function ReviewDock({
             width: 28,
             height: 28,
             borderRadius: radius.control,
-            border: `1px solid ${border.strong}`,
-            background: surface.control,
-            color: T.textSecondary,
+            border: `1px solid ${open ? border.strong : tint(T.cyan, 0.4)}`,
+            background: open ? surface.control : tint(T.cyan, 0.12),
+            color: open ? T.textSecondary : T.cyan,
             cursor: "pointer",
             fontSize: typeScale.brand,
             lineHeight: 1,

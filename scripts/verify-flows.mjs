@@ -37,8 +37,10 @@ async function run(name, test) {
 try {
   await run("guided verification to authority gate", async (page) => {
     await page.goto(`${baseUrl}#/?scene=verify-active&core=1`, { waitUntil: "domcontentloaded" });
-    await page.getByText("SOURCE DISAGREEMENT", { exact: false }).waitFor();
-    await page.getByLabel(/verified agricultural burn permits/i).check();
+    await page.getByText(/source conflict/i).first().waitFor();
+    // The calibrator is a deliberate confirm control inside TALON's voice panel,
+    // not a form checkbox — clearing it unlocks the gated forward command.
+    await page.getByRole("button", { name: /checked the agricultural burn permit/i }).click();
     await page.getByRole("button", { name: "Prepare authority packet" }).click();
     const confirmation = page.getByRole("dialog", { name: /Prepare authority packet/i });
     await confirmation.waitFor();
@@ -146,7 +148,7 @@ try {
     await page.getByRole("button", { name: "Open TALON session" }).click();
     await page.getByRole("button", { name: "Use scripted fallback" }).click();
     await page.getByText(/Recommendation ready|Human approval required/i).first().waitFor({ timeout: 12000 });
-    await page.getByText("Prototype disclosure", { exact: false }).first().waitFor();
+    await page.getByText(/Scripted prototype/i).first().waitFor();
   });
 
   await run("map selection, pinned rail, and drag", async (page) => {
@@ -189,7 +191,11 @@ try {
   await run("plan comparison, observed outcome, and queue disclosure", async (page) => {
     await page.goto(`${baseUrl}#/?scene=rescue-nominal`, { waitUntil: "domcontentloaded" });
     await page.getByRole("tab", { name: /Priorities/ }).click();
+    // Plan Comparison and Observed Outcome default collapsed (inspection-only,
+    // not the primary decision surface) — expand them the way an operator would.
+    await page.getByRole("button", { name: /Plan Comparison/i }).click();
     await page.getByText("Compare containment options").waitFor();
+    await page.getByRole("button", { name: /Observed Outcome/i }).click();
     await page.getByTestId("action-outcome-verification").waitFor();
     await page.getByRole("button", { name: "Open incident queue" }).click();
     await page.getByText("Grid 4C is the only fully simulated incident", { exact: false }).waitFor();
@@ -197,11 +203,12 @@ try {
     await page.getByText("Read-only summary").waitFor();
   });
 
-  await run("map legend and uncertainty envelope", async (page) => {
+  // The map key was removed (dead-weight chrome, no operational content of its
+  // own) — this flow now only covers what it always meant to cover: degraded
+  // evidence actually widens the uncertainty envelope on the map.
+  await run("uncertainty envelope widens on degraded evidence", async (page) => {
     await page.goto(`${baseUrl}#/?scene=satellite-feed-loss`, { waitUntil: "domcontentloaded" });
     await page.getByTestId("spatial-uncertainty-envelope").waitFor();
-    await page.getByTestId("map-legend-trigger").click();
-    await page.getByTestId("map-legend-popover").waitFor();
   });
 
   await run("direct escalation recovery", async (page) => {

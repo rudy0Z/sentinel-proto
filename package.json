@@ -11,9 +11,11 @@
     "audit:tokens": "node scripts/audit-design-tokens.mjs",
     "verify:routes": "node scripts/verify-routes.mjs",
     "verify:flows": "node scripts/verify-flows.mjs",
+    "verify:map": "node scripts/verify-map.mjs",
     "verify:machine": "npx --yes tsx scripts/audit-machine.ts",
     "verify:signals": "npx --yes tsx scripts/audit-signals.ts",
-    "verify:design": "npm run typecheck && npm run audit:tokens"
+    "verify:design": "npm run typecheck && npm run audit:tokens && npm run verify:map",
+    "check": "npm run verify:design && npm run verify:flows"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "1.2.3",

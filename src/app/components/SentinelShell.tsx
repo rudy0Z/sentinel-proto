@@ -5,7 +5,9 @@ import { ContestedWatchPanel, ReconciliationPanel, ReRaiseBriefPanel } from "./C
 import { DissentGate } from "./DissentGate";
 import { ExceptionBanner, ExceptionInterrupt } from "./ExceptionSurface";
 import type { ModalPayload } from "./ActionModal";
-import { MapCanvas } from "./MapCanvas";
+import { SpatialMapCanvas, spatialCoordinatesForTarget } from "../map/SpatialMapCanvas";
+import { nearestNodeId, nodePoint } from "../map/roads";
+import { fromPixel, toPixel } from "../map/frame";
 import { Navbar } from "./Navbar";
 import { ActionGlyph } from "./actionVisuals";
 import { OperationalIcon } from "./OperationalIcon";
@@ -13,7 +15,6 @@ import droneThermalFeed from "../../assets/drone-thermal-feed.png";
 import { ActivityLogPanel, DroneFleetPanel, IntelPanel } from "./panels/LeftPanel";
 import { ExceptionPanel, GroundTeamsPanel, PriorityPanel } from "./panels/RightPanel";
 import { TalonCopilotPanel } from "./panels/TalonCopilotPanel";
-import { MapLegend } from "./shared/MapLegend";
 import { RailStack, type RailView } from "./shared/RailStack";
 import { PopoverSurface, usePopoverDismissal } from "./shared/PopoverSurface";
 import { ReviewDock } from "./shell/ReviewDock";
@@ -93,6 +94,13 @@ const ActionModal = lazy(async () => ({
 }));
 
 let activityCounter = 1000;
+
+/**
+ * Ceiling for contested-watch evidence confidence. Mirrors the contested
+ * targets in `SIGNAL_PROFILES` (domain/talon.ts) so the printed number and the
+ * trend chart resolve to the same value.
+ */
+const CONTESTED_CEILING = 96;
 
 function readShellParams() {
   if (typeof window === "undefined") return new URLSearchParams();
@@ -324,11 +332,15 @@ export function SentinelShell() {
       setScene("rescue-battery-critical");
       setEdgeCaseFired(true);
     }
+    // Guided path front-loads a full infrastructure-loss differentiator after the battery beat.
+    if (edgeCaseFired && rescueElapsed === 32 && state.scene === "rescue-battery-critical") {
+      setScene("infrastructure-total-loss");
+    }
     if (rescueElapsed >= 60 && !showEndCard) {
       setShowEndCard(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rescueElapsed, edgeCaseFired, showEndCard, experienceMode, state.mode]);
+  }, [rescueElapsed, edgeCaseFired, showEndCard, experienceMode, state.mode, state.scene]);
 
   // Always collapse action bar and reset to collapsed state on scene change.
   // Voice state lives in talonConversation, which createSceneState resets to idle.
@@ -353,10 +365,21 @@ export function SentinelShell() {
    * Evidence keeps building while a watch is contested — that is the whole
    * point of holding the hypothesis instead of deleting it. It starts at the
    * confidence TALON had when it was overruled and climbs from there.
+   *
+   * The ceiling matches SIGNAL_PROFILES' contested targets in domain/talon.ts,
+   * so the printed number and the trend chart cannot disagree.
    */
   const evidenceConfidence = state.scene === "monitoring-contested"
-    ? Math.min(96, (state.dissent?.talonConfidence ?? 78) + contestedElapsed)
-    : (state.dissent?.talonConfidence ?? 78);
+    ? Math.min(CONTESTED_CEILING, (state.dissent?.talonConfidence ?? 78) + contestedElapsed)
+    : state.scene === "talon-reraise"
+      /*
+       * TALON only re-raises once the evidence has crossed the re-raise
+       * threshold, so by the time this scene exists the crossing is a fact.
+       * Reporting the stale override number here rendered the whole brief as
+       * "78% → 78%" under a headline that says something changed.
+       */
+      ? Math.max(state.dissent?.reRaiseThreshold ?? 94, CONTESTED_CEILING)
+      : (state.dissent?.talonConfidence ?? 78);
 
   const transitionContext = (): TransitionContext => ({
     experienceMode,
@@ -831,13 +854,13 @@ export function SentinelShell() {
       `}</style>
 
       <div style={{ position: "absolute", inset: 0, zIndex: layer.map }}>
-        <MapCanvas
+        <SpatialMapCanvas
           state={state}
           coreMode={focusMode}
           onSelectEntity={handleSelectEntity}
           spatialHover={spatialHover}
           onSpatialHoverChange={setSpatialHover}
-          onUpdateState={(updater) => updateState((draft) => { updater(draft); return draft; })}
+          onUpdateState={(updater) => updateState((draft) => { updater(draft as import("../tokens").ShellState); return draft; })}
         />
       </div>
 
@@ -879,8 +902,6 @@ export function SentinelShell() {
           coreMode={focusMode}
         />
       </div>
-
-      <MapLegend coreMode={focusMode} />
 
       {timelineOpen && (
         <TimelinePopover
@@ -985,15 +1006,6 @@ export function SentinelShell() {
           />
         </div>
       ) : null}
-
-      {experienceMode === "simulation" && !showEndCard && !coreMode && (
-        <GuidanceStrip
-          mode={state.mode}
-          scene={state.scene}
-          bottom={SCREEN_INSET + (showsActionBar ? actionBarHeight + 8 : 8)}
-          railWidth={adaptiveRailWidth}
-        />
-      )}
 
       {state.scene === "contain-alternate" ? (
         <CompactPanel
@@ -1367,6 +1379,8 @@ export function SentinelShell() {
                   const next = {
                     ...draft,
                     emergencyEvacuationActive: true,
+                    residentialRouteActive: true,
+                    selectedEvacuationRouteId: payload?.routeId ?? draft.selectedEvacuationRouteId ?? "route-a",
                     selectedZoneId: primaryZone,
                     selectedEntity: { type: "zone", id: primaryZone } as SelectedEntity,
                   };
@@ -2174,7 +2188,7 @@ function PopupActionButton({
       <ActionGlyph actionId={actionId} color={disabled ? T.textMuted : subtle ? T.textSecondary : tone} size={compact ? 15 : 16} />
       <span>{label}</span>
       {annotation ? (
-        <span style={{ opacity: 0.72, fontFamily: font.mono, fontSize: compact ? 9 : 10, letterSpacing: "0.04em" }}>
+        <span style={{ opacity: 0.72, fontFamily: font.mono, fontSize: 10, letterSpacing: tracking.telemetry }}>
           {annotation}
         </span>
       ) : null}
@@ -2453,7 +2467,7 @@ function VerifyLiveFeed({
               background: "rgba(245,166,35,0.12)",
               border: `1px solid rgba(245,166,35,0.3)`,
               padding: "2px 6px",
-              borderRadius: 3,
+              borderRadius: radius.dense,
             }}>
               <div style={{ width: 4, height: 4, borderRadius: "50%", background: T.amber, animation: "pulse 2s infinite" }} />
               <span style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.amber, fontWeight: typeWeight.bold, letterSpacing: "0.05em" }}>
@@ -2537,6 +2551,8 @@ function createSceneState(scene: SceneId, investigationElapsed: number): ShellSt
     escalationBasis: "talon-recommended",
     rescueProgress: createRescueProgress(),
     operationalException: getOperationalException(scene),
+    zoneMargins: {},
+    selectedEvacuationRouteId: null,
     talonConversation: { activeChip: null, response: null, voiceState: "idle" },
     activeIncidentId: INCIDENT.id,
     recentActionVerification: createRecentActionVerification(scene),
@@ -2572,6 +2588,13 @@ function createSceneState(scene: SceneId, investigationElapsed: number): ShellSt
   if (scene === "contain-recommended" || scene === "contain-alternate" || scene === "contain-degraded") {
     base.mode = "contain";
     base.incidentStatus = "confirmed";
+    /*
+     * Operations is downstream of notify-authorities in the transition table
+     * (stateMachine.ts: notify-authorities → contain-recommended sets this).
+     * The fixture must agree with the machine, or the packet card reports the
+     * 90-second gate as still awaiting a send that already happened.
+     */
+    base.authoritiesNotified = true;
     base.selectedEntity = { type: "zone", id: INCIDENT.activeZoneId };
     base.selectedZoneId = INCIDENT.activeZoneId;
     base.highlightedZoneIds = ["residential-south"];
@@ -2591,8 +2614,14 @@ function createSceneState(scene: SceneId, investigationElapsed: number): ShellSt
     base.selectedEntity = { type: "zone", id: "residential-south" };
     base.selectedZoneId = "residential-south";
     base.highlightedZoneIds = ["forest-north", "residential-south"];
-    // Pre-evac: operator has not yet confirmed evacuation
-    base.authoritiesNotified = false;
+    /*
+     * Rescue is only reachable through notify-authorities, so the authority
+     * gate is by definition already passed here. Evacuation is a *separate,
+     * later* gate — `emergencyEvacuationActive` is the flag that carries it.
+     * Reusing `authoritiesNotified` for "pre-evac" overloaded one flag across
+     * two gates and made the packet card claim the 90-second gate was still open.
+     */
+    base.authoritiesNotified = true;
     base.teamsNotified = false;
     base.emergencyEvacuationActive = false;
     base.residentialRouteActive = false;
@@ -2775,8 +2804,9 @@ function deriveQuickActions(draft: ShellDraft, investigationElapsed: number): Ac
       return flat([
         mk("confirm-incident", "Prepare authority packet", "recommended",
           "Authorize TALON to assemble the authority packet after the source conflict is resolved.", T.amber),
+        /* Command subtitles ride in a fixed-width pill — state the consequence, don't narrate it. */
         mk("monitor-only", "Decline escalation", "available",
-          "Record dissent and move to contested watch instead of escalating.", T.textSecondary),
+          "Records dissent · contested watch", T.textSecondary),
       ]);
 
     case "authority-notification-ready":
@@ -3136,13 +3166,16 @@ function routeForMission(zoneId: string, mission: DroneMissionType) {
 function coordinatesForMission(zoneId: string, mission: DroneMissionType) {
   const anchor = MISSION_ANCHORS[zoneId]?.[mission];
   if (anchor) {
-    return { x: anchor.x, y: anchor.y };
+    // Snap mission anchors onto the road graph so staging never orphans off-network.
+    const snapped = nodePoint(nearestNodeId(fromPixel(anchor.x, anchor.y), "drone"));
+    const px = toPixel(snapped);
+    return { x: px.x, y: px.y };
   }
   const zone = getZoneById(zoneId);
-  return {
-    x: zone?.center.x ?? ANOMALY.x,
-    y: zone?.center.y ?? ANOMALY.y,
-  };
+  const center = fromPixel(zone?.center.x ?? ANOMALY.x, zone?.center.y ?? ANOMALY.y);
+  const snapped = nodePoint(nearestNodeId(center, "drone"));
+  const px = toPixel(snapped);
+  return { x: px.x, y: px.y };
 }
 
 function assignDroneToMission(draft: ShellDraft, mission: DroneMissionType, zoneId: string) {
@@ -3174,13 +3207,14 @@ function assignDroneToMission(draft: ShellDraft, mission: DroneMissionType, zone
   }
 
   const coords = coordinatesForMission(zoneId, mission);
+  const snapped = spatialCoordinatesForTarget(selected.x, selected.y, coords.x, coords.y, "drone");
   selected.status = mission === "investigation" ? "en-route" : "assigned";
   selected.assignedMission = mission;
   selected.zoneId = zoneId;
   selected.role = roleForMission(mission);
   selected.route = routeForMission(zoneId, mission);
-  selected.x = coords.x;
-  selected.y = coords.y;
+  selected.x = snapped.x;
+  selected.y = snapped.y;
   selected.eta = mission === "investigation" ? "00:43" : "Live";
   selected.signal = mission === "investigation" ? selected.signal : Math.max(selected.signal, 78);
 
@@ -3252,61 +3286,6 @@ function appendLog(
 }
 
 // ── Experience overlay components ──────────────────────────────────────────
-
-function GuidanceStrip({
-  mode,
-  scene,
-  bottom,
-  railWidth,
-}: {
-  mode: OperationalMode;
-  scene: SceneId;
-  bottom: number;
-  railWidth: number;
-}) {
-  const PHASE_INFO: Record<OperationalMode, { label: string; index: number; prompt: string }> = {
-    scan:    { label: "Intelligence", index: 1, prompt: "TALON is watching for evidence convergence." },
-    verify:  { label: "Intelligence", index: 1, prompt: "Evidence received. Confirm escalation or hold." },
-    contain: { label: "Operations",   index: 2, prompt: "Authorities notified. Stage resources and authorize field actions." },
-    rescue:  { label: "Operations",   index: 2, prompt: "Authorized plan executing. Supervise exceptions." },
-  };
-  const info = { ...PHASE_INFO[mode] };
-  if (scene === "investigation-pending") {
-    info.prompt = "Drone dispatched. Awaiting live feed.";
-  } else if (scene === "authority-notification-ready") {
-    info.prompt = "Authority packet ready. Human send starts Operations.";
-  }
-  return (
-    <div
-      style={{
-        position: "absolute",
-        left: railWidth + SCREEN_INSET + 18,
-        right: railWidth + SCREEN_INSET + 18,
-        bottom,
-        height: 40,
-        zIndex: layer.centerSurface,
-        display: "flex",
-        alignItems: "center",
-        gap: 14,
-        padding: "0 18px",
-        ...material.rail,
-        borderRadius: radius.control,
-        pointerEvents: "none",
-      }}
-    >
-      <span style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.cyan, letterSpacing: "0.12em", textTransform: "uppercase", flexShrink: 0 }}>
-        {info.label}
-      </span>
-      <span style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.textMuted, flexShrink: 0 }}>
-        Phase {info.index} of 2
-      </span>
-      <div style={{ width: 1, height: 14, background: border.strong, flexShrink: 0 }} />
-      <span style={{ fontFamily: font.sans, fontSize: typeScale.body, color: T.textSecondary, lineHeight: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-        {info.prompt}
-      </span>
-    </div>
-  );
-}
 
 // ─── ESCALATION PROTOCOL OVERLAY ─────────────────────────────────────────────
 // Appears after 15s of operator non-response on the alert-command scene.

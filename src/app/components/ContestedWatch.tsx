@@ -1,6 +1,6 @@
 import { useEffect, useRef, type KeyboardEvent } from "react";
 import type { DissentOutcome, DissentRecord } from "../tokens";
-import { T, font, layer, material, motion, radius, space, surface, tint, typeScale, typeWeight } from "../tokens";
+import { T, ease, font, layer, material, motion, radius, space, surface, tint, typeScale, typeWeight } from "../tokens";
 import { getContestedWatch, getReRaiseBrief, resolveDissent } from "../domain/disagreement";
 
 /*
@@ -128,7 +128,7 @@ function ThresholdMeter({ current, threshold }: { current: number; threshold: nu
             height: "100%",
             borderRadius: radius.pill,
             background: close ? T.amber : T.cyan,
-            transition: `width 900ms cubic-bezier(0.22, 1, 0.36, 1), background ${motion.normal}`,
+            transition: `width 900ms ${ease.out}, background ${motion.normal}`,
           }}
         />
         {/* The bar TALON must clear before it may return. */}
@@ -140,7 +140,7 @@ function ThresholdMeter({ current, threshold }: { current: number; threshold: nu
             bottom: -4,
             width: 2,
             background: T.amber,
-            borderRadius: 1,
+            borderRadius: radius.pill,
           }}
           aria-hidden="true"
         />

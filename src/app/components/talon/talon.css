@@ -180,34 +180,143 @@
 }
 
 /*
- * Floating variant: the orb is the only TALON control on the command surface,
- * and the session panel is its only expansion. No dock, no second orb.
+ * Floating variant: the orb is TALON's body, dead-centre and fixed. When TALON
+ * speaks, its surface RISES FROM BEHIND the orb (bottom-to-top) — the panel's
+ * lower edge tucks behind the orb (lower z-index) and grows upward, so it reads
+ * as TALON's own screen unfolding rather than a separate card appearing
+ * elsewhere. The orb never moves; only the surface above it changes.
  */
 .talon-session--floating {
+  position: relative;
   display: grid;
   place-items: center;
 }
 
+.talon-session--floating .talon-session__orb {
+  position: relative;
+  z-index: 2;
+}
+
+.talon-session--floating .talon-session__surface {
+  left: 50%;
+  bottom: calc(100% + 12px);
+  z-index: 1;
+  width: 440px;
+  max-width: min(440px, calc(100vw - 32px));
+  padding: 18px;
+  transform: translateX(-50%);
+  transform-origin: bottom center;
+  transform-box: border-box;
+  animation: talon-rise 240ms var(--talon-ease);
+  border: 1px solid var(--talon-border);
+  border-radius: var(--talon-radius-overlay);
+  background: var(--talon-overlay);
+  box-shadow: var(--talon-shadow);
+}
+
+/* A short stem connects the panel down to the orb so it reads as TALON's own
+   screen, raised out of the orb, rather than a card hovering above it. */
+.talon-session--floating .talon-session__surface::after,
+.talon-voice::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -12px;
+  width: 2px;
+  height: 12px;
+  transform: translateX(-50%);
+  background: linear-gradient(to bottom, var(--talon-state, rgba(255,255,255,0.2)), transparent);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/*
+ * Ambient voice: what TALON says before anyone opens a session. Same surface
+ * language as the expanded session, same rise, so the collapsed and open states
+ * are two depths of one panel — never two different cards.
+ */
+.talon-voice {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 12px);
+  z-index: 1;
+  width: max-content;
+  max-width: min(520px, calc(100vw - 48px));
+  padding: 14px 18px;
+  transform: translateX(-50%);
+  transform-origin: bottom center;
+  border: 1px solid var(--talon-border, rgba(255, 255, 255, 0.08));
+  border-radius: var(--talon-radius-overlay, 16px);
+  background: var(--talon-overlay, rgba(8, 16, 28, 0.96));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07), inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+    0 20px 48px rgba(0, 0, 0, 0.46);
+  animation: talon-rise 240ms var(--talon-ease);
+  pointer-events: auto;
+}
+
+@keyframes talon-rise {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px) scaleY(0.82);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scaleY(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .talon-session--floating .talon-session__surface,
+  .talon-voice {
+    animation: none !important;
+  }
+}
+
+/*
+ * The orb is TALON's body and the still centre of the whole command surface,
+ * so it has to read as a lit instrument, not a hole in the map. Three things
+ * give it presence against busy dark terrain:
+ *   1. a lit core — a radial fill that is brightest at the centre, so it reads
+ *      as an object with depth rather than a flat dark disc;
+ *   2. a full-strength state ring (not a 62%-alpha hint);
+ *   3. a dark keyline (0 0 0 1px) that separates the bright ring from whatever
+ *      map texture sits behind it — a separation stroke, not a decorative glow.
+ */
 .talon-session__orb {
   position: relative;
-  width: 56px;
-  height: 56px;
+  width: 60px;
+  height: 60px;
   display: grid;
   place-items: center;
-  border: 1.5px solid color-mix(in srgb, var(--talon-state) 62%, transparent);
+  border: 2px solid var(--talon-state);
   border-radius: 50%;
-  background: color-mix(in srgb, var(--talon-state) 12%, var(--talon-panel));
+  background:
+    radial-gradient(
+      circle at 50% 40%,
+      color-mix(in srgb, var(--talon-state) 32%, #0a1826) 0%,
+      color-mix(in srgb, var(--talon-state) 14%, #091522) 62%,
+      #081320 100%
+    );
   color: var(--talon-state);
   cursor: pointer;
-  box-shadow: var(--talon-shadow-quiet);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 8px 22px rgba(0, 0, 0, 0.5);
   transition:
     transform 120ms var(--talon-ease),
     border-color 160ms var(--talon-ease),
+    box-shadow 160ms var(--talon-ease),
     background-color 160ms var(--talon-ease);
 }
 
 .talon-session__orb:hover {
-  border-color: color-mix(in srgb, var(--talon-state) 86%, transparent);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 8px 24px rgba(0, 0, 0, 0.5);
+  transform: translateY(-1px);
 }
 
 .talon-session__orb:active {
@@ -215,8 +324,18 @@
 }
 
 .talon-session__orb[aria-expanded="true"] {
-  border-color: var(--talon-state);
-  background: color-mix(in srgb, var(--talon-state) 20%, var(--talon-panel));
+  background:
+    radial-gradient(
+      circle at 50% 40%,
+      color-mix(in srgb, var(--talon-state) 42%, #0a1826) 0%,
+      color-mix(in srgb, var(--talon-state) 18%, #091522) 62%,
+      #081320 100%
+    );
+}
+
+/* The mark inside the orb rides brighter than it does inside a panel. */
+.talon-session__orb .talon-mark {
+  filter: drop-shadow(0 0 1px color-mix(in srgb, var(--talon-state) 40%, transparent));
 }
 
 .talon-session__orb-ripple {
@@ -288,21 +407,61 @@
   flex-wrap: wrap;
 }
 
+/*
+ * Session controls read as instrument commands, not web-form buttons: flat,
+ * tight radius, a quiet left status tick, mono-adjacent weight. The primary
+ * carries the state colour; the rest stay neutral so only one leads.
+ */
 .talon-session__button {
-  min-height: 34px;
-  padding: 7px 11px;
-  border: 1px solid var(--talon-border-strong);
-  border-radius: var(--talon-radius);
-  background: var(--talon-control);
-  color: var(--talon-text);
-  font-size: 11px;
+  min-height: 36px;
+  padding: 8px 14px;
+  border: 1px solid var(--talon-border);
+  border-radius: var(--talon-radius-dense, 4px);
+  background: var(--talon-inset);
+  color: var(--talon-text-secondary);
+  font-size: 12px;
   font-weight: 600;
+  letter-spacing: 0.01em;
   cursor: pointer;
   transition:
     transform 110ms var(--talon-ease),
     border-color 140ms var(--talon-ease),
     background-color 140ms var(--talon-ease),
     color 140ms var(--talon-ease);
+}
+
+/* Prototype disclosure as one quiet line, not a nested card. */
+.talon-session__disclosure {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--talon-border);
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--talon-text-secondary);
+}
+
+.talon-session__disclosure > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.talon-session__disclosure-dismiss {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--talon-state);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.talon-session__disclosure-dismiss:hover {
+  text-decoration: underline;
 }
 
 .talon-session__button:hover {
@@ -390,11 +549,349 @@
   }
 }
 
+/*
+ * ─── TALON reply stream ──────────────────────────────────────────────────────
+ * Opacity-only reveal: the full text is in the DOM from the first frame, so
+ * assistive tech and copy/paste are never gated on the animation.
+ */
+.talon-stream__word {
+  opacity: 0;
+  transition: opacity 220ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.talon-stream__word[data-shown="true"] {
+  opacity: 1;
+}
+
+.talon-stream__caret {
+  display: inline-block;
+  width: 2px;
+  height: 0.95em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: var(--talon-state, currentColor);
+  animation: talon-caret 900ms steps(2, start) infinite;
+}
+
+@keyframes talon-caret {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/*
+ * ─── TALON mark: one motion grammar, eight signatures ────────────────────────
+ *
+ * Every state animates the SAME three parts — perimeter ring, inbound source
+ * vectors, aperture blades — so the mark reads as one instrument changing
+ * behaviour rather than eight different loaders. Shape carries the meaning:
+ * blades open = TALON may act, blades closed = a human must.
+ */
+.talon-mark {
+  --mark-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  overflow: visible;
+}
+
+.talon-mark__blades,
+.talon-mark__vectors,
+.talon-mark__core,
+.talon-mark__core-fill,
+.talon-mark__ring {
+  /* view-box so transform-origin resolves in viewBox units, not the bbox. */
+  transform-box: view-box;
+  transform-origin: 24px 24px;
+}
+
+.talon-mark__blade {
+  transform-box: view-box;
+  transform-origin: 24px 24px;
+}
+
+/*
+ * The mark REMOUNTS on every state change (TalonMark wraps its render in an
+ * inner component keyed by `state`), so every rule below can assume "this
+ * just started fresh" rather than needing its own retrigger trick. That is
+ * also what makes the burst ring below fire reliably on every transition.
+ */
+
+/* Burst — a wide ring that expands once and fades, on EVERY transition, so a
+   state change is caught the instant it happens rather than inferred from
+   two static frames. This is the fix for "I can't see the states change." */
+.talon-mark__burst {
+  opacity: 0;
+  animation: mark-burst 520ms cubic-bezier(0.16, 1, 0.3, 1) 1;
+}
+
+/* The core fill is the primary, unmissable state signal: a resting glint vs.
+   a solid lit disc is a SHAPE difference, not a shade difference. */
+.talon-mark__core-fill {
+  opacity: 0.14;
+  transform: scale(0.72);
+}
+
+/* Glyph overlays: hidden by default, shown only for their one state. */
+.talon-mark__glyph {
+  opacity: 0;
+  transform-box: view-box;
+  transform-origin: 24px 24px;
+}
+
+/* Vectors are dashed so evidence can visibly flow inward. */
+.talon-mark__vectors path {
+  stroke-dasharray: 3 5;
+  stroke-dashoffset: 0;
+}
+
+/* watching — quiet overwatch: low, slow breathing. Deliberately the calmest
+   state; "nothing is happening" should look and feel like nothing is happening. */
+.talon-mark[data-state="watching"] .talon-mark__ring {
+  animation: mark-breathe 3.6s ease-in-out infinite;
+}
+.talon-mark[data-state="watching"] .talon-mark__core-fill {
+  animation: mark-idle-fill 3.6s ease-in-out infinite;
+}
+.talon-mark[data-state="watching"] .talon-mark__vectors {
+  opacity: 0.35;
+}
+
+/* listening — unmistakably active: fast bright fill, sharp outward ripple. */
+.talon-mark[data-state="listening"] .talon-mark__core-fill {
+  animation: mark-active-fill 480ms var(--mark-ease) 1 forwards, mark-listen-pulse 0.9s ease-in-out 480ms infinite;
+}
+.talon-mark[data-state="listening"] .talon-mark__ring {
+  animation: mark-listen-ring 0.9s ease-out infinite;
+}
+.talon-mark[data-state="listening"] .talon-mark__vectors {
+  opacity: 0.6;
+}
+
+/* searching — the blades visibly SWEEP (fast enough to be seen as motion,
+   not inferred), core fill breathes at a faster cadence than watching. */
+.talon-mark[data-state="searching"] .talon-mark__vectors path {
+  animation: mark-inflow 0.9s linear infinite;
+}
+.talon-mark[data-state="searching"] .talon-mark__blades {
+  animation: mark-sweep 1.8s linear infinite;
+}
+.talon-mark[data-state="searching"] .talon-mark__core-fill {
+  animation: mark-active-fill 300ms var(--mark-ease) 1 forwards, mark-search-fill 1.1s ease-in-out 300ms infinite;
+}
+
+/* solving — the "aha": two quick bright flashes, then the core commits and
+   holds solid. Vectors solidify (evidence is no longer arriving, it settled). */
+.talon-mark[data-state="solving"] .talon-mark__vectors path {
+  stroke-dasharray: none;
+  opacity: 0.8;
+}
+.talon-mark[data-state="solving"] .talon-mark__core-fill {
+  animation: mark-solve-flash 620ms var(--mark-ease) 1 forwards;
+}
+.talon-mark[data-state="solving"] .talon-mark__blades {
+  animation: mark-settle-scale 420ms var(--mark-ease) 1 forwards;
+}
+
+/*
+ * gated — the aperture CLOSES fast and holds, the core sits at a steady mid
+ * fill (present but not urgent — "held", not "alarmed"), and a lock glyph
+ * confirms it in words a glance can read instead of a blade angle to parse.
+ */
+.talon-mark[data-state="gated"] .talon-mark__blade {
+  animation: mark-gate-snap 260ms cubic-bezier(0.34, 1.15, 0.64, 1) 1 forwards;
+}
+.talon-mark[data-state="gated"] .talon-mark__ring {
+  animation: mark-hold 2.4s ease-in-out infinite;
+}
+.talon-mark[data-state="gated"] .talon-mark__vectors {
+  opacity: 0.25;
+}
+.talon-mark[data-state="gated"] .talon-mark__core-fill {
+  animation: mark-active-fill 300ms var(--mark-ease) 260ms 1 forwards;
+}
+.talon-mark[data-state="gated"] .talon-mark__glyph--gated {
+  animation: mark-glyph-in 260ms var(--mark-ease) 320ms 1 forwards;
+}
+
+/* executing — supervised work: steady, moderate rotation and a measured
+   working pulse — busy but not frantic, this is authorized and controlled. */
+.talon-mark[data-state="executing"] .talon-mark__blades {
+  animation: mark-sweep 2.4s linear infinite;
+}
+.talon-mark[data-state="executing"] .talon-mark__core-fill {
+  animation: mark-active-fill 300ms var(--mark-ease) 1 forwards, mark-work-fill 1.3s ease-in-out 300ms infinite;
+}
+
+/* blocked — a sharp double-flash of alarm, then a dimmed, severed hold. One
+   vector and one blade visibly drop out; the caution glyph names it. */
+.talon-mark[data-state="blocked"] .talon-mark__vectors path:nth-child(2) {
+  opacity: 0.12;
+  stroke-dasharray: 2 4;
+}
+.talon-mark[data-state="blocked"] .talon-mark__blade:nth-child(2) {
+  animation: mark-blade-drop 300ms var(--mark-ease) 1 forwards;
+}
+.talon-mark[data-state="blocked"] .talon-mark__ring {
+  animation: mark-alarm 1.1s ease-in-out infinite;
+}
+.talon-mark[data-state="blocked"] .talon-mark__core-fill {
+  animation: mark-blocked-flash 500ms var(--mark-ease) 1 forwards;
+}
+.talon-mark[data-state="blocked"] .talon-mark__glyph--blocked {
+  animation: mark-glyph-in 220ms var(--mark-ease) 260ms 1 forwards;
+}
+
+/* receipt — the loop closes: blades ease open, the core settles, and the
+   check glyph pops in — a small, satisfying "recorded" confirmation. */
+.talon-mark[data-state="receipt"] .talon-mark__blade {
+  animation: mark-open 320ms var(--mark-ease) 1 forwards;
+}
+.talon-mark[data-state="receipt"] .talon-mark__vectors {
+  opacity: 0.25;
+}
+.talon-mark[data-state="receipt"] .talon-mark__core-fill {
+  animation: mark-active-fill 260ms var(--mark-ease) 1 forwards;
+}
+.talon-mark[data-state="receipt"] .talon-mark__glyph--receipt {
+  animation: mark-glyph-pop 380ms cubic-bezier(0.34, 1.4, 0.64, 1) 220ms 1 forwards;
+}
+
+@keyframes mark-burst {
+  0% { opacity: 0.85; transform: scale(0.82); }
+  100% { opacity: 0; transform: scale(1.4); }
+}
+
+@keyframes mark-breathe {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50% { opacity: 0.65; transform: scale(1.02); }
+}
+
+@keyframes mark-idle-fill {
+  0%, 100% { opacity: 0.1; transform: scale(0.68); }
+  50% { opacity: 0.22; transform: scale(0.76); }
+}
+
+@keyframes mark-active-fill {
+  from { opacity: 0.14; transform: scale(0.72); }
+  to { opacity: 0.85; transform: scale(1); }
+}
+
+@keyframes mark-listen-pulse {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.88); }
+}
+
+@keyframes mark-listen-ring {
+  0% { opacity: 0.9; transform: scale(0.92); }
+  100% { opacity: 0; transform: scale(1.22); }
+}
+
+@keyframes mark-search-fill {
+  0%, 100% { opacity: 0.55; transform: scale(0.85); }
+  50% { opacity: 0.9; transform: scale(1.02); }
+}
+
+@keyframes mark-solve-flash {
+  0% { opacity: 0.14; transform: scale(0.72); }
+  20% { opacity: 1; transform: scale(1.08); }
+  40% { opacity: 0.45; transform: scale(0.92); }
+  60% { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 0.8; transform: scale(1); }
+}
+
+@keyframes mark-settle-scale {
+  from { transform: scale(1.12); }
+  to { transform: scale(1); }
+}
+
+@keyframes mark-gate-snap {
+  0% { transform: rotate(0deg) scale(1); }
+  55% { transform: rotate(24deg) scale(0.66); }
+  100% { transform: rotate(20deg) scale(0.72); }
+}
+
+@keyframes mark-open {
+  0% { transform: rotate(20deg) scale(0.72); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+
+@keyframes mark-blade-drop {
+  from { opacity: 0.9; }
+  to { opacity: 0.2; }
+}
+
+@keyframes mark-hold {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 0.35; }
+}
+
+@keyframes mark-work-fill {
+  0%, 100% { opacity: 0.65; transform: scale(0.94); }
+  50% { opacity: 0.9; transform: scale(1.04); }
+}
+
+@keyframes mark-alarm {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.85; }
+}
+
+@keyframes mark-blocked-flash {
+  0% { opacity: 0.14; transform: scale(0.72); }
+  25% { opacity: 0.95; transform: scale(1.05); }
+  50% { opacity: 0.3; transform: scale(0.85); }
+  75% { opacity: 0.7; transform: scale(1); }
+  100% { opacity: 0.45; transform: scale(0.9); }
+}
+
+@keyframes mark-glyph-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes mark-glyph-pop {
+  0% { opacity: 0; transform: scale(0.4); }
+  70% { opacity: 1; transform: scale(1.12); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .talon-session *,
   .talon-session *::before,
   .talon-session *::after {
     animation: none !important;
     transition-duration: 0.01ms !important;
+  }
+  /*
+   * The mark keeps its *static end-state* under reduced motion, not its
+   * animation start-state. Killing every animation outright would leave every
+   * mark rendered at frame zero — glyphs invisible, the core dim, a gated
+   * aperture drawn open — which is a worse legibility regression than the
+   * motion it's meant to remove. Each state gets the values its animation
+   * would have settled on, applied directly.
+   */
+  .talon-mark *,
+  .talon-mark {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
+  .talon-mark__burst { opacity: 0 !important; }
+  .talon-mark[data-state="watching"] .talon-mark__core-fill { opacity: 0.16 !important; transform: scale(0.72) !important; }
+  .talon-mark[data-state="listening"] .talon-mark__core-fill,
+  .talon-mark[data-state="searching"] .talon-mark__core-fill,
+  .talon-mark[data-state="executing"] .talon-mark__core-fill,
+  .talon-mark[data-state="gated"] .talon-mark__core-fill,
+  .talon-mark[data-state="receipt"] .talon-mark__core-fill { opacity: 0.85 !important; transform: scale(1) !important; }
+  .talon-mark[data-state="solving"] .talon-mark__core-fill,
+  .talon-mark[data-state="blocked"] .talon-mark__core-fill { opacity: 0.75 !important; transform: scale(0.95) !important; }
+  .talon-mark[data-state="gated"] .talon-mark__blade { transform: rotate(20deg) scale(0.72) !important; }
+  .talon-mark[data-state="receipt"] .talon-mark__blade { transform: rotate(0deg) scale(1) !important; }
+  .talon-mark[data-state="blocked"] .talon-mark__blade:nth-child(2) { opacity: 0.2 !important; }
+  .talon-mark[data-state="gated"] .talon-mark__glyph--gated,
+  .talon-mark[data-state="blocked"] .talon-mark__glyph--blocked,
+  .talon-mark[data-state="receipt"] .talon-mark__glyph--receipt { opacity: 1 !important; }
+  /* Reply text appears complete and instantly; no caret. */
+  .talon-stream__word {
+    opacity: 1 !important;
+    transition: none !important;
+  }
+  .talon-stream__caret {
+    display: none !important;
   }
 }
