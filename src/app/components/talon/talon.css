@@ -430,38 +430,45 @@
     color 140ms var(--talon-ease);
 }
 
-/* Prototype disclosure as one quiet line, not a nested card. */
-.talon-session__disclosure {
+/*
+ * Suggested questions. Chips are conversation entry points, not filters —
+ * quiet surfaces, the state color on hover only, never louder than the reply
+ * they produce.
+ */
+.talon-session__chips {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
-  margin-bottom: 14px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--talon-border);
-  font-size: 11px;
-  line-height: 15px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.talon-session__chip {
+  padding: 6px 10px;
+  border: 1px solid var(--talon-border);
+  border-radius: var(--talon-radius-tile, 10px);
+  background: var(--talon-inset);
   color: var(--talon-text-secondary);
-}
-
-.talon-session__disclosure > span {
-  flex: 1;
-  min-width: 0;
-}
-
-.talon-session__disclosure-dismiss {
-  flex-shrink: 0;
-  border: none;
-  background: transparent;
-  color: var(--talon-state);
-  font-family: inherit;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
-  padding: 0;
+  transition:
+    border-color 140ms var(--talon-ease),
+    background-color 140ms var(--talon-ease),
+    color 140ms var(--talon-ease);
 }
 
-.talon-session__disclosure-dismiss:hover {
-  text-decoration: underline;
+.talon-session__chip:hover {
+  border-color: color-mix(in srgb, var(--talon-state) 52%, transparent);
+  background: color-mix(in srgb, var(--talon-state) 9%, #122033);
+  color: var(--talon-state);
+}
+
+.talon-session__chip:active {
+  transform: scale(0.98);
+}
+
+.talon-session__chip:disabled {
+  cursor: default;
+  opacity: 0.46;
 }
 
 .talon-session__button:hover {

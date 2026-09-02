@@ -7,9 +7,11 @@ import type {
 import { TALON_SESSION_TIMING, T, border, radius, shadow, surface } from "../../tokens";
 import {
   cancelTalonConversation,
+  getTalonChipResponse,
   getTalonSessionView,
   updateTalonConversation,
 } from "../../domain/talon";
+import { TALON_CHIP_PROMPTS } from "../../domain/microcopy";
 import { TalonMark, markStateForPhase, type TalonMarkState } from "./TalonMark";
 import { TalonStream } from "./TalonStream";
 import "./talon.css";
@@ -67,6 +69,15 @@ export interface TalonSessionContext {
    * instead of a constant idle cyan.
    */
   ambientTone?: string;
+  /**
+   * Continuity: the posture the ambient voice was stating before the session
+   * opened. The session renders it as its header so opening TALON never erases
+   * what TALON was saying.
+   */
+  postureLabel?: string;
+  postureLine?: string;
+  /** Suggested questions for this scene (from SCENE_CHIPS_MAP). */
+  chips?: Array<{ id: string; label: string }>;
 }
 
 export interface TalonSessionProps {
@@ -135,18 +146,17 @@ export function TalonSession({
   const transcriptId = useId();
   const [speechSupported, setSpeechSupported] = useState(false);
   const [draftTranscript, setDraftTranscript] = useState(conversation.transcript ?? "");
-  const [showFirstUseDisclosure, setShowFirstUseDisclosure] = useState(() => {
-    try {
-      return window.sessionStorage.getItem("sentinel:talon-disclosure-seen") !== "true";
-    } catch {
-      return true;
-    }
-  });
   const latestConversation = useRef(conversation);
   const draftRef = useRef(draftTranscript);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const timersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
   const manualStopRef = useRef(false);
+  /*
+   * The authored reply for the chip currently being answered. Kept in a ref so
+   * `completeRecommendation` can surface the chip's response without threading
+   * it through the shared conversation state.
+   */
+  const chipReplyRef = useRef<{ title: string; body: string } | null>(null);
 
   const view = getTalonSessionView(conversation);
   /*
@@ -179,15 +189,6 @@ export function TalonSession({
       timersRef.current = [];
     };
   }, []);
-
-  useEffect(() => {
-    if (!expanded && variant !== "modal") return;
-    try {
-      window.sessionStorage.setItem("sentinel:talon-disclosure-seen", "true");
-    } catch {
-      // Storage access is optional; disclosure remains visible for this session.
-    }
-  }, [expanded, variant]);
 
   const emit = useCallback(
     (patch: Partial<TalonConversationState>) => {
@@ -243,9 +244,15 @@ export function TalonSession({
   }, [cancelSession, expanded, isBusy, onExpandedChange, variant]);
 
   const completeRecommendation = useCallback(() => {
+    const answer = chipReplyRef.current;
+    chipReplyRef.current = null;
     const recommendation = {
       ...context.recommendation,
-      body: context.scriptedReply ?? context.recommendation.body,
+      title: answer?.title ?? context.recommendation.title,
+      body: answer?.body ?? context.scriptedReply ?? context.recommendation.body,
+      // A chip answer is complete on its own; the scene's evidence list reads
+      // as noise under it.
+      evidence: answer ? [] : context.recommendation.evidence,
     };
     emit({
       phase: recommendation.requiresHumanGate ? "human-gate" : "recommendation",
@@ -267,9 +274,10 @@ export function TalonSession({
   const runScriptedFallback = useCallback(() => {
     if (!canWriteSession) return;
     clearActiveWork();
+    chipReplyRef.current = null;
     const transcript =
       context.defaultTranscript ??
-      `TALON, review the current evidence and prepare ${context.recommendation.actionLabel.toLowerCase()} for operator approval.`;
+      "TALON, brief me on the current picture.";
     setDraftTranscript(transcript);
     draftRef.current = transcript;
     emit({
@@ -285,9 +293,39 @@ export function TalonSession({
     timersRef.current.push(captureTimer);
   }, [canWriteSession, clearActiveWork, context.defaultTranscript, context.recommendation, emit, scheduleRecommendation]);
 
+  /*
+   * A suggested question runs as a first-class conversation turn: the operator
+   * "asks" the chip's question in their own voice, and TALON answers with the
+   * authored response for that question — not a repurposed recommendation.
+   */
+  const runChipQuestion = useCallback(
+    (chipId: string) => {
+      if (!canWriteSession) return;
+      clearActiveWork();
+      const response = getTalonChipResponse(chipId as never);
+      chipReplyRef.current = { title: response.title, body: response.body };
+      const transcript = TALON_CHIP_PROMPTS[chipId as never];
+      setDraftTranscript(transcript);
+      draftRef.current = transcript;
+      emit({
+        phase: "input",
+        inputMode: "scripted",
+        transcript,
+        interimTranscript: "",
+        scriptedFallback: true,
+        error: null,
+        contextActionId: context.recommendation.actionId ?? null,
+      });
+      const captureTimer = setTimeout(scheduleRecommendation, TALON_SESSION_TIMING.scriptedCapture);
+      timersRef.current.push(captureTimer);
+    },
+    [canWriteSession, clearActiveWork, context.recommendation.actionId, emit, scheduleRecommendation],
+  );
+
   const startTypedInput = useCallback(() => {
     if (!canWriteSession) return;
     clearActiveWork();
+    chipReplyRef.current = null;
     const transcript = draftRef.current || context.defaultTranscript || "";
     setDraftTranscript(transcript);
     draftRef.current = transcript;
@@ -317,6 +355,7 @@ export function TalonSession({
     }
 
     clearActiveWork();
+    chipReplyRef.current = null;
     manualStopRef.current = false;
     const recognition = new Recognition();
     recognition.continuous = true;
@@ -357,7 +396,7 @@ export function TalonSession({
         phase: draftRef.current ? "review" : "error",
         transcript: draftRef.current,
         interimTranscript: "",
-        error: draftRef.current ? null : `Speech capture stopped: ${event.error}. Type the command or use the scripted fallback.`,
+        error: draftRef.current ? null : `Speech capture stopped (${event.error}). Type your command instead.`,
       });
     };
 
@@ -368,7 +407,7 @@ export function TalonSession({
         phase: draftRef.current ? "review" : "error",
         transcript: draftRef.current,
         interimTranscript: "",
-        error: draftRef.current ? null : "No speech was captured. Type the command or use the scripted fallback.",
+        error: draftRef.current ? null : "No speech was captured. Type your command instead.",
       });
     };
 
@@ -378,7 +417,7 @@ export function TalonSession({
       recognitionRef.current = null;
       emit({
         phase: "error",
-        error: "Browser speech capture could not start. Type the command or use the scripted fallback.",
+        error: "Speech capture is unavailable here. Type your command instead.",
       });
     }
   }, [
@@ -399,7 +438,7 @@ export function TalonSession({
       phase: draftRef.current ? "review" : "error",
       transcript: draftRef.current,
       interimTranscript: "",
-      error: draftRef.current ? null : "No speech was captured. Type the command or use the scripted fallback.",
+      error: draftRef.current ? null : "No speech was captured. Type your command instead.",
     });
   }, [emit]);
 
@@ -490,8 +529,8 @@ export function TalonSession({
             aria-label={
               variant === "compact"
                 ? speechSupported && !legacyMode
-                  ? "Start TALON browser speech capture"
-                  : "Run labelled TALON scripted voice fallback"
+                  ? "Speak to TALON"
+                  : "Ask TALON for a brief"
                 : expanded
                   ? "Close TALON session"
                   : "Open TALON session"
@@ -519,25 +558,16 @@ export function TalonSession({
 
       {(expanded || variant === "modal") ? (
         <section className="talon-session__surface" aria-label="TALON command session">
-          {showFirstUseDisclosure ? (
-            <div className="talon-session__disclosure" role="note">
-              <span>Scripted prototype — TALON replies, agent work, and evidence are authored states, not a live model.</span>
-              <button
-                type="button"
-                className="talon-session__disclosure-dismiss"
-                onClick={() => setShowFirstUseDisclosure(false)}
-                aria-label="Dismiss prototype notice"
-              >
-                Dismiss
-              </button>
-            </div>
-          ) : null}
           <div className="talon-session__surface-header">
             <div className="talon-session__status-row">
               <TalonMark color={color} size={28} state={markState} />
               <div>
-                <div className="talon-session__name">TALON session</div>
-                <div className="talon-session__detail" role="status" aria-live="polite">{status}</div>
+                <div className="talon-session__name">{context.postureLabel ?? "TALON session"}</div>
+                <div className="talon-session__detail" role="status" aria-live="polite">
+                  {view.phase === "watching" || view.phase === "cancelled"
+                    ? context.postureLine ?? status
+                    : status}
+                </div>
               </div>
             </div>
             {view.phase === "checking" || view.phase === "executing" ? <CheckingIcon /> : null}
@@ -555,18 +585,28 @@ export function TalonSession({
                     Session controls require the shared conversation callback from SentinelShell.
                   </div>
                 ) : null}
+                {context.chips?.length ? (
+                  <div className="talon-session__chips">
+                    {context.chips.slice(0, 3).map((chip) => (
+                      <button
+                        key={chip.id}
+                        type="button"
+                        className="talon-session__chip"
+                        onClick={() => runChipQuestion(chip.id)}
+                        disabled={!canWriteSession}
+                      >
+                        {chip.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
                 <div className="talon-session__actions">
                   <button type="button" className="talon-session__button talon-session__button--primary" onClick={startVoiceInput} disabled={!canWriteSession}>
-                    {speechSupported && !legacyMode ? "Start browser speech" : "Run scripted fallback"}
+                    {speechSupported && !legacyMode ? "Speak to TALON" : "Ask for a brief"}
                   </button>
                   <button type="button" className="talon-session__button" onClick={startTypedInput} disabled={!canWriteSession || legacyMode}>
                     Type command
                   </button>
-                  {speechSupported && !legacyMode ? (
-                    <button type="button" className="talon-session__button" onClick={runScriptedFallback} disabled={!canWriteSession}>
-                      Use scripted fallback
-                    </button>
-                  ) : null}
                 </div>
               </>
             ) : null}
@@ -576,7 +616,7 @@ export function TalonSession({
                 {view.inputMode === "voice" ? (
                   <>
                     <p className="talon-session__copy">
-                      Browser speech recognition is active. Stop capture to review the transcript before checking.
+                      Speech capture is active. Stop to review the transcript before TALON checks it.
                     </p>
                     <div className="talon-session__notice">{draftTranscript || view.interimTranscript || "Listening for an operator command…"}</div>
                     <div className="talon-session__actions">
@@ -586,11 +626,8 @@ export function TalonSession({
                   </>
                 ) : view.inputMode === "scripted" ? (
                   <>
-                    <div className="talon-session__notice">
-                      Scripted fallback: this transcript is a prototype example, not live provider AI.
-                    </div>
                     <p className="talon-session__copy">{draftTranscript}</p>
-                    <button type="button" className="talon-session__button" onClick={cancelSession}>Cancel fallback</button>
+                    <button type="button" className="talon-session__button" onClick={cancelSession}>Cancel</button>
                   </>
                 ) : (
                   <>
@@ -634,11 +671,8 @@ export function TalonSession({
             {view.phase === "checking" ? (
               <>
                 <p className="talon-session__copy">
-                  Checking the active Sentinel evidence model, operating limits, and human authorization gate.
+                  Checking the active evidence model, operating limits, and human authorization gate.
                 </p>
-                <div className="talon-session__notice">
-                  Provider AI is not connected. The recommendation is generated from this scripted prototype state.
-                </div>
                 <button type="button" className="talon-session__button" onClick={cancelSession}>Cancel check</button>
               </>
             ) : null}
@@ -669,7 +703,7 @@ export function TalonSession({
                 ) : null}
                 {view.phase === "human-gate" ? (
                   <div className="talon-session__notice">
-                    Human gate: use the adjacent operator command to authorize this recommendation.
+                    Authorization is yours — the staged command on the command bar sends it.
                   </div>
                 ) : null}
               </>
@@ -686,14 +720,28 @@ export function TalonSession({
                   {conversation.receipt?.summary}
                 </div>
                 {/*
-                 * The receipt used to be a dead end: nothing on this screen let
-                 * the operator talk to TALON again, so re-opening the session
-                 * after any completed action showed only a stale audit line
-                 * forever. TALON must always offer a way back in.
+                 * A receipt closes a command, not the conversation — the session
+                 * always offers a way back in.
                  */}
+                <div className="talon-session__meta">Ask TALON something new</div>
+                {context.chips?.length ? (
+                  <div className="talon-session__chips">
+                    {context.chips.slice(0, 3).map((chip) => (
+                      <button
+                        key={chip.id}
+                        type="button"
+                        className="talon-session__chip"
+                        onClick={() => runChipQuestion(chip.id)}
+                        disabled={!canWriteSession}
+                      >
+                        {chip.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
                 <div className="talon-session__actions">
                   <button type="button" className="talon-session__button talon-session__button--primary" onClick={startVoiceInput} disabled={!canWriteSession}>
-                    {speechSupported && !legacyMode ? "Start browser speech" : "Run scripted fallback"}
+                    {speechSupported && !legacyMode ? "Speak to TALON" : "Ask for a brief"}
                   </button>
                   <button type="button" className="talon-session__button" onClick={startTypedInput} disabled={!canWriteSession || legacyMode}>
                     Type command

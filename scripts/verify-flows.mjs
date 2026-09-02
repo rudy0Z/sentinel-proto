@@ -141,14 +141,20 @@ try {
     await page.getByRole("dialog").waitFor({ state: "hidden" });
   });
 
-  await run("TALON scripted session", async (page) => {
+  await run("TALON suggested-question conversation", async (page) => {
     await page.goto(`${baseUrl}#/?scene=contain-recommended&core=1`, {
       waitUntil: "domcontentloaded",
     });
     await page.getByRole("button", { name: "Open TALON session" }).click();
-    await page.getByRole("button", { name: "Use scripted fallback" }).click();
-    await page.getByText(/Recommendation ready|Human approval required/i).first().waitFor({ timeout: 12000 });
-    await page.getByText(/Scripted prototype/i).first().waitFor();
+    // Suggested questions are the conversation entry points.
+    await page.getByRole("button", { name: "Show alternate" }).click();
+    // The reply is the authored answer to the question, not the scene brief
+    // restated and not a repurposed recommendation.
+    await page.getByText(/Alternate plan prepared/i).first().waitFor({ timeout: 12000 });
+    // Honesty framing lives in the case study, not the product surface.
+    if (await page.getByText(/scripted prototype/i).count()) {
+      throw new Error("Prototype disclosure resurfaced inside the session.");
+    }
   });
 
   await run("map selection, pinned rail, and drag", async (page) => {

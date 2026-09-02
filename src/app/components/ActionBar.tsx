@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { OperationalIcon } from "./OperationalIcon";
 import {
+  getSceneChips,
   getTalonSessionRecommendation,
 } from "../domain/talon";
 import { deriveTalonSurface } from "../domain/talonSurface";
@@ -454,6 +455,16 @@ export function ActionBar({
               detail: displayedRecommendation.body,
               ambientMarkState: surface.markState,
               ambientTone: surface.tone,
+              postureLabel: surface.postureLabel,
+              postureLine: surface.postureLine,
+              chips: getSceneChips(state.scene),
+              /*
+               * The no-speech path is an authored brief, not a synthetic one:
+               * the operator asks for the picture and TALON answers with this
+               * scene's actual assessment.
+               */
+              defaultTranscript: "TALON, brief me on the current picture.",
+              scriptedReply: displayedRecommendation.body,
             }}
           />
         </div>

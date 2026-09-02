@@ -30,10 +30,10 @@ if (await orb.count()) {
   await page.screenshot({ path: `${outDir}/11-session-expanded.png` });
   console.log("captured expanded session");
 
-  // 3. Click scripted fallback -> checking -> recommendation chain
-  const fallback = page.getByRole("button", { name: /scripted fallback/i }).first();
-  if (await fallback.count()) {
-    await fallback.click();
+  // 3. Ask a suggested question -> checking -> authored reply
+  const chip = page.getByRole("button", { name: "TALON scope" });
+  if (await chip.count()) {
+    await chip.click();
     await page.waitForTimeout(1200);
     await page.screenshot({ path: `${outDir}/12-session-checking.png` });
     await page.waitForTimeout(2200);

@@ -73,6 +73,21 @@ export const TALON_CHIP_RESPONSES: Record<TalonChipId, { title: string; body: st
   },
 };
 
+/*
+ * The operator-voiced question each chip asks. The transcript matters: it is
+ * what the operator "said" in the session transcript, so it reads as a question
+ * a commander would ask, not a UI label pasted into a sentence.
+ */
+export const TALON_CHIP_PROMPTS: Record<TalonChipId, string> = {
+  "why-now": "TALON, why surface this now?",
+  "what-changed": "TALON, what changed since the last assessment?",
+  "what-missing": "TALON, what data is missing?",
+  "show-alternate": "TALON, show me the alternate plan.",
+  "autonomous-scope": "TALON, what can you do without my approval?",
+  "confidence-breakdown": "TALON, break down the confidence.",
+  "what-blocked": "TALON, what is blocked right now?",
+};
+
 export const TALON_VOICE_RESPONSES: Partial<Record<SceneId, { title: string; body: string; tone: string }>> = {
   "baseline": {
     title: "On watch",

@@ -977,21 +977,6 @@ function TalonWorkforceView({
 
   return (
     <>
-      <div
-        role="note"
-        style={{
-          padding: `${space.sm}px ${space.md}px`,
-          borderRadius: radius.control,
-          border: `1px solid ${tint(T.cyan, 0.24)}`,
-          background: tint(T.cyan, 0.06),
-          color: T.textSecondary,
-          fontFamily: font.sans,
-          fontSize: typeScale.caption,
-          lineHeight: 1.45,
-        }}
-      >
-        <strong style={{ color: T.cyan }}>Prototype disclosure.</strong> Workforce states illustrate a scripted supervised model. They describe evidence, blockers, and audit context, not live autonomous agents.
-      </div>
       <AgentThroughputStrip tasks={agentTasks} />
       {orchestrator && <OrchestratorCard task={orchestrator} />}
       <AgenticFlowVisualization tasks={workforceTasks} />
