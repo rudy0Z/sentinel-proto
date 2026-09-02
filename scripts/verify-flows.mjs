@@ -225,6 +225,54 @@ try {
     }
   });
 
+  /*
+   * Surface truth invariant: everything TALON says about itself derives from
+   * one state derivation. The historical failure was the ambient voice reading
+   * "QUIET WATCH — nothing has crossed the escalation threshold" directly
+   * beneath contested-watch and THRESHOLD CROSSED panels. This asserts the
+   * voice names the actual state in the scenes where the old derivation lied.
+   */
+  await run("ambient voice names the true state in contested, reraise, gate, and quiet scenes", async (page) => {
+    const voiceEyebrow = async () =>
+      (await page.locator(".talon-voice > div").first().textContent()) ?? "";
+
+    await page.goto(`${baseUrl}#/?scene=monitoring-contested&core=1`, { waitUntil: "domcontentloaded" });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.locator(".talon-voice").waitFor();
+    let eyebrow = await voiceEyebrow();
+    if (!/contested watch/i.test(eyebrow)) {
+      throw new Error(`Contested scene voice says "${eyebrow}" instead of naming the contested watch.`);
+    }
+
+    await page.goto(`${baseUrl}#/?scene=talon-reraise&core=1`, { waitUntil: "domcontentloaded" });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.locator(".talon-voice").waitFor();
+    eyebrow = await voiceEyebrow();
+    if (!/threshold crossed/i.test(eyebrow)) {
+      throw new Error(`Re-raise scene voice says "${eyebrow}" instead of naming the threshold crossing.`);
+    }
+
+    await page.goto(`${baseUrl}#/?scene=authority-notification-ready&core=1`, { waitUntil: "domcontentloaded" });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.locator(".talon-voice").waitFor();
+    eyebrow = await voiceEyebrow();
+    if (!/human authorization required/i.test(eyebrow)) {
+      throw new Error(`Authority-ready voice says "${eyebrow}" instead of naming the gate.`);
+    }
+
+    await page.goto(`${baseUrl}#/?scene=baseline&core=1`, { waitUntil: "domcontentloaded" });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.locator(".talon-voice").waitFor();
+    eyebrow = await voiceEyebrow();
+    if (!/quiet watch/i.test(eyebrow)) {
+      throw new Error(`Baseline voice says "${eyebrow}" — quiet watch must stay quiet.`);
+    }
+    const panel = (await page.locator(".talon-voice").textContent()) ?? "";
+    if (!/watching \d+ source/i.test(panel)) {
+      throw new Error(`Baseline voice lost its posture line: "${panel}"`);
+    }
+  });
+
   await run("re-raise preserves original dissent record", async (page) => {
     await page.goto(`${baseUrl}#/?scene=monitoring-contested&core=1`, { waitUntil: "domcontentloaded" });
     const audit = await page.getByLabel("Contested watch").getByText(/AUD-DIS-0847-FP/).textContent();

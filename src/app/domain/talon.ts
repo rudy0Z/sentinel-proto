@@ -191,9 +191,14 @@ export function getTalonSessionRecommendation(state: ShellState): TalonSessionRe
     tone: model.recommendation.tone,
     evidence: model.answerFormat.evidence,
     blocker: model.answerFormat.blocker,
-    requiresHumanGate: Boolean(
-      model.activeAgents.some((agent) => agent.requiresHumanGate) ||
-      state.actionSurface.primary.some((action) => action.status === "recommended"),
+    /*
+     * The session's gate derives ONLY from a staged, gate-able operator command.
+     * Agent-level gates describe workforce context and stay in the Workforce
+     * rail — folding them in here is what made every scene read
+     * "Human approval required", including quiet watch.
+     */
+    requiresHumanGate: state.actionSurface.primary.some(
+      (action) => action.status === "recommended",
     ),
   };
 }
@@ -820,7 +825,14 @@ export function getAgentTasks(scene: SceneId): TalonAgentTask[] {
             : notificationStatus === "complete"
               ? `Authority packet sent. Receipt ${AUTHORITY_AUDIT_ID}.`
               : undefined,
-      requiresHumanGate: true,
+      /*
+       * The agent's gate is contextual, not global: it reports a human gate only
+       * where the packet genuinely waits on a person (authority-ready, re-raise).
+       * An unconditional true here used to leak into every session
+       * recommendation — manufacturing a "Human approval required" verdict on
+       * scenes with nothing to authorize.
+       */
+      requiresHumanGate: isAuthority || isReRaise,
       gateLabel: isReRaise ? "Supervisor decision" : "Send Authority Packet",
       blockedBy: isReRaise ? "Duty Supervisor" : isContested ? "Operator" : isAuthority ? "Operator" : undefined,
       auditId: isAuthority || notificationStatus === "complete" ? AUTHORITY_AUDIT_ID : undefined,

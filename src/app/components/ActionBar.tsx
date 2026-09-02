@@ -1,9 +1,9 @@
 import { useCallback, useRef, useState } from "react";
 import { OperationalIcon } from "./OperationalIcon";
 import {
-  getEvidenceSources,
   getTalonSessionRecommendation,
 } from "../domain/talon";
+import { deriveTalonSurface } from "../domain/talonSurface";
 import { COMMAND_LABELS } from "../domain/microcopy";
 import { TalonSession } from "./talon/TalonSession";
 import {
@@ -214,6 +214,13 @@ export function ActionBar({
       }
     : talonRecommendation;
   /*
+   * One derivation for everything TALON says about itself. Before
+   * deriveTalonSurface, the voice, the ring color, and the mark each re-derived
+   * state from different sources and could contradict each other — a "quiet
+   * watch" line above a THRESHOLD CROSSED panel.
+   */
+  const surface = deriveTalonSurface(state, { burnPermitVerified });
+  /*
    * The command surface has two axes, both centred on the orb: TALON's voice
    * rises from behind it, and actions bloom to its sides. The primary command
    * blooms right (forward / proceed); a decline or monitor option blooms left
@@ -250,24 +257,11 @@ export function ActionBar({
     ) ??
     null;
 
-  /* Ambient voice: what TALON is saying when no session is open. */
-  const ambientLive = getEvidenceSources(state.scene).filter((s) => s.status === "active").length;
+  /* Ambient voice comes from the one derivation — posture, not ad-hoc branches. */
   const hasCommand = Boolean(rightAction || leftAction);
-  const voiceEyebrow = isGate
-    ? "Source conflict"
-    : hasCommand && displayedRecommendation.requiresHumanGate
-      ? "Human authorization required"
-      : hasCommand
-        ? "Operator review"
-        : "Quiet watch";
-  const voiceLine = isGate
-    ? "Thermal anomaly reads as fire; Satellite IR reads a controlled agricultural burn. TALON will not prepare the packet until you resolve which is true."
-    : hasCommand
-      ? displayedRecommendation.body
-      : ambientLive > 0
-        ? `TALON is watching ${ambientLive} source${ambientLive === 1 ? "" : "s"}. Nothing has crossed the escalation threshold.`
-        : "TALON is holding. No operator action is required.";
-  const voiceTone = isGate || (hasCommand && displayedRecommendation.requiresHumanGate) ? T.amber : T.cyan;
+  const voiceEyebrow = surface.postureLabel;
+  const voiceLine = surface.postureLine;
+  const voiceTone = surface.tone;
 
   return (
     <div
@@ -458,11 +452,8 @@ export function ActionBar({
               recommendation: displayedRecommendation,
               statusLabel: displayedRecommendation.title,
               detail: displayedRecommendation.body,
-              ambientMarkState: isGate
-                ? "blocked"
-                : hasCommand && displayedRecommendation.requiresHumanGate
-                  ? "gated"
-                  : "watching",
+              ambientMarkState: surface.markState,
+              ambientTone: surface.tone,
             }}
           />
         </div>
@@ -484,19 +475,13 @@ export function ActionBar({
 
 // ─── The one authorize-able command beside TALON ─────────────────────────────
 
-function CommandGroup({ actions, onAction, state }: { actions: QuickActionState[]; onAction: (id: QuickActionId) => void; state: ShellState }) {
+function CommandGroup({ actions, onAction, state, posture = "TALON holding · nothing staged" }: { actions: QuickActionState[]; onAction: (id: QuickActionId) => void; state: ShellState; posture?: string }) {
   if (actions.length === 0) {
     /*
      * Quiet watch. TALON is still synthesizing, but nothing is waiting on the
-     * operator. State TALON's posture rather than the absence of a command —
-     * "No command staged" made the entry state read as an empty system, which
-     * is the first sentence a reviewer sees.
+     * operator. The posture text arrives from deriveTalonSurface via the bar —
+     * this branch is a fallback for call sites that don't pass one.
      */
-    const sources = getEvidenceSources(state.scene);
-    const live = sources.filter((s) => s.status === "active").length;
-    const posture = live > 0
-      ? `Watching ${live} source${live === 1 ? "" : "s"} · nothing above threshold`
-      : "Holding · no operator action required";
     return (
       <div
         style={{

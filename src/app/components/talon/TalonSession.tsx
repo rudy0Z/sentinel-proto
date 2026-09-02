@@ -60,6 +60,13 @@ export interface TalonSessionContext {
    * aperture should be closed whether or not anyone opened the session.
    */
   ambientMarkState?: TalonMarkState;
+  /**
+   * The incident-derived ring tone from deriveTalonSurface. While the session
+   * is only watching, the orb speaks for the INCIDENT — not for an idle
+   * conversation — so the ring carries the same color as the voice panel
+   * instead of a constant idle cyan.
+   */
+  ambientTone?: string;
 }
 
 export interface TalonSessionProps {
@@ -143,11 +150,15 @@ export function TalonSession({
 
   const view = getTalonSessionView(conversation);
   /*
-   * TALON's mark reports TALON's own session state. Incident severity is the
-   * pill's and the rails' job — borrowing it here made a watching orb look
-   * like an alarm.
+   * While no session work is running, the orb reports the INCIDENT via the
+   * derived surface tone (gate amber, failure red, watch cyan). Session phases
+   * — input, checking, recommendation — override with their own state colors,
+   * because then the orb is reporting the conversation, not the incident.
    */
-  const color = stateColor(conversation, T.talonIdle);
+  const color =
+    (view.phase === "watching" || view.phase === "cancelled") && context.ambientTone
+      ? context.ambientTone
+      : stateColor(conversation, T.talonIdle);
   const isBusy = view.phase === "input" || view.phase === "review" || view.phase === "checking" || view.phase === "executing";
   const canWriteSession = Boolean(onConversationChange);
 
