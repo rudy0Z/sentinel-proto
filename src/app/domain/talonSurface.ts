@@ -170,7 +170,14 @@ export function deriveTalonSurface(
 
   const recommended = findRecommended(state);
 
-  if (sceneEntry && !(recommended && GATED_IDS.has(recommended.id))) {
+  /*
+   * The scene table always wins: these postures ARE the incident's truth, and
+   * their staged commands (a recovery, the fork's forward position) sit beside
+   * the voice rather than redefining it. The re-raise says "threshold crossed"
+   * even though "Prepare authority packet" is staged — the command is visible
+   * next to the voice, not instead of it.
+   */
+  if (sceneEntry) {
     return {
       posture: sceneEntry.posture,
       tone: sceneEntry.tone ?? T.amber,

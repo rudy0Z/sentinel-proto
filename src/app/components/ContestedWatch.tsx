@@ -158,11 +158,9 @@ function ThresholdMeter({ current, threshold }: { current: number; threshold: nu
 export function ContestedWatchPanel({
   dissent,
   currentConfidence,
-  onResolve,
 }: {
   dissent: DissentRecord;
   currentConfidence: number;
-  onResolve: () => void;
 }) {
   const watch = getContestedWatch(dissent, currentConfidence);
   if (!watch) return null;
@@ -229,24 +227,11 @@ export function ContestedWatchPanel({
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={onResolve}
-        style={{
-          fontFamily: font.sans,
-          fontSize: typeScale.body,
-          fontWeight: typeWeight.semibold,
-          color: T.textSecondary,
-          background: "rgba(255,255,255,0.04)",
-          border: "1px solid rgba(255,255,255,0.12)",
-          borderRadius: radius.tile,
-          padding: "9px 0",
-          cursor: "pointer",
-          transition: `background ${motion.fast}`,
-        }}
-      >
-        Ground truth arrived — close this out
-      </button>
+      {/*
+        No command lives here. Doc-12's rule — the action bar is the only
+        command execution surface — is structural now: "Ground truth arrived —
+        close this out" blooms from TALON on this scene.
+      */}
     </section>
   );
 }
@@ -254,13 +239,9 @@ export function ContestedWatchPanel({
 export function ReRaiseBriefPanel({
   dissent,
   currentConfidence,
-  onEscalate,
-  onDecline,
 }: {
   dissent: DissentRecord;
   currentConfidence: number;
-  onEscalate: () => void;
-  onDecline: () => void;
 }) {
   const brief = getReRaiseBrief(dissent, currentConfidence);
 
@@ -359,45 +340,10 @@ export function ReRaiseBriefPanel({
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: space.sm }}>
-        <button
-          type="button"
-          onClick={onDecline}
-          style={{
-            flex: 1,
-            fontFamily: font.sans,
-            fontSize: typeScale.body,
-            fontWeight: typeWeight.semibold,
-            color: T.textSecondary,
-            background: "transparent",
-            border: "1px solid rgba(255,255,255,0.12)",
-            borderRadius: radius.tile,
-            padding: "10px 0",
-            cursor: "pointer",
-          }}
-        >
-          Decline again
-        </button>
-        <button
-          type="button"
-          onClick={onEscalate}
-          style={{
-            flex: 1,
-            fontFamily: font.sans,
-            fontSize: typeScale.body,
-            fontWeight: typeWeight.bold,
-            color: T.amber,
-            background: tint(T.amber, 0.16),
-            border: `1px solid ${T.amber}`,
-            borderRadius: radius.tile,
-            padding: "10px 0",
-            cursor: "pointer",
-            transition: `background ${motion.fast}`,
-          }}
-        >
-          Prepare authority packet
-        </button>
-      </div>
+      {/*
+        Forward and decline live on the command surface as the fork — two
+        positions blooming on opposite sides of TALON, neither pre-selected.
+      */}
     </section>
   );
 }

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { OperationalIcon } from "./OperationalIcon";
 import {
   getSceneChips,
@@ -7,6 +7,7 @@ import {
 import { deriveTalonSurface } from "../domain/talonSurface";
 import { COMMAND_LABELS } from "../domain/microcopy";
 import { TalonSession } from "./talon/TalonSession";
+import { Liquid } from "liquid-gooey";
 import {
   DISABLED_OPACITY,
   type QuickActionId,
@@ -265,6 +266,28 @@ export function ActionBar({
   const voiceLine = surface.postureLine;
   const voiceTone = surface.tone;
 
+  /*
+   * Plate emergence. When the staged command changes, the pill re-mounts
+   * overlapping the orb and extends outward — the liquid silhouette bridges
+   * while it travels, so the command literally grows out of TALON. Critically
+   * damped, 220ms; reduced motion skips straight to settled.
+   */
+  const reduceMotion = useMemo(
+    () => typeof window !== "undefined" && Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches),
+    [],
+  );
+  const actionIdentity = `${leftAction?.id ?? "-"}:${rightAction?.id ?? "-"}`;
+  const [plateIn, setPlateIn] = useState(reduceMotion);
+  useEffect(() => {
+    if (reduceMotion) {
+      setPlateIn(true);
+      return;
+    }
+    setPlateIn(false);
+    const raf = requestAnimationFrame(() => setPlateIn(true));
+    return () => cancelAnimationFrame(raf);
+  }, [actionIdentity, reduceMotion]);
+
   return (
     <div
       style={{
@@ -300,28 +323,7 @@ export function ActionBar({
           background: `linear-gradient(to top, ${tint(T.bgMap, 0.94)} 0%, ${tint(T.bgMap, 0.72)} 46%, ${tint(T.bgMap, 0)} 100%)`,
         }}
       />
-      <style dangerouslySetInnerHTML={{ __html: `
-        /*
-          Actions bloom sideways out of TALON. Each pill grows from the orb side
-          of its cell (right action from its left edge, left action from its
-          right edge) so it reads as extending out of TALON rather than
-          appearing beside it. Critically damped — no bounce, this is an
-          authorization surface. Clickable from frame one; motion never gates input.
-        */
-        @keyframes commandBloomRight {
-          from { opacity: 0; transform: scaleX(.55); }
-          to   { opacity: 1; transform: scaleX(1); }
-        }
-        @keyframes commandBloomLeft {
-          from { opacity: 0; transform: scaleX(.55); }
-          to   { opacity: 1; transform: scaleX(1); }
-        }
-        .talon-bloom-right { transform-origin: left center; animation: commandBloomRight 200ms cubic-bezier(0.23,1,0.32,1); }
-        .talon-bloom-left  { transform-origin: right center; animation: commandBloomLeft 200ms cubic-bezier(0.23,1,0.32,1); }
-        @media (prefers-reduced-motion: reduce) {
-          .talon-bloom-right, .talon-bloom-left { animation: none; }
-        }
-      `}} />
+
 
       {/*
         One command surface, three zones, all centred on the orb:
@@ -333,7 +335,18 @@ export function ActionBar({
         actions extend from it, and the voice unfolds above it. Nothing floats
         detached, and there is one material for everything TALON says.
       */}
-      <div
+      {/*
+        The command PLATE. One liquid surface: the pills and the orb are items
+        of a single silhouette, so a staged command is physically TALON's — it
+        emerges bridged from the orb and stays joined by a liquid neck. The
+        contested fork (forward + decline on opposite sides) is the same
+        grammar, split. Content stays crisp DOM above the silhouette.
+      */}
+      <Liquid
+        blur={8}
+        contrast={20}
+        fill="#0C1622"
+        shadow={shadow.edgePopover}
         style={{
           position: "relative",
           zIndex: 1,
@@ -341,15 +354,20 @@ export function ActionBar({
           display: "grid",
           gridTemplateColumns: "1fr auto 1fr",
           alignItems: "center",
-          columnGap: space.md,
+          columnGap: space.sm,
         }}
       >
         {/* Left bloom — decline / hold */}
         <div style={{ display: "flex", justifyContent: "flex-end", minWidth: 0 }}>
           {leftAction ? (
-            <div className="talon-bloom-left" style={{ minWidth: 0 }}>
+            <Liquid.Item
+              x={plateIn ? 0 : 72}
+              transition={{ duration: 220, ease: "cubic-bezier(0.23, 1, 0.32, 1)" }}
+              radius={12}
+              style={{ minWidth: 0 }}
+            >
               <CommandGroup actions={[leftAction]} onAction={handleAction} state={state} />
-            </div>
+            </Liquid.Item>
           ) : null}
         </div>
 
@@ -442,6 +460,7 @@ export function ActionBar({
             </div>
           ) : null}
 
+          <Liquid.Item radius={999}>
           <TalonSession
             variant="floating"
             conversation={state.talonConversation}
@@ -467,18 +486,24 @@ export function ActionBar({
               scriptedReply: displayedRecommendation.body,
             }}
           />
+          </Liquid.Item>
         </div>
 
         {/* Right bloom — the primary command, plus the danger menu when present */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", gap: space.sm, minWidth: 0 }}>
           {rightAction ? (
-            <div className="talon-bloom-right" style={{ minWidth: 0 }}>
+            <Liquid.Item
+              x={plateIn ? 0 : -72}
+              transition={{ duration: 220, ease: "cubic-bezier(0.23, 1, 0.32, 1)" }}
+              radius={12}
+              style={{ minWidth: 0 }}
+            >
               <CommandGroup actions={[rightAction]} onAction={handleAction} state={state} />
-            </div>
+            </Liquid.Item>
           ) : null}
           {menuActions.length > 0 && <DangerMenu actions={menuActions} onAction={handleAction} state={state} />}
         </div>
-      </div>
+      </Liquid>
 
     </div>
   );

@@ -291,12 +291,16 @@
   place-items: center;
   border: 2px solid var(--talon-state);
   border-radius: 50%;
+  /*
+   * Inside the command plate the blob below is the orb's BODY — the content
+   * stays a transparent state wash so the liquid silhouette shows through.
+   */
   background:
     radial-gradient(
       circle at 50% 40%,
-      color-mix(in srgb, var(--talon-state) 32%, #0a1826) 0%,
-      color-mix(in srgb, var(--talon-state) 14%, #091522) 62%,
-      #081320 100%
+      color-mix(in srgb, var(--talon-state) 26%, transparent) 0%,
+      color-mix(in srgb, var(--talon-state) 10%, transparent) 62%,
+      transparent 100%
     );
   color: var(--talon-state);
   cursor: pointer;
@@ -327,9 +331,9 @@
   background:
     radial-gradient(
       circle at 50% 40%,
-      color-mix(in srgb, var(--talon-state) 42%, #0a1826) 0%,
-      color-mix(in srgb, var(--talon-state) 18%, #091522) 62%,
-      #081320 100%
+      color-mix(in srgb, var(--talon-state) 38%, transparent) 0%,
+      color-mix(in srgb, var(--talon-state) 16%, transparent) 62%,
+      transparent 100%
     );
 }
 

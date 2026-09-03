@@ -658,6 +658,7 @@ export type QuickActionId =
   | "deploy-navigation-drone"
   | "deploy-backup"
   | "acknowledge-exception"
+  | "close-out-contested"
   | "abort-mission"
   | "stand-down"
   | "shift-handover";

@@ -60,6 +60,14 @@ export const COMMAND_DEFINITIONS: Record<QuickActionId, CommandDefinition> = {
     gate: "none",
     tone: T.amber,
   }),
+  "close-out-contested": definition("close-out-contested", {
+    shortLabel: "Close out",
+    intent: "Ground truth has arrived — reconcile the disagreement and record the verdict.",
+    priority: "primary",
+    riskLevel: "low",
+    gate: "none",
+    tone: T.cyan,
+  }),
   "monitor-only": definition("monitor-only", {
     shortLabel: "Monitor",
     intent: "Keep the incident under observation without escalation.",

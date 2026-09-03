@@ -579,6 +579,13 @@ export function SentinelShell() {
       return;
     }
 
+    // Closing contested watch opens reconciliation — a shell surface, not a
+    // scene transition, so it never touches the machine.
+    if (actionId === "close-out-contested") {
+      setReconciliation(true);
+      return;
+    }
+
     /*
      * Scene-moving commands go through the transition table. Each returns
      * whether the move was legal, so an action fired from a scene that has no
@@ -1224,7 +1231,6 @@ export function SentinelShell() {
           <ContestedWatchPanel
             dissent={state.dissent}
             currentConfidence={evidenceConfidence}
-            onResolve={() => setReconciliation(true)}
           />
         </div>
       )}
@@ -1246,8 +1252,6 @@ export function SentinelShell() {
           <ReRaiseBriefPanel
             dissent={state.dissent}
             currentConfidence={evidenceConfidence}
-            onEscalate={() => handleAction("confirm-incident")}
-            onDecline={() => handleAction("monitor-only")}
           />
         </div>
       )}
@@ -2870,6 +2874,28 @@ function deriveQuickActions(draft: ShellDraft, investigationElapsed: number): Ac
 
       return flat(primaryContain, secondaryContain);
     }
+
+    // ── Dissent scenes: the command surface holds the commands, panels explain ──
+    case "monitoring-contested":
+      return flat([
+        mk("close-out-contested", "Ground truth arrived — close this out", "recommended",
+          "Ground truth has arrived. Reconcile the disagreement and record the verdict.", T.cyan),
+      ]);
+
+    // The fork: forward (prepare the packet for the supervisor) and back
+    // (decline again, raised threshold) bloom on opposite sides of TALON —
+    // neither pre-selected, the disagreement made physical.
+    case "talon-reraise":
+      return flat(
+        [
+          mk("confirm-incident", "Prepare authority packet", "recommended",
+            "New evidence cleared the override threshold. Prepare the packet for the duty supervisor.", T.amber),
+        ],
+        [
+          mk("monitor-only", "Decline again", "available",
+            "Decline the re-raise. TALON returns to contested watch at a raised threshold.", T.textSecondary),
+        ],
+      );
 
     // ── Rescue scenes ──────────────────────────────────────────────────────
     case "rescue-nominal":

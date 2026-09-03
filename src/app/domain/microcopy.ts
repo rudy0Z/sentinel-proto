@@ -23,6 +23,7 @@ export const COMMAND_LABELS: Record<QuickActionId, string> = {
   "deploy-navigation-drone": "Guide personnel",
   "deploy-backup": "Deploy backup",
   "acknowledge-exception": "Acknowledge",
+  "close-out-contested": "Ground truth arrived — close this out",
   "abort-mission": "Abort mission",
   "stand-down": "Stand down",
   "shift-handover": "Handover shift",
