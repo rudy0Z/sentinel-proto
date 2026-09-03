@@ -1,6 +1,6 @@
 import { useEffect, useRef, type KeyboardEvent } from "react";
 import type { DissentOutcome, DissentRecord } from "../tokens";
-import { T, ease, font, layer, material, motion, radius, space, surface, tint, typeScale, typeWeight } from "../tokens";
+import { T, ease, font, layer, material, motion, radius, space, surface, tint, tracking, typeScale, typeWeight } from "../tokens";
 import { getContestedWatch, getReRaiseBrief, resolveDissent } from "../domain/disagreement";
 
 /*
@@ -26,7 +26,7 @@ function DissentRecordCard({ dissent }: { dissent: DissentRecord }) {
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: space.sm }}>
-        <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMuted }}>
+        <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: tracking.eyebrow, textTransform: "uppercase", color: T.textMuted }}>
           Operator decision
         </span>
         <span style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.textMuted }}>{dissent.recordedAt}</span>
@@ -61,7 +61,7 @@ function DissentRecordCard({ dissent }: { dissent: DissentRecord }) {
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-          <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: "0.1em", textTransform: "uppercase", color: T.cyan }}>
+          <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: tracking.eyebrow, textTransform: "uppercase", color: T.cyan }}>
             TALON position at override
           </span>
           <span style={{ fontFamily: font.mono, fontSize: typeScale.label, color: T.textMuted }}>{dissent.talonConfidence}%</span>
@@ -92,7 +92,7 @@ function ThresholdMeter({ current, threshold }: { current: number; threshold: nu
   return (
     <div style={{ display: "grid", gap: space.sm }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMuted }}>
+        <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: tracking.eyebrow, textTransform: "uppercase", color: T.textMuted }}>
           Evidence under reduced weighting
         </span>
         <span
@@ -204,7 +204,7 @@ export function ContestedWatchPanel({
       <DissentRecordCard dissent={dissent} />
 
       <div style={{ display: "grid", gap: space.sm }}>
-        <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMuted }}>
+        <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: tracking.eyebrow, textTransform: "uppercase", color: T.textMuted }}>
           Still watching
         </span>
         <div style={{ display: "flex", flexWrap: "wrap", gap: space.xs }}>
@@ -303,7 +303,7 @@ export function ReRaiseBriefPanel({
       </div>
 
       <div style={{ display: "grid", gap: space.sm }}>
-        <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMuted }}>
+        <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: tracking.eyebrow, textTransform: "uppercase", color: T.textMuted }}>
           New evidence only
         </span>
         <ul style={{ margin: 0, paddingLeft: 16, display: "grid", gap: space.sm }}>
@@ -326,7 +326,7 @@ export function ReRaiseBriefPanel({
           gap: space.xs,
         }}
       >
-        <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMuted }}>
+        <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: tracking.eyebrow, textTransform: "uppercase", color: T.textMuted }}>
           Routed to
         </span>
         <span style={{ fontFamily: font.sans, fontSize: typeScale.body, fontWeight: typeWeight.semibold, color: T.textPrimary }}>
@@ -500,7 +500,7 @@ export function ReconciliationPanel({
             gap: space.xs,
           }}
         >
-          <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMuted }}>
+          <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: tracking.eyebrow, textTransform: "uppercase", color: T.textMuted }}>
             Ground truth
           </span>
           <p style={{ fontFamily: font.sans, fontSize: typeScale.body, color: T.textSecondary, lineHeight: 1.6, margin: 0 }}>
@@ -553,7 +553,7 @@ export function ReconciliationPanel({
             gap: space.xs,
           }}
         >
-          <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: "0.1em", textTransform: "uppercase", color: copy.tone }}>
+          <span style={{ fontFamily: font.mono, fontSize: typeScale.label, letterSpacing: tracking.eyebrow, textTransform: "uppercase", color: copy.tone }}>
             System response
           </span>
           <p style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textSecondary, lineHeight: 1.6, margin: 0 }}>

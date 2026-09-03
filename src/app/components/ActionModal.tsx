@@ -8,7 +8,7 @@ import type {
   ShellState,
   TalonConversationChangeHandler,
 } from "../tokens";
-import { T, border, font, layer, material, motion, radius, surface, tint, typeScale } from "../tokens";
+import { T, border, font, layer, material, motion, radius, surface, tint, tracking, typeScale } from "../tokens";
 import { getTalonSessionView } from "../domain/talon";
 import { OperationalIcon } from "./OperationalIcon";
 import { TalonSession } from "./talon/TalonSession";
@@ -280,7 +280,7 @@ function ModalHeader({ title, subtitle, accentColor, icon }: { title: string; su
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
         {icon}
-        <div style={{ fontFamily: font.sans, fontSize: typeScale.heading, fontWeight: 700, color: T.textPrimary, letterSpacing: "-0.01em" }}>
+        <div style={{ fontFamily: font.sans, fontSize: typeScale.heading, fontWeight: 700, color: T.textPrimary, letterSpacing: tracking.tight }}>
           {title}
         </div>
       </div>
@@ -542,7 +542,7 @@ function AbortModal({ onClose, onConfirm }: { onClose: () => void; onConfirm: ()
           display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 18,
         }}><OperationalIcon name="warning" color={T.amber} size={18} /></div>
         <div>
-          <div style={{ fontFamily: font.sans, fontSize: 15, fontWeight: 700, color: T.textPrimary, letterSpacing: "-0.01em" }}>Abort Drone Mission</div>
+          <div style={{ fontFamily: font.sans, fontSize: 15, fontWeight: 700, color: T.textPrimary, letterSpacing: tracking.tight }}>Abort Drone Mission</div>
           <div style={{ fontFamily: font.sans, fontSize: 12, color: T.textSecondary, marginTop: 3 }}>Confirm your decision</div>
         </div>
       </div>

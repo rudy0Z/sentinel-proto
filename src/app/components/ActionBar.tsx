@@ -180,19 +180,38 @@ export function ActionBar({
     : rawPrimary;
   const secondary = state.actionSurface.secondary.filter((a) => a.status !== "hidden");
 
-  // Keep one accountable command beside the stable TALON control. Core mode keeps
-  // the same candidate filtering while removing the lower-priority menu.
-  const promoted = secondary.filter((a) => a.status === "recommended" && !DANGER_IDS.includes(a.id));
-  const coreCandidate =
-    [...primary, ...promoted].find((action) => action.status === "recommended") ??
-    [...primary, ...promoted].find((action) => action.status === "in-progress") ??
-    [...primary, ...promoted].find(
-      (action) => action.status === "available" && !DANGER_IDS.includes(action.id),
-    );
-  const flank = coreCandidate ? [coreCandidate] : [];
+  const HOLD_IDS: QuickActionId[] = ["monitor-only"];
+  const forwardPool = [...primary, ...secondary].filter(
+    (a) => !HOLD_IDS.includes(a.id) && !DANGER_IDS.includes(a.id),
+  );
+  const rightAction =
+    forwardPool.find((a) => a.status === "recommended") ??
+    forwardPool.find((a) => a.status === "in-progress") ??
+    forwardPool.find((a) => a.status === "available") ??
+    forwardPool.find((a) => a.status === "disabled") ??
+    null;
+  const leftAction =
+    [...primary, ...secondary].find(
+      (a) => HOLD_IDS.includes(a.id) && a.status !== "hidden",
+    ) ??
+    [...secondary].find(
+      (a) =>
+        !DANGER_IDS.includes(a.id) &&
+        a.id !== rightAction?.id &&
+        a.status !== "hidden" &&
+        a.status !== "disabled",
+    ) ??
+    null;
+
+  /*
+   * Danger actions never bloom into the plate — they live in a hidden menu
+   * behind a deliberate gate. The right pill is the staged operator command;
+   * the left pill is the back/hold option. Everything else lives in the
+   * danger menu.
+   */
   const menuActions = coreMode
     ? []
-    : secondary.filter((a) => a.id !== coreCandidate?.id);
+    : secondary.filter((a) => a.id !== rightAction?.id);
 
   const handleAction = useCallback((id: QuickActionId) => onAction(id), [onAction]);
   const handleConversation = useCallback(
@@ -229,36 +248,6 @@ export function ActionBar({
    * blooms right (forward / proceed); a decline or monitor option blooms left
    * (back / hold). Danger stays in its own menu, never a bloom.
    */
-  /*
-   * Decline/hold actions always bloom LEFT (back); forward commands bloom RIGHT.
-   * Splitting on intent — not on primary/secondary or status — is what keeps the
-   * gated forward command ("Prepare packet", locked) on the right where the
-   * operator expects it, while "Decline escalation" sits on the left, rather
-   * than the decline stealing the right slot just because it happens to be the
-   * only actionable one.
-   */
-  const HOLD_IDS: QuickActionId[] = ["monitor-only"];
-  const forwardPool = [...primary, ...promoted].filter(
-    (a) => !HOLD_IDS.includes(a.id) && !DANGER_IDS.includes(a.id),
-  );
-  const rightAction =
-    forwardPool.find((a) => a.status === "recommended") ??
-    forwardPool.find((a) => a.status === "in-progress") ??
-    forwardPool.find((a) => a.status === "available") ??
-    forwardPool.find((a) => a.status === "disabled") ??
-    null;
-  const leftAction =
-    [...primary, ...secondary].find(
-      (a) => HOLD_IDS.includes(a.id) && a.status !== "hidden",
-    ) ??
-    [...secondary].find(
-      (a) =>
-        !DANGER_IDS.includes(a.id) &&
-        a.id !== rightAction?.id &&
-        a.status !== "hidden" &&
-        a.status !== "disabled",
-    ) ??
-    null;
 
   /* Ambient voice comes from the one derivation — posture, not ad-hoc branches. */
   const hasCommand = Boolean(rightAction || leftAction);
@@ -561,7 +550,7 @@ function CommandGroup({ actions, onAction, state, posture = "TALON holding · no
 function DangerMenu({ actions, onAction, state }: { actions: QuickActionState[]; onAction: (id: QuickActionId) => void; state: ShellState }) {
   const [open, setOpen] = useState(false);
   return (
-    <div style={{ position: "relative", flexShrink: 0, animation: "commandTileIn 180ms cubic-bezier(0.23,1,0.32,1)" }}>
+    <Liquid.Item radius={10} style={{ position: "relative", flexShrink: 0, animation: "commandTileIn 180ms cubic-bezier(0.23,1,0.32,1)" }}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -631,7 +620,7 @@ function DangerMenu({ actions, onAction, state }: { actions: QuickActionState[];
           </div>
         </>
       )}
-    </div>
+    </Liquid.Item>
   );
 }
 

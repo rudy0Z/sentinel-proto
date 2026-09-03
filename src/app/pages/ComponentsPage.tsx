@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { DISABLED_OPACITY, GI, TILE_H, TILE_W, T, border, font, material, radius, surface, typeScale } from "../tokens";
+import { DISABLED_OPACITY, GI, TILE_H, TILE_W, T, border, font, material, radius, surface, tracking, typeScale } from "../tokens";
 import { StatusPill } from "../components/shared/StatusPill";
 import { TinyMetric } from "../components/shared/TinyMetric";
 
@@ -30,10 +30,10 @@ export default function ComponentsPage() {
       <div style={{ maxWidth: 1240, margin: "0 auto" }}>
         {/* ── Page header ── */}
         <div style={{ marginBottom: 56 }}>
-          <div style={{ fontFamily: font.mono, fontSize: 11, color: T.cyan, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>
+          <div style={{ fontFamily: font.mono, fontSize: 11, color: T.cyan, letterSpacing: tracking.eyebrow, textTransform: "uppercase", marginBottom: 8 }}>
             Component Library · v2.0
           </div>
-          <h1 style={{ fontSize: 32, fontWeight: 700, color: T.textPrimary, margin: 0, letterSpacing: "-0.02em" }}>
+          <h1 style={{ fontSize: 32, fontWeight: 700, color: T.textPrimary, margin: 0, letterSpacing: tracking.displayTight }}>
             Flyt<span style={{ color: T.cyan }}>Base</span> Sentinel — Current Component Reference
           </h1>
           <p style={{ fontSize: 14, color: T.textSecondary, lineHeight: 1.6, marginTop: 12, maxWidth: 680 }}>
@@ -455,7 +455,7 @@ export default function ComponentsPage() {
 
         {/* Footer */}
         <div style={{ padding: "40px 0 24px", borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: 40 }}>
-          <div style={{ fontFamily: font.mono, fontSize: 10, color: T.textMuted, letterSpacing: "0.06em" }}>
+          <div style={{ fontFamily: font.mono, fontSize: 10, color: T.textMuted, letterSpacing: tracking.telemetry }}>
             FlytBase Sentinel · Component Library 2.0 · Live UI reference · Dev-facing documentation
           </div>
         </div>
@@ -472,7 +472,7 @@ function Section({ title, description, children }: { title: string; description:
   return (
     <div style={{ marginBottom: 56 }}>
       <div style={{ marginBottom: 22, paddingBottom: 14, borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <h2 style={{ fontSize: typeScale.heading, fontWeight: 700, color: T.textPrimary, margin: 0, letterSpacing: "-0.01em" }}>{title}</h2>
+        <h2 style={{ fontSize: typeScale.heading, fontWeight: 700, color: T.textPrimary, margin: 0, letterSpacing: tracking.tight }}>{title}</h2>
         <p style={{ fontSize: 12, color: T.textSecondary, marginTop: 6, lineHeight: 1.5, maxWidth: 680 }}>{description}</p>
       </div>
       {children}
@@ -505,7 +505,7 @@ function ActionTile({ label, status, tone, stateNote, note }: {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center" }}>
-      {note && <div style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: T.textMuted, letterSpacing: "0.06em", textTransform: "uppercase" }}>{note}</div>}
+      {note && <div style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: T.textMuted, letterSpacing: tracking.telemetry, textTransform: "uppercase" }}>{note}</div>}
       <button
         type="button"
         disabled={isDisabled || isComplete}
@@ -541,7 +541,7 @@ function ActionTile({ label, status, tone, stateNote, note }: {
           </span>
         )}
       </button>
-      {stateNote && <div style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.06em" }}>{stateNote}</div>}
+      {stateNote && <div style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: T.textMuted, textTransform: "uppercase", letterSpacing: tracking.telemetry }}>{stateNote}</div>}
     </div>
   );
 }
@@ -630,7 +630,7 @@ function InlineModal({ title, subtitle, accentColor, confirmLabel, icon, childre
           </div>
         )}
         <div>
-          <div style={{ fontFamily: font.sans, fontSize: 15, fontWeight: 700, color: T.textPrimary, letterSpacing: "-0.01em" }}>{title}</div>
+          <div style={{ fontFamily: font.sans, fontSize: 15, fontWeight: 700, color: T.textPrimary, letterSpacing: tracking.tight }}>{title}</div>
           {subtitle && <div style={{ fontFamily: font.sans, fontSize: 12, color: T.textSecondary, marginTop: 3 }}>{subtitle}</div>}
         </div>
       </div>
@@ -703,7 +703,7 @@ function AlertPopupDemo() {
       <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
         <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.red, marginTop: 5, animation: "pulse 1.2s infinite", flexShrink: 0 }} />
         <div>
-          <div style={{ fontFamily: font.sans, fontSize: 13, fontWeight: 700, color: T.textPrimary, letterSpacing: "-0.01em" }}>Thermal spike detected — Grid 4C</div>
+          <div style={{ fontFamily: font.sans, fontSize: 13, fontWeight: 700, color: T.textPrimary, letterSpacing: tracking.tight }}>Thermal spike detected — Grid 4C</div>
           <div style={{ fontFamily: font.mono, fontSize: 10, color: T.red, marginTop: 3, letterSpacing: "0.04em" }}>TALON CONFIDENCE 84% · FIRE-PRONE ZONE</div>
         </div>
       </div>
@@ -771,7 +771,7 @@ function DemoPriorityCard({ severity, areaLabel, title, rationale, nextStep, sta
           <div style={{ fontFamily: font.sans, fontSize: 11, color: T.textPrimary, lineHeight: 1.45 }}>{nextStep}</div>
         </div>
       </div>
-      {action && <div style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: T.textMuted, marginTop: 10, letterSpacing: "0.06em" }}>Action → {action}</div>}
+      {action && <div style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: T.textMuted, marginTop: 10, letterSpacing: tracking.telemetry }}>Action → {action}</div>}
     </div>
   );
 }

@@ -35,6 +35,26 @@ export interface AuthorityPacket {
   humanGate: string;
 }
 
+/*
+ * The set of operator commands that *do* need a human gate before they fire
+ * (vs commands that can be staged and executed as part of supervised work).
+ * One source of truth: deriveTalonSurface (voice tone) and
+ * getTalonSessionRecommendation (session phase) both consume this set. M3
+ * originally let each definition drift, which made the orb say "operator
+ * review" while the conversation said "human-gate" on the same scene.
+ */
+export const GATED_ACTIONS: ReadonlySet<QuickActionId> = new Set([
+  "confirm-incident",
+  "notify-authorities",
+  "authorize-containment",
+  "emergency-evacuate",
+]);
+
+/** Quick helper: is the staged operator command a gate-able one? */
+export function isGatedAction(action: { id: QuickActionId } | undefined): boolean {
+  return Boolean(action && GATED_ACTIONS.has(action.id));
+}
+
 export const TALON_PROMPT_CHIPS: Array<{ id: TalonChipId; label: string }> = [
   { id: "why-now", label: "Why now?" },
   { id: "what-changed", label: "What changed?" },
@@ -183,23 +203,24 @@ export function cancelTalonConversation(conversation: TalonConversationState): T
 
 export function getTalonSessionRecommendation(state: ShellState): TalonSessionRecommendation {
   const model = getTalonInteractionModel(state);
+  /*
+   * The session's gate derives ONLY from a staged, gate-able operator command
+   * (see GATED_ACTIONS). Anything else — a recovery, a deploy, a continue —
+   * stages and executes under supervision, not behind a human gate. Sharing
+   * the set with deriveTalonSurface is what keeps the voice, the orb, and
+   * the conversation phase reading the same incident.
+   */
+  const gatedRecommended = [...state.actionSurface.primary, ...state.actionSurface.secondary]
+    .find((a) => a.status === "recommended" && GATED_ACTIONS.has(a.id));
   return {
     title: model.recommendation.action,
     body: model.recommendation.text,
     actionLabel: model.answerFormat.nextAction,
-    actionId: getRecommendedActionId(state),
+    actionId: gatedRecommended?.id ?? getRecommendedActionId(state),
     tone: model.recommendation.tone,
     evidence: model.answerFormat.evidence,
     blocker: model.answerFormat.blocker,
-    /*
-     * The session's gate derives ONLY from a staged, gate-able operator command.
-     * Agent-level gates describe workforce context and stay in the Workforce
-     * rail — folding them in here is what made every scene read
-     * "Human approval required", including quiet watch.
-     */
-    requiresHumanGate: state.actionSurface.primary.some(
-      (action) => action.status === "recommended",
-    ),
+    requiresHumanGate: Boolean(gatedRecommended),
   };
 }
 

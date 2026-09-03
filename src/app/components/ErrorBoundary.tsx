@@ -1,5 +1,5 @@
 import { Component, type ReactNode } from "react";
-import { T, font, radius, border, typeScale } from "../tokens";
+import { T, font, radius, border, tracking, typeScale } from "../tokens";
 
 interface Props { children: ReactNode; }
 interface State { hasError: boolean; error: Error | null; }
@@ -133,7 +133,7 @@ export class ErrorBoundary extends Component<Props, State> {
             fontFamily: font.sans,
             fontSize: 12,
             fontWeight: 700,
-            letterSpacing: "0.06em",
+            letterSpacing: tracking.telemetry,
             textTransform: "uppercase",
             cursor: "pointer",
           }}

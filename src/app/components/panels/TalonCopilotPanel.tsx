@@ -16,7 +16,7 @@ import type {
   TalonAgentTask,
   EvidenceSource,
 } from "../../tokens";
-import { T, border, font, radius, space, surface, tint, tone, typeScale, typeWeight, tracking } from "../../tokens";
+import { T, border, font, motion, radius, space, surface, tint, tone, typeScale, typeWeight, tracking } from "../../tokens";
 import {
   getAuthorityPacket,
   getEvidenceSources,
@@ -1401,13 +1401,44 @@ function IntelligenceBrief({
           padding: `${space.md}px 0`,
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: space.sm }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: space.sm, marginBottom: space.xs }}>
           <span style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.semibold, color: T.textSecondary }}>
             Source freshness
           </span>
-          <span style={{ fontFamily: font.sans, fontSize: typeScale.label, color: missingSources.length || staleSources.length ? T.amber : T.teal, textAlign: "right" }}>
-            {Math.max(0, activeSources.length - staleSources.length)} current · {staleSources.length + missingSources.length} uncertain
+          <span style={{ fontFamily: font.mono, fontSize: typeScale.label, color: missingSources.length || staleSources.length ? T.amber : T.teal, textAlign: "right", fontFeatureSettings: '"tnum"' }}>
+            {Math.max(0, activeSources.length - staleSources.length)} <span style={{ color: T.textMuted }}>current</span> · {staleSources.length + missingSources.length} <span style={{ color: T.amber }}>uncertain</span>
           </span>
+        </div>
+        {/*
+         * Per-source bars share the left rail's evidence language — same
+         * height, same tint family, same tnum. Reading the same data in two
+         * languages was the loudest generic tell in the original brief.
+         */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: space.xs }}>
+          {evidenceSources.slice(0, 5).map((source) => {
+            const ratio = source.confidence / 100;
+            const tone = source.status === "active" ? T.cyan : source.status === "stale" ? T.amber : source.status === "missing" || source.status === "failed" ? T.red : T.textMuted;
+            return (
+              <div key={source.id} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: space.sm, alignItems: "center" }}>
+                <div style={{ position: "relative", height: 6, borderRadius: radius.dense, background: surface.control, overflow: "hidden" }}>
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: `${Math.round(ratio * 100)}%`,
+                      background: tone,
+                      transition: `width ${motion.normal}, background ${motion.normal}`,
+                    }}
+                  />
+                </div>
+                <span style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: tone, fontFeatureSettings: '"tnum"', minWidth: 26, textAlign: "right" }}>
+                  {source.status === "pending" ? "—" : `${source.confidence}%`}
+                </span>
+              </div>
+            );
+          })}
         </div>
         {hasMissingData ? (
           <div style={{ marginTop: space.sm, fontFamily: font.sans, fontSize: typeScale.label, color: T.textMuted, lineHeight: 1.45 }}>
@@ -1429,9 +1460,23 @@ function IntelligenceBrief({
           <span style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.semibold, color: T.textSecondary }}>
             Agent relay
           </span>
-          <span style={{ fontFamily: font.sans, fontSize: typeScale.label, color: blocked > 0 ? T.amber : T.cyan, textAlign: "right" }}>
-            {complete} complete · {running} running · {blocked} gated
-          </span>
+          {/*
+           * Stacked counts — inline "0 complete · 3 running · 0 gated" wrapped
+           * at 260px wide. The compact right-aligned column reads the same data
+           * in three lines that never wrap, and the gated count in amber is
+           * always the loudest read (it's the one that gates the operator).
+           */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, lineHeight: 1.3 }}>
+            <span style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: T.textMuted, fontFeatureSettings: '"tnum"' }}>
+              {complete} <span style={{ color: T.textSecondary }}>complete</span>
+            </span>
+            <span style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: T.textMuted, fontFeatureSettings: '"tnum"' }}>
+              {running} <span style={{ color: T.textSecondary }}>running</span>
+            </span>
+            <span style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: blocked > 0 ? T.amber : T.teal, fontFeatureSettings: '"tnum"', fontWeight: typeWeight.bold }}>
+              {blocked} <span style={{ color: blocked > 0 ? T.amber : T.textMuted }}>gated</span>
+            </span>
+          </div>
         </div>
       </div>
 
@@ -1476,7 +1521,7 @@ function IntelligenceBrief({
                 lineHeight: 36,
                 fontWeight: typeWeight.heavy,
                 color: packetTone,
-                letterSpacing: "-0.02em",
+                letterSpacing: tracking.displayTight,
               }}
             >
               {packet.confidence}

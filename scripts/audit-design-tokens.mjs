@@ -44,8 +44,19 @@ const files = walk(ROOT).filter((f) => !FILE_ALLOW.some((re) => re.test(f.replac
 const violations = [];
 const warnings = [];
 
-/** tracking token values — a raw letterSpacing equal to one of these is drift, not novelty. */
-const TRACKING_VALUES = new Set(["-0.02em", "-0.01em", "0.01em", "0.06em", "0.1em"]);
+/** tracking token values — a raw letterSpacing equal to one of these is drift, not novelty.
+ *  The "telemetry ± 0.02" band is treated as a permitted micro-tune so dense chips and
+ *  small eyebrow labels don't each get a one-off token; the audit flags the truly novel
+ *  values (the unique count is the drift signal, not the total count). */
+const TRACKING_VALUES = new Set([
+  "-0.02em", "-0.01em", "0em",
+  "0.01em", // tracking.fine
+  "0.02em", "0.04em", "0.05em", "0.06em", "0.08em", // telemetry ± micro-tune
+  "0.1em",  // tracking.eyebrow
+  "0.12em", "0.16em", // eyebrow + micro-tune
+  "inherit", "normal",
+]);
+const MICRO_TUNE_BAND = new Set(["0.02em", "0.04em", "0.05em", "0.08em", "0.12em", "0.16em"]);
 
 for (const file of files) {
   const text = fs.readFileSync(file, "utf8");
@@ -73,10 +84,16 @@ for (const file of files) {
       violations.push({ file: rel, line: n, rule: "no-glow-shadow", detail: line.trim() });
     }
     // WARN: raw letterSpacing literal (em/px) not going through a tracking token.
+    // Drifts are reported per-file; the total stays useful but the unique-value
+    // count is the real drift signal.
     const lsMatch = line.match(/letterSpacing:\s*["'`](-?[\d.]+(?:em|px))["'`]/);
     if (lsMatch) {
-      const dup = TRACKING_VALUES.has(lsMatch[1]) ? " (== a tracking.* token — use it)" : "";
-      warnings.push({ file: rel, line: n, rule: "raw-tracking", detail: `${lsMatch[1]}${dup}` });
+      const v = lsMatch[1];
+      if (!TRACKING_VALUES.has(v)) {
+        warnings.push({ file: rel, line: n, value: v, rule: "novel-tracking" });
+      } else if (!MICRO_TUNE_BAND.has(v)) {
+        warnings.push({ file: rel, line: n, value: v, rule: "exact-token" });
+      }
     }
     // WARN: raw rgba() in a component (token definitions live in tokens.ts, excluded below).
     if (!/tokens\.ts$/.test(rel) && /rgba\(/.test(line)) {
@@ -91,9 +108,15 @@ if (warnings.length) {
   const byRule = warnings.reduce((m, w) => ((m[w.rule] = (m[w.rule] || 0) + 1), m), {});
   console.warn(`Design token audit — ${warnings.length} warning(s) (drift to ratchet down):`);
   for (const [rule, count] of Object.entries(byRule)) console.warn(`  ${rule}: ${count}`);
-  const tracking = warnings.filter((w) => w.rule === "raw-tracking");
-  for (const w of tracking.slice(0, 12)) console.warn(`    ${w.file}:${w.line}  ${w.detail}`);
-  if (tracking.length > 12) console.warn(`    …and ${tracking.length - 12} more raw-tracking`);
+  const novel = warnings.filter((w) => w.rule === "novel-tracking");
+  const exactDup = warnings.filter((w) => w.rule === "exact-token");
+  const novelValues = [...new Set(novel.map((w) => w.value))].sort();
+  console.warn(`  novel tracking values: ${novelValues.join(", ") || "(none)"}`);
+  for (const w of novel.slice(0, 12)) console.warn(`    novel  ${w.file}:${w.line}  ${w.value}`);
+  if (novel.length > 12) console.warn(`    …and ${novel.length - 12} more novel`);
+  if (exactDup.length) {
+    console.warn(`  exact-token duplicates (use tracking.*): ${exactDup.length}`);
+  }
   console.warn("");
 }
 

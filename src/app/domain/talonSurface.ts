@@ -1,6 +1,6 @@
 import type { ShellState } from "../tokens";
 import { T } from "../tokens";
-import { getEvidenceSources, getTalonRecommendation } from "./talon";
+import { GATED_ACTIONS, getEvidenceSources, getTalonRecommendation } from "./talon";
 
 /*
  * ─── The one state derivation ────────────────────────────────────────────────
@@ -55,16 +55,15 @@ export interface TalonSurface {
   gateLabel: string | null;
 }
 
-const GATED_IDS = new Set([
-  "confirm-incident",
-  "notify-authorities",
-  "authorize-containment",
-  "emergency-evacuate",
-]);
-
 function findRecommended(state: ShellState) {
   return [...state.actionSurface.primary, ...state.actionSurface.secondary].find(
     (action) => action.status === "recommended",
+  );
+}
+
+function findGatedRecommended(state: ShellState) {
+  return [...state.actionSurface.primary, ...state.actionSurface.secondary].find(
+    (action) => action.status === "recommended" && GATED_ACTIONS.has(action.id),
   );
 }
 
@@ -169,6 +168,7 @@ export function deriveTalonSurface(
   }
 
   const recommended = findRecommended(state);
+  const gatedRecommended = findGatedRecommended(state);
 
   /*
    * The scene table always wins: these postures ARE the incident's truth, and
@@ -188,14 +188,14 @@ export function deriveTalonSurface(
     };
   }
 
-  if (recommended && GATED_IDS.has(recommended.id)) {
+  if (gatedRecommended) {
     return {
       posture: "gated",
       tone: T.amber,
       markState: "gated",
       postureLabel: "Human authorization required",
-      postureLine: `${recommended.label} is staged. The authorization is yours.`,
-      gateLabel: recommended.label,
+      postureLine: `${gatedRecommended.label} is staged. The authorization is yours.`,
+      gateLabel: gatedRecommended.label,
     };
   }
 
@@ -220,7 +220,7 @@ export function deriveTalonSurface(
       tone: T.cyan,
       markState: "solving",
       postureLabel: "Operator review",
-      postureLine: "TALON's recommendation is staged for your review.",
+      postureLine: `${staged.label} is staged for your review.`,
       gateLabel: null,
     };
   }

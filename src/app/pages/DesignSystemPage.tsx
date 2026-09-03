@@ -13,6 +13,7 @@ import {
   TILE_W,
   T,
   font,
+  tracking,
   typeScale as typeTokens,
   radius,
 } from "../tokens";
@@ -208,7 +209,7 @@ export default function DesignSystemPage() {
                       {row.label}
                       <div style={{ marginTop: 4 }}>{row.spec}</div>
                     </div>
-                    <div style={{ fontSize: row.label === "Display / page header" ? 24 : row.label === "Section title" ? 20 : row.label === "Panel title" ? 13 : row.label === "Body copy" ? 12 : row.label === "Action tile label" ? 11 : row.label === "Telemetry label" ? 10 : 11, fontFamily: row.label.includes("Telemetry") || row.label.includes("Metric") ? font.mono : font.sans, fontWeight: row.label === "Body copy" ? 400 : row.label.includes("Metric") || row.label.includes("Telemetry") ? 400 : 700, letterSpacing: row.label === "Action tile label" ? "0.06em" : undefined, textTransform: row.label === "Action tile label" ? "uppercase" : undefined }}>
+                    <div style={{ fontSize: row.label === "Display / page header" ? 24 : row.label === "Section title" ? 20 : row.label === "Panel title" ? 13 : row.label === "Body copy" ? 12 : row.label === "Action tile label" ? 11 : row.label === "Telemetry label" ? 10 : 11, fontFamily: row.label.includes("Telemetry") || row.label.includes("Metric") ? font.mono : font.sans, fontWeight: row.label === "Body copy" ? 400 : row.label.includes("Metric") || row.label.includes("Telemetry") ? 400 : 700, letterSpacing: row.label === "Action tile label" ? tracking.telemetry : undefined, textTransform: row.label === "Action tile label" ? "uppercase" : undefined }}>
                       {row.sample}
                     </div>
                   </div>
@@ -331,7 +332,7 @@ export default function DesignSystemPage() {
         </Section>
 
         <div style={{ marginTop: 48, paddingTop: 24, borderTop: `1px solid ${GI.border}` }}>
-          <div style={{ fontFamily: font.mono, fontSize: 10, letterSpacing: "0.06em", color: T.textMuted }}>
+          <div style={{ fontFamily: font.mono, fontSize: 10, letterSpacing: tracking.telemetry, color: T.textMuted }}>
             FlytBase Sentinel - Design System 2.0 - Current build reference - Case study essentials included
           </div>
         </div>
@@ -512,7 +513,7 @@ const badgeStyle: CSSProperties = {
   border: "1px solid",
   fontFamily: font.mono,
   fontSize: 10,
-  letterSpacing: "0.06em",
+  letterSpacing: tracking.telemetry,
   textTransform: "uppercase",
 };
 

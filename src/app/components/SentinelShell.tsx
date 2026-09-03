@@ -933,15 +933,15 @@ export function SentinelShell() {
       {/*
         Scene navigation is always available — including embeds — because a
         reviewer (or a recruiter) must reach any designed state without
-        replaying the 90-second script. It aligns to the ADAPTIVE rail width;
-        the old constant offset floated it 40px into the map at 1280, where it
-        collided with TALON's voice panel.
+        replaying the 90-second script. The chip sits above the live-feed
+        bottom-right corner so it never overlaps the feed content; its
+        zIndex clears the feed's centerSurface layer.
       */}
       {experienceMode === "free" && (
         <ReviewDock
           open={reviewDockOpen}
           activeScene={state.scene}
-          bottomOffset={reviewDockBottom}
+          bottomOffset={reviewDockBottom + (state.scene === "verify-active" ? 56 : 0)}
           rightOffset={adaptiveRailWidth + SCREEN_INSET + 12}
           onToggle={() => setReviewDockOpen((current) => !current)}
           onJumpToScene={setScene}
@@ -2932,6 +2932,22 @@ function deriveQuickActions(draft: ShellDraft, investigationElapsed: number): Ac
         mk("notify-teams", "Notify teams", draft.teamsNotified ? "complete" : "available",
           "Reconfirm field team staging readiness.", T.textSecondary),
       ];
+
+      /*
+       * Battery-critical's own copy: TALON says "Deploy backup" but the
+       * post-evac action surface only offered the route drones. The voice
+       * and the action surface were telling two different stories; surface
+       * the backup here so the recommended action on the rail has somewhere
+       * to live.
+       */
+      if (draft.scene === "rescue-battery-critical" && !draft.backupDeployed) {
+        primaryPostEvac.splice(
+          2,
+          0,
+          mk("deploy-backup", "Deploy backup", "recommended",
+            "Supervised recall and Scout-03 handoff; perimeter change remains gated.", T.amber),
+        );
+      }
 
       if (draft.exceptionState === "signal-degraded") {
         primaryPostEvac.splice(
