@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { FOCUSED_INCIDENT_QUEUE, INCIDENT, getIncidentQueueItem } from "../mockData";
-import { WORKFLOW_META, ShellState, T, border, font, radius, space, surface, tint, tracking, typeScale, typeStyle, typeWeight } from "../tokens";
+import { WORKFLOW_META, ShellState, T, border, font, motion, radius, space, surface, tint, tracking, typeScale, typeStyle, typeWeight } from "../tokens";
 import { OperationalIcon } from "./OperationalIcon";
 import { PopoverSurface, usePopoverDismissal } from "./shared/PopoverSurface";
 
@@ -715,17 +715,28 @@ function SettingsRow({
   );
 }
 
+/*
+ * The one navbar chip recipe. The previous implementation had nine mixed chip
+ * languages (border, fill, radius, padding, font, color) fighting each other
+ * across one row — the navbar was the highest-frequency surface in the case
+ * study and the loudest demonstration of "no system". One recipe, three
+ * clusters, dividers only between clusters.
+ */
 const navBtnStyle: React.CSSProperties = {
-  background: "rgba(255,255,255,0.04)",
-  border: "1px solid rgba(255,255,255,0.08)",
+  background: surface.control,
+  border: `1px solid ${border.default}`,
   borderRadius: radius.control,
-  padding: "6px 10px",
+  padding: `5px ${space.sm}px`,
   fontFamily: font.sans,
   fontSize: typeScale.label,
+  fontWeight: typeWeight.semibold,
   color: T.textSecondary,
   cursor: "pointer",
   display: "flex",
   alignItems: "center",
   gap: 6,
   flexShrink: 0,
+  height: 30,
+  letterSpacing: tracking.fine,
+  transition: `background ${motion.fast}, border-color ${motion.fast}, color ${motion.fast}`,
 };

@@ -26,7 +26,7 @@ export const T = {
    * judgment. Leads its family via tint(); one raw rgba in ActionModal is routed
    * through tint() too.
    */
-  yellow: "#E6D24C",
+  /* Yellow retired — guidance folds into cyan, advisory into amber (3-lead palette). */
   textPrimary: "#E8EDF4",
   textSecondary: "#9AACBE",
   textMuted: "#7A8BA0",

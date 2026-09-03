@@ -8,7 +8,7 @@ function severityColor(severity: OperationalExceptionSeverity): string {
     case "critical": return T.red;
     case "blocked": return T.red;
     case "degraded": return T.amber;
-    case "advisory": return T.yellow;
+    case "advisory": return T.amber;
     default: return T.amber;
   }
 }

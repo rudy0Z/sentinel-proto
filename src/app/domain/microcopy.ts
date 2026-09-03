@@ -50,7 +50,7 @@ export const TALON_CHIP_RESPONSES: Record<TalonChipId, { title: string; body: st
   "what-missing": {
     title: "Data gaps remain",
     body: "Ground moisture is stale, aerial visual is smoke-obscured, and fuel load survey is not current. TALON keeps these gaps visible before escalation.",
-    tone: T.yellow,
+    tone: T.amber,
   },
   "show-alternate": {
     title: "Alternate plan prepared",
@@ -158,12 +158,12 @@ export const TALON_VOICE_RESPONSES: Partial<Record<SceneId, { title: string; bod
   "network-degraded": {
     title: "Low-bandwidth mode — commands are slower",
     body: "Network latency is at 340ms. I've dropped HD video streams and shifted to lightweight LiDAR vector outlines. Evidence fusion is running but slower. I'm keeping all field-authorization gates blocked until source freshness meets minimum threshold. What do you need from me?",
-    tone: T.yellow,
+    tone: T.amber,
   },
   "satellite-feed-loss": {
     title: "Satellite offline — drone and thermal coverage only",
     body: "Satellite IR is unavailable. I've reweighted the evidence model toward drone telemetry and ground thermal. Spatial model confidence dropped to 40% — spread margin is now ±200m instead of ±80m. I can continue operations with this reduced certainty, but I recommend expanding drone coverage to compensate.",
-    tone: T.yellow,
+    tone: T.amber,
   },
   "infrastructure-total-loss": {
     title: "Core systems offline — manual protocol required",

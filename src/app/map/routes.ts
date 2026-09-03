@@ -29,7 +29,7 @@ export const NAMED_ROUTES: NamedRoute[] = [
     label: "RESPONDER INGRESS",
     variant: "ingress",
     nodeIds: ["responder-ingress", "buffer-relay-east", "bravo-staging", "res-south-w"],
-    color: T.yellow,
+    color: T.cyan,
   },
   {
     id: "investigation-path",

@@ -391,10 +391,10 @@ export function SpatialMapCanvas({
 
   const mapFilter =
     showContain || showRescue
-      ? "saturate(0.96) brightness(0.84)"
+      ? "saturate(0.92) brightness(0.78)"
       : isPreVerify
-        ? "saturate(0.6) brightness(0.6) hue-rotate(180deg)"
-        : "saturate(0.92) brightness(0.74)";
+        ? "saturate(0.58) brightness(0.54) hue-rotate(180deg)"
+        : "saturate(0.86) brightness(0.66)";
 
   const adjustZoneMargin = (delta: number) => {
     if (!onUpdateState || !activeZoneId) return;
@@ -638,7 +638,7 @@ export function SpatialMapCanvas({
           position: "absolute",
           inset: 0,
           pointerEvents: "none",
-          background: `linear-gradient(to bottom, ${tint(T.bgMap, 0.62)} 0%, ${tint(T.bgMap, 0.34)} 18%, ${tint(T.bgMap, 0.08)} 42%, transparent 62%)`,
+          background: `linear-gradient(to bottom, ${tint(T.bgMap, 0.72)} 0%, ${tint(T.bgMap, 0.42)} 18%, ${tint(T.bgMap, 0.12)} 42%, transparent 60%)`,
         }}
       />
       <div
@@ -647,7 +647,7 @@ export function SpatialMapCanvas({
           position: "absolute",
           inset: 0,
           pointerEvents: "none",
-          background: `radial-gradient(ellipse 78% 72% at 50% 46%, transparent 38%, ${tint(T.bgMap, 0.5)} 100%)`,
+          background: `radial-gradient(ellipse 72% 66% at 50% 44%, transparent 30%, ${tint(T.bgMap, 0.62)} 100%)`,
         }}
       />
 
@@ -770,7 +770,7 @@ export function SpatialMapCanvas({
         {showResponderRoute && responderNamedRoute && (
           <RouteLine
             path={routeToSvgPath(responderNamedRoute)}
-            color={T.yellow}
+            color={T.cyan}
             label="RESPONDER INGRESS"
             variant="ingress"
             animate={!reducedMotion}

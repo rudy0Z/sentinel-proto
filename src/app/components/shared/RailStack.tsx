@@ -155,7 +155,8 @@ export function RailStack({ views, defaultViewId, ariaLabel }: { views: RailView
                 onClick={() => pinView(v.id)}
                 onKeyDown={(event) => handleTabKeyDown(event, index)}
                 style={{
-                  flex: 1,
+                  flex: "0 1 auto",
+                  minWidth: 0,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -171,9 +172,17 @@ export function RailStack({ views, defaultViewId, ariaLabel }: { views: RailView
                   fontSize: typeScale.caption,
                   fontWeight: typeWeight.semibold,
                   cursor: "pointer",
+                  /*
+                   * Labels truncate before the strip pushes past its
+                   * container (the "Exce…" clip at 260px). Full name in
+                   * the tooltip and aria-label.
+                   */
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
                   transition: `background ${motion.fast}, color ${motion.fast}`,
                 }}
+                title={v.label}
               >
                 {v.label}
                 {v.badge ? (

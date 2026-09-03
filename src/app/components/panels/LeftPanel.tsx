@@ -99,7 +99,7 @@ export function IntelPanel({ state, onClearSelection }: IntelPanelProps) {
     <PanelCard
       title="Context Inspector"
       badgeLabel={badge}
-      badgeColor={selectedZone?.boundaryColor ?? (selectedDrone ? T.cyan : selectedTeam ? T.yellow : selectedAnomaly ? T.fire : T.teal)}
+      badgeColor={selectedZone?.boundaryColor ?? (selectedDrone ? T.cyan : selectedTeam ? T.cyan : selectedAnomaly ? T.fire : T.teal)}
       actionLabel={hasSelection ? "Clear" : undefined}
       onAction={hasSelection ? onClearSelection : undefined}
     >

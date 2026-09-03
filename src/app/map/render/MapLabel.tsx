@@ -10,7 +10,7 @@ export function toneFromColor(color: string): MapLabelTone {
   if (c.includes("f5a623") || c.includes(T.amber.toLowerCase())) return "amber";
   if (c.includes("e5533c") || c.includes(T.red.toLowerCase())) return "red";
   if (c.includes("2dd4a0") || c.includes(T.teal.toLowerCase())) return "teal";
-  if (c.includes("ffd166") || c.includes(T.yellow.toLowerCase())) return "amber";
+  if (c.includes("ffd166")) return "amber";
   return "neutral";
 }
 

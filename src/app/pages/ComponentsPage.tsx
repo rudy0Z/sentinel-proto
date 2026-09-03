@@ -69,7 +69,7 @@ export default function ComponentsPage() {
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
                     <ActionTile label="Deploy survey"    status="recommended" tone={T.cyan}   />
                     <ActionTile label="Stage perimeter"  status="available"   tone={T.red}    />
-                    <ActionTile label="Guide responders" status="available"   tone={T.yellow} />
+                    <ActionTile label="Guide responders" status="available"   tone={T.cyan} />
                     <ActionTile label="Prepare evacuation" status="disabled"  tone={T.fire}   />
                     <ActionTile label="Relay field intel" status="available"  tone={T.cyan}   />
                   </div>
@@ -93,7 +93,7 @@ export default function ComponentsPage() {
                   <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 8 }}>Primary Row</div>
                   <div style={{ display: "flex", gap: 12 }}>
                     <ActionTile label="Residential evac drone" status="recommended" tone={T.cyan}          />
-                    <ActionTile label="Guide personnel"        status="recommended" tone={T.yellow}        />
+                    <ActionTile label="Guide personnel"        status="recommended" tone={T.cyan}        />
                     <ActionTile label="Deploy backup"          status="recommended" tone={T.amber}  note="signal-degraded" />
                   </div>
                 </div>
@@ -216,8 +216,8 @@ export default function ComponentsPage() {
               </div>
               <div>
                 <SubLabel>5. Notify Teams</SubLabel>
-                <InlineModal title="Alert Ground Teams" subtitle="Notify teams with current assignments and staging instructions." accentColor={T.yellow} confirmLabel="Confirm Alert" icon="📋">
-                  <div style={{ background: "rgba(255,209,102,0.07)", border: `1px solid ${T.yellow}22`, borderRadius: 12, padding: "12px 14px" }}>
+                <InlineModal title="Alert Ground Teams" subtitle="Notify teams with current assignments and staging instructions." accentColor={T.cyan} confirmLabel="Confirm Alert" icon="📋">
+                  <div style={{ background: "rgba(28,184,230,0.07)", border: `1px solid ${T.cyan}22`, borderRadius: 12, padding: "12px 14px" }}>
                     {[{ t: "Alpha Lead", d: "Perimeter control – Forest North" }, { t: "Bravo Team", d: "Structure protect – Buffer East" }, { t: "Charlie", d: "Medical & route support – Standby" }].map(({ t, d }) => (
                       <div key={t} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                         <span style={{ fontFamily: font.sans, fontSize: 12, fontWeight: 600, color: T.textPrimary }}>{t}</span>
@@ -397,7 +397,7 @@ export default function ComponentsPage() {
               { name: "Red",           value: T.red,           usage: "Danger, contain mode, abort" },
               { name: "Fire",          value: T.fire,          usage: "Emergency, rescue mode, evacuation" },
               { name: "Teal",          value: T.teal,          usage: "Safe, available, complete states" },
-              { name: "Yellow",        value: T.yellow,        usage: "Ground teams, field coordination" },
+              { name: "Cyan (guidance)", value: T.cyan,        usage: "Ground teams, field coordination" },
               { name: "Text Primary",  value: T.textPrimary,   usage: "Headlines, labels, active values" },
               { name: "Text Secondary",value: T.textSecondary, usage: "Body text, descriptions, captions" },
               { name: "Text Muted",    value: T.textMuted,     usage: "Timestamps, section labels, disabled" },

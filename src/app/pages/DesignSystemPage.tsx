@@ -38,7 +38,7 @@ const colorTokens = [
   { name: "red", value: T.red, usage: "Containment, danger, abort, and blocked authority." },
   { name: "fire", value: T.fire, usage: "Rescue, evacuation, and high-consequence actions." },
   { name: "teal", value: T.teal, usage: "Monitoring, safe states, and completed actions." },
-  { name: "yellow", value: T.yellow, usage: "Ground-team guidance and field coordination." },
+  { name: "yellow", value: T.cyan, usage: "Ground-team guidance and field coordination." },
   { name: "textPrimary", value: T.textPrimary, usage: "Headlines, active labels, and selected values." },
   { name: "textSecondary", value: T.textSecondary, usage: "Body copy, descriptions, and helper text." },
   { name: "textMuted", value: T.textMuted, usage: "Telemetry labels, timestamps, and quiet metadata." },

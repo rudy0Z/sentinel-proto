@@ -84,6 +84,13 @@ import {
 
 const SCREEN_INSET = shellTokens.screenInset;
 const NAVBAR_H = shellTokens.navHeight;
+/*
+ * The two rails have different jobs and different densities. The TALON rail
+ * (right) is the protagonist — the copilot brief, workforce, and the densest
+ * evidence summaries. The observation rail (left) is supporting — the operator
+ * inspects there. Same width at narrow viewports (readability first); width is
+ * the cheapest hierarchy there is.
+ */
 const LEFT_RAIL_W = shellTokens.railWidth;
 const RIGHT_RAIL_W = shellTokens.railWidth;
 const PANEL_TOP = NAVBAR_H + shellTokens.railGap + 4;
@@ -202,6 +209,8 @@ export function SentinelShell() {
 
   const adaptiveRailWidth =
     viewportWidth <= 1280 ? 260 : viewportWidth <= 1366 ? 280 : LEFT_RAIL_W;
+  const adaptiveTalonRailWidth =
+    viewportWidth <= 1280 ? 260 : viewportWidth <= 1366 ? 300 : 340;
 
   usePopoverDismissal({
     open: timelineOpen,
@@ -968,7 +977,7 @@ export function SentinelShell() {
           position: "absolute",
           top: PANEL_TOP,
           right: SCREEN_INSET,
-          width: adaptiveRailWidth,
+          width: adaptiveTalonRailWidth,
           bottom: railBottomInset,
           zIndex: layer.rail,
           display: "flex",
@@ -1864,7 +1873,7 @@ function TopOverlay({
         left: "50%",
         transform: "translateX(-50%)",
         width: 560,
-        zIndex: 50,
+        zIndex: layer.alert,
         ...material.overlay,
         border: `1px solid ${tone}4D`,
         padding: "14px 18px 14px 22px",
@@ -1951,7 +1960,7 @@ function CompactPanel({
         width: 440,
         maxHeight: `calc(100dvh - ${NAVBAR_H + 26 + shellTokens.screenInset + 160}px)`,
         overflowY: "auto",
-        zIndex: 50,
+        zIndex: layer.alert,
         ...material.overlay,
         // Severity still arrives on the border; the material never changes.
         border: `1px solid ${tone}4D`,
@@ -2033,7 +2042,7 @@ function AlertPopup({ onDispatch, onDismiss }: { onDispatch: () => void; onDismi
         left: "50%",
         transform: "translateX(-50%)",
         width: 520,
-        zIndex: 60,
+        zIndex: layer.modal,
         ...material.overlay,
         border: `1px solid ${T.amber}44`,
         padding: "20px 22px 18px",
@@ -2331,7 +2340,7 @@ function VerifyLiveFeed({
         left: railWidth + SCREEN_INSET + 18,
         right: railWidth + SCREEN_INSET + 18,
         bottom: bottomInset,
-        zIndex: 25,
+        zIndex: layer.centerSurface,
         borderRadius: radius.overlay,
         overflow: "hidden",
         border: mapLoaded
@@ -2853,7 +2862,7 @@ function deriveQuickActions(draft: ShellDraft, investigationElapsed: number): Ac
           "Thermal + LiDAR drone monitors the active fire edge.", T.red, true),
         mk("stage-responder-guidance", "Guide responders",
           zoneRequired ? "disabled" : missionByZone("guide-emergency-personnel") ? "complete" : responderRecommended ? "recommended" : "available",
-          "Ingress guidance and live relay support for field personnel.", T.yellow, true),
+          "Ingress guidance and live relay support for field personnel.", T.cyan, true),
         mk("stage-residential-evacuation", "Prepare evacuation",
           zoneRequired ? "disabled" : missionByZone("prepare-residential-evacuation") ? "complete" : evacRecommended ? "recommended" : "available",
           "Civilian-guidance drone with speakers and lighting.", T.fire, true),
@@ -2919,7 +2928,7 @@ function deriveQuickActions(draft: ShellDraft, investigationElapsed: number): Ac
           "Drone-guided egress path with speakers and lighting for residents.", T.cyan),
         mk("deploy-navigation-drone", "Guide personnel",
           draft.responderRouteActive ? "complete" : "recommended",
-          "Responder-guidance drone via safest ingress corridor.", T.yellow),
+          "Responder-guidance drone via safest ingress corridor.", T.cyan),
         mk("notify-teams", "Notify teams", draft.teamsNotified ? "complete" : "available",
           "Reconfirm field team staging readiness.", T.textSecondary),
       ];

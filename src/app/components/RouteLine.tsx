@@ -29,7 +29,7 @@ export function RouteArrowDefs() {
       {(
         [
           ["route-arrow-egress", T.textPrimary],
-          ["route-arrow-ingress", T.yellow],
+          ["route-arrow-ingress", T.cyan],
           ["route-arrow-reroute", T.amber],
           ["route-arrow-investigation", T.cyan],
         ] as const

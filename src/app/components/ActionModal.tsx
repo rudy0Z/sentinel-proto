@@ -54,7 +54,7 @@ export const MISSION_BRIEF_DATA: Partial<Record<QuickActionId, MissionBriefConfi
     talonRationale: "A relay-guidance asset marks the safest responder ingress corridor. The eastern buffer lane has the clearest terrain and the best signal strength for live relay back to command.",
     coverageNote: "Relay-01 will anchor at the buffer zone ingress point and broadcast a combined audio + light guidance signal for incoming teams.",
     zoneHint: "buffer-east",
-    tone: T.yellow,
+    tone: T.cyan,
     droneClass: "guidance-relay",
     defaultZoneId: "buffer-east",
   },
@@ -84,7 +84,7 @@ export const MISSION_BRIEF_DATA: Partial<Record<QuickActionId, MissionBriefConfi
     talonRationale: "Active rescue operations require a dedicated navigation drone along the primary responder corridor. The eastern buffer has the clearest ingress lane, confirmed by TALON terrain analysis.",
     coverageNote: "Relay-01 will fly the corridor marking the route with strobe signaling and live audio comms for field team coordination.",
     zoneHint: "buffer-east",
-    tone: T.yellow,
+    tone: T.cyan,
     droneClass: "guidance-relay",
     defaultZoneId: "buffer-east",
   },
@@ -457,7 +457,7 @@ function EvacuationModal({ state, onClose, onConfirm }: { state: ShellState; onC
             <Label>Select Teams to Deploy</Label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {state.groundTeams.map((t) => (
-                <Chip key={t.id} label={t.name} selected={selectedTeamIds.includes(t.id)} onClick={() => toggleTeam(t.id)} color={T.yellow} />
+                <Chip key={t.id} label={t.name} selected={selectedTeamIds.includes(t.id)} onClick={() => toggleTeam(t.id)} color={T.cyan} />
               ))}
             </div>
           </div>
@@ -722,10 +722,10 @@ function NotifyAuthoritiesModal({ onClose, onConfirm }: { onClose: () => void; o
 function NotifyTeamsModal({ onClose, onConfirm }: { onClose: () => void; onConfirm: () => void }) {
   return (
     <div>
-      <ModalHeader title="Alert Ground Teams" subtitle="Notify teams with current assignments and staging instructions." accentColor={T.yellow} icon={<OperationalIcon actionId="notify-teams" color={T.yellow} size={18} />} />
+      <ModalHeader title="Alert Ground Teams" subtitle="Notify teams with current assignments and staging instructions." accentColor={T.cyan} icon={<OperationalIcon actionId="notify-teams" color={T.cyan} size={18} />} />
 
       <div style={{ padding: "16px 24px" }}>
-        <div style={{ background: tint(T.yellow, 0.07), border: `1px solid ${tint(T.yellow, 0.28)}`, borderRadius: radius.panel, padding: "14px" }}>
+        <div style={{ background: tint(T.cyan, 0.07), border: `1px solid ${tint(T.cyan, 0.28)}`, borderRadius: radius.panel, padding: "14px" }}>
           {[
             { team: "Alpha Lead", detail: "Perimeter control – Forest North" },
             { team: "Bravo Team", detail: "Structure protection – Buffer East" },
@@ -740,7 +740,7 @@ function NotifyTeamsModal({ onClose, onConfirm }: { onClose: () => void; onConfi
       </div>
 
       <Divider />
-      <ModalFooter onClose={onClose} onConfirm={onConfirm} confirmLabel="Confirm Alert" confirmColor={T.yellow} />
+      <ModalFooter onClose={onClose} onConfirm={onConfirm} confirmLabel="Confirm Alert" confirmColor={T.cyan} />
     </div>
   );
 }

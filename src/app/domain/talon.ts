@@ -929,7 +929,7 @@ export function getTalonRecommendation(state: ShellState): TalonRecommendationCo
     "network-degraded": {
       text: "Network latency is high. TALON is using low-bandwidth telemetry and keeping authorization gates blocked until source freshness improves.",
       action: "Relay field intel",
-      tone: T.yellow,
+      tone: T.cyan,
     },
     "contain-degraded": {
       text: "Terrain model is degraded. TALON is widening the spread buffer and keeping raw feed fallback visible before operations authorization.",

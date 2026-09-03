@@ -35,7 +35,7 @@ function getStatusColor(status: EvidenceSource["status"]): string {
   switch (status) {
     case "active": return T.teal;
     case "pending": return T.textMuted;
-    case "stale": return T.yellow;
+    case "stale": return T.amber;
     case "failed": return T.red;
     case "missing": return T.red;
     default: return T.textMuted;
@@ -445,7 +445,7 @@ function getCategoryMeta(category: TalonAgentTask["category"]) {
     case "operations":
       return { label: "Operations", color: T.red, fill: tone.danger.fill, border: tone.danger.border };
     case "governance":
-      return { label: "Governance", color: T.yellow, fill: tone.caution.fill, border: tone.caution.border };
+      return { label: "Governance", color: T.amber, fill: tone.caution.fill, border: tone.caution.border };
     default:
       return { label: "Agent", color: T.textMuted, fill: tone.neutral.fill, border: tone.neutral.border };
   }
@@ -1462,8 +1462,25 @@ function IntelligenceBrief({
           </div>
 
           <div style={{ display: "flex", alignItems: "baseline", gap: space.sm, marginBottom: space.xs }}>
-            <span style={{ fontFamily: font.mono, fontSize: typeScale.subhead, fontWeight: typeWeight.heavy, color: packetTone, lineHeight: 1 }}>
-              {packet.confidence}%
+            {/*
+              * Focal contract: the right rail's lone ≥26px read. A 32px
+              * packet confidence survives the portfolio's ~0.65× downscale at
+              * ~20px, which is the read that the rest of the rail honestly
+              * recedes around.
+              */}
+            <span
+              style={{
+                fontFamily: font.mono,
+                fontFeatureSettings: '"tnum"',
+                fontSize: 32,
+                lineHeight: 36,
+                fontWeight: typeWeight.heavy,
+                color: packetTone,
+                letterSpacing: "-0.02em",
+              }}
+            >
+              {packet.confidence}
+              <span style={{ fontSize: 18, lineHeight: 1, marginLeft: 2, color: T.textSecondary, fontWeight: typeWeight.semibold }}>%</span>
             </span>
             <span style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textSecondary, lineHeight: 1.4 }}>
               {packet.escalationLevel}

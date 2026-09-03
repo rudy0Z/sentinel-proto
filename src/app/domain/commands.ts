@@ -110,7 +110,7 @@ export const COMMAND_DEFINITIONS: Record<QuickActionId, CommandDefinition> = {
     riskLevel: "high",
     gate: "confirm",
     modal: "mission",
-    tone: T.yellow,
+    tone: T.cyan,
   }),
   "stage-residential-evacuation": definition("stage-residential-evacuation", {
     shortLabel: "Evac prep",
@@ -207,7 +207,7 @@ export const COMMAND_DEFINITIONS: Record<QuickActionId, CommandDefinition> = {
     riskLevel: "high",
     gate: "confirm",
     modal: "mission",
-    tone: T.yellow,
+    tone: T.cyan,
   }),
   "deploy-backup": definition("deploy-backup", {
     shortLabel: "Backup",
