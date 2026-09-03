@@ -413,14 +413,24 @@ export function SpatialMapCanvas({
     });
   };
 
+  /*
+   * Screen → viewBox units under the SLICE mapping (the same law the backdrop
+   * and overlay SVGs render with): uniform scale = max(w/vw, h/vh), content
+   * centered, overflow cropped. The old stretch assumption silently displaced
+   * every pointer → map conversion whenever the container aspect differed from
+   * 1.6 — drag-to-snap landed in the wrong field.
+   */
   const pointerToNative = (clientX: number, clientY: number): { x: number; y: number } | null => {
     const svg = svgRef.current;
     if (!svg) return null;
     const rect = svg.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return null;
+    const svgScale = Math.max(rect.width / MAP_DISPLAY.width, rect.height / MAP_DISPLAY.height);
+    const svgOffX = (rect.width - MAP_DISPLAY.width * svgScale) / 2;
+    const svgOffY = (rect.height - MAP_DISPLAY.height * svgScale) / 2;
     const screen = {
-      x: ((clientX - rect.left) / rect.width) * MAP_DISPLAY.width,
-      y: ((clientY - rect.top) / rect.height) * MAP_DISPLAY.height,
+      x: (clientX - rect.left - svgOffX) / svgScale,
+      y: (clientY - rect.top - svgOffY) / svgScale,
     };
     const pixel = toPixel(fromScreen(screen));
     return { x: pixel.x, y: pixel.y };
@@ -601,22 +611,36 @@ export function SpatialMapCanvas({
       }}
       data-map-runtime="spatial-os"
     >
+      {/*
+        The basemap lives INSIDE the map's coordinate space: one viewBox, one
+        preserveAspectRatio ("slice", the SVG equivalent of cover) shared by the
+        backdrop and the overlay. Before this, the <img> scaled with objectFit
+        cover while the overlay scaled with meet — two laws in one container, so
+        zones/roads/labels drifted off the photo by up to 82px at 16:9 and up to
+        278px on the square pre-incident asset. Now every layer — image, zones,
+        roads, agents, labels, and pointer hit-testing — shares one mapping, and
+        alignment holds at every viewport by construction.
+      */}
       {!failedMap[activeMapSrc] ? (
-        <img
-          src={activeMapSrc}
-          alt=""
-          draggable={false}
-          onError={() => setFailedMap((f) => ({ ...f, [activeMapSrc]: true }))}
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            filter: mapFilter,
-            pointerEvents: "none",
-          }}
-        />
+        <svg
+          viewBox={`0 0 ${MAP_DISPLAY.width} ${MAP_DISPLAY.height}`}
+          width="100%"
+          height="100%"
+          preserveAspectRatio="xMidYMid slice"
+          style={{ position: "absolute", inset: 0 }}
+          aria-hidden="true"
+        >
+          <image
+            href={activeMapSrc}
+            x={0}
+            y={0}
+            width={MAP_DISPLAY.width}
+            height={MAP_DISPLAY.height}
+            preserveAspectRatio="xMidYMid slice"
+            style={{ filter: mapFilter }}
+            onError={() => setFailedMap((f) => ({ ...f, [activeMapSrc]: true }))}
+          />
+        </svg>
       ) : (
         <div style={{ position: "absolute", inset: 0, background: T.bgMap }} />
       )}
@@ -656,6 +680,7 @@ export function SpatialMapCanvas({
         viewBox={`0 0 ${MAP_DISPLAY.width} ${MAP_DISPLAY.height}`}
         width="100%"
         height="100%"
+        preserveAspectRatio="xMidYMid slice"
         style={{ position: "absolute", inset: 0 }}
         onClick={() => onSelectEntity(null)}
         onPointerMove={handlePointerMove}

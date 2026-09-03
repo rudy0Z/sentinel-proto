@@ -54,6 +54,36 @@ check(
   "ShellState.zoneMargins declared",
 );
 
+/*
+ * Alignment gates. The historical defect: the basemap <img> scaled with
+ * objectFit cover while the SVG overlay scaled with viewBox meet and pointer
+ * input assumed stretch — three laws in one container, so zones/roads/labels
+ * drifted off the photo by 5–82px at 16:9 (and up to 278px on the square
+ * pre-incident asset). The fix renders the basemap INSIDE the SVG coordinate
+ * space with the same "slice" law everywhere. These checks fail if any layer
+ * reintroduces a divergent mapping.
+ */
+const canvasSrc = fs.readFileSync(path.join(root, "src/app/map/SpatialMapCanvas.tsx"), "utf8");
+
+check(
+  "map-basemap-in-svg",
+  canvasSrc.includes("<image") && canvasSrc.includes("href={activeMapSrc}") && !canvasSrc.includes('objectFit: "cover"'),
+  "basemap renders inside the SVG coordinate space (no HTML img / objectFit)",
+);
+
+const sliceCount = (canvasSrc.match(/preserveAspectRatio="xMidYMid slice"/g) || []).length;
+check(
+  "map-svg-slice-law",
+  sliceCount >= 2 && !canvasSrc.includes('preserveAspectRatio="xMidYMid meet"'),
+  `backdrop + overlay SVGs share the slice mapping (${sliceCount} declarations)`,
+);
+
+check(
+  "map-pointer-slice-inverse",
+  /svgScale/.test(canvasSrc) && /svgOffX/.test(canvasSrc),
+  "pointer→map conversion uses the slice inverse (scale + centered offset)",
+);
+
 const smoke = spawnSync(
   process.platform === "win32" ? "npx.cmd" : "npx",
   ["--yes", "tsx", "src/app/map/__tests__/spatial-smoke.ts"],
