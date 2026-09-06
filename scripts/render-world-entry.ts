@@ -1,332 +1,326 @@
 /**
- * Render-time entry point — loaded by scripts/render-world.html.
+ * Render-time entry — builds the low-poly diorama from the baked world
+ * data (real USGS relief + OSM buildings/roads) and signals readiness.
  *
- * Vite resolves the `three` bare specifier and the relative `world.ts`
- * import; we don't need an importmap here. The exported `mount()` function
- * builds the Three.js scene, attaches the canvas, and signals readiness
- * via the status element's `data-ready` attribute.
+ * Aesthetic: stylized cartographic diorama — flat-shaded terrain facets
+ * following real geology, clean building blocks, road ribbons, one warm
+ * accent (fire band), blue-steel atmosphere. Mood reference: the original
+ * painted basemap (ridge over residential, fire on the crest).
  */
 
 import * as THREE from "three";
-import { WORLD, type World, type LatLon } from "../src/app/map/world/world";
+import { WORLD, sampleElevation } from "../src/app/map/world/world";
 
 const NATIVE_W = 1691;
 const NATIVE_H = 914;
 
+// Vertical exaggeration — cartographic standard for dioramas; real 246m
+// relief is subtle at frame scale. 1.4x keeps geology honest but visible.
+const VEX = 1.4;
+
 const PAL = {
-  // Brightened further. With outputColorSpace=SRGB, Three.js auto-converts
-  // these hex values to linear before shading; the GPU encodes back to sRGB
-  // when writing the framebuffer. Hex values here are what the user sees.
-  terrain:     new THREE.Color("#7E94AC"), // mid slope (visibly readable)
-  terrainHigh: new THREE.Color("#A6BAD0"), // ridge top (light, distinct)
-  terrainLow:  new THREE.Color("#56708A"), // valley floor
-  road:        new THREE.Color("#90A6BE"), // road ribbon
-  roadBright:  new THREE.Color("#BAC9DC"), // arterial highlight
-  building:    new THREE.Color("#8499B0"), // residential box
-  buildingRim: new THREE.Color("#A8BAD0"), // roof edge
-  fire:        new THREE.Color("#FF8A4A"), // emissive fire
-  fireWarm:    new THREE.Color("#FFB066"), // fire glow
-  smoke:       new THREE.Color("#9CA8B8"), // smoke billboard
-  vegetation:  new THREE.Color("#7A8A6A"), // sparse chaparral
-  water:       new THREE.Color("#56708A"), // drainage wash
-  fog:         new THREE.Color("#4A607A"), // atmospheric blue-steel
-  ambient:     new THREE.Color("#A8BCD0"), // ambient sky bounce
+  valley:  new THREE.Color("#2B3849"),
+  mid:     new THREE.Color("#46586D"),
+  ridge:   new THREE.Color("#7E93A9"),
+  scrub:   new THREE.Color("#3E4F45"),  // steep-slope chaparral tint
+  road:    new THREE.Color("#8296AA"),
+  arterial:new THREE.Color("#A7BACD"),
+  bldg:    new THREE.Color("#D6DFE8"),
+  bldgBig: new THREE.Color("#B4C4D2"),
+  fire:    new THREE.Color("#FF7A3C"),
+  fireHi:  new THREE.Color("#FFB066"),
+  smoke:   new THREE.Color("#8E99A6"),
+  fog:     new THREE.Color("#263447"),
 };
 
 export function mount(canvas: HTMLCanvasElement, status: HTMLElement): void {
-  const w = WORLD.frame.widthMeters;
-  const h = WORLD.frame.heightMeters;
+  const W = WORLD.frame.widthMeters;
+  const H = WORLD.frame.heightMeters;
 
   const renderer = new THREE.WebGLRenderer({
-    canvas,
-    antialias: true,
-    preserveDrawingBuffer: true,
-    alpha: false,
-    powerPreference: "high-performance",
+    canvas, antialias: true, preserveDrawingBuffer: true, alpha: false,
   });
   renderer.setPixelRatio(1);
   renderer.setSize(NATIVE_W, NATIVE_H, false);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  // No tone mapping — ACES compresses our blue-steel palette too dark.
-  // Linear → sRGB output keeps colours as authored.
   renderer.toneMapping = THREE.NoToneMapping;
 
   const scene = new THREE.Scene();
   scene.background = PAL.fog;
-  // Fog: pushed back so the diorama reads.
-  scene.fog = new THREE.Fog(PAL.fog.getHex(), 600, 3000);
+  scene.fog = new THREE.Fog(PAL.fog.getHex(), 2600, 6400);
 
-  // Camera: pulled back so the whole 2000m × 1100m frame fits with margin.
-  // At FOV 45° horizontal, the scene needs ~1500m of depth to read
-  // end-to-end. Slight side offset keeps the composition asymmetric.
-  const camBack = 1500;
-  const camSide = -300;
-  const camUp = 900;
-  const camera = new THREE.PerspectiveCamera(45, NATIVE_W / NATIVE_H, 1, 5000);
-  camera.position.set(camSide, camUp, camBack);
-  camera.lookAt(0, 80, 0);
+  // Camera: low and close — the slab edges crop out of frame so the
+  // terrain reads edge-to-edge like the original (which also never shows
+  // its world's edges). SE azimuth toward the NW massif.
+  const camera = new THREE.PerspectiveCamera(38, NATIVE_W / NATIVE_H, 1, 12000);
+  camera.position.set(950, 620, 640);
+  camera.lookAt(-500, 90, -260);
 
-  const ambient = new THREE.AmbientLight(PAL.ambient.getHex(), 0.9);
-  scene.add(ambient);
+  // Orientation: ridge crest runs N-S on the frame's WEST side; residential
+  // band runs E-W in the south. SE camera + scene z = -y (north is far).
+  const toScene = (lx: number, ly: number): [number, number] => [lx, -ly];
+  const worldGroup = new THREE.Group();
+  scene.add(worldGroup);
 
-  const sun = new THREE.DirectionalLight("#9CC0DD", 1.1);
-  sun.position.set(-400, 600, 200);
-  sun.target.position.set(0, 0, 0);
-  scene.add(sun);
-  scene.add(sun.target);
+  // Lights: high ambient keeps every slope in the readable blue-steel band
+  // (the original has no true blacks); NW key models relief; SE fill lifts.
+  scene.add(new THREE.AmbientLight(0xd4e2f0, 2.1));
+  const key = new THREE.DirectionalLight(0xb4cce6, 1.5);
+  key.position.set(-900, 1400, 500); // NW, slightly behind camera so S slopes catch light
+  scene.add(key);
+  const fill = new THREE.DirectionalLight(0x76889f, 0.8);
+  fill.position.set(900, 500, 1000);
+  scene.add(fill);
 
-  const fireUv = WORLD.fire.originUv;
-  const fireWorld = uvToWorld(fireUv.u, fireUv.v, w, h);
-  const fireLight = new THREE.PointLight(PAL.fire.getHex(), 8.0, 800, 1.6);
-  fireLight.position.set(fireWorld[0], 250, fireWorld[1]);
-  scene.add(fireLight);
+  // ── Terrain (real DEM, flat-shaded low-poly) ─────────────────────────────
+  const cols = 100, rows = 55; // facet size ~20m — reads as crafted, not noisy
+  const dem = WORLD.dem;
+  const elevRange = dem.max - dem.min;
 
-  // ── Helpers ────────────────────────────────────────────────────────────
-  // Sample the heightfield at world-frame (x, z) → terrain Y.
-  // The exaggeration constant (220) must match the one in the terrain loop.
-  function sampleTerrainY(worldX: number, worldZ: number): number {
-    const colF = ((worldX + w / 2) / w) * (cols - 1);
-    const rowF = ((worldZ + h / 2) / h) * (rows - 1);
-    const c0 = Math.max(0, Math.min(cols - 2, Math.floor(colF)));
-    const r0 = Math.max(0, Math.min(rows - 2, Math.floor(rowF)));
-    const fx = colF - c0;
-    const fz = rowF - r0;
-    const e00 = WORLD.heightfield[r0][c0].elevation;
-    const e10 = WORLD.heightfield[r0][c0 + 1].elevation;
-    const e01 = WORLD.heightfield[r0 + 1][c0].elevation;
-    const e11 = WORLD.heightfield[r0 + 1][c0 + 1].elevation;
-    const e0 = e00 * (1 - fx) + e10 * fx;
-    const e1 = e01 * (1 - fx) + e11 * fx;
-    const e = e0 * (1 - fz) + e1 * fz;
-    return e * 220;
+  function terrainY(x: number, y: number): number {
+    return (sampleElevation(x, y) - dem.min) * VEX;
   }
 
-  // ── Terrain ────────────────────────────────────────────────────────────
-  const cols = WORLD.heightfield[0].length;
-  const rows = WORLD.heightfield.length;
-  const cellW = w / (cols - 1);
-  const cellH = h / (rows - 1);
-
-  const terrainGeom = new THREE.PlaneGeometry(w, h, cols - 1, rows - 1);
-  terrainGeom.rotateX(-Math.PI / 2);
-  const positions = terrainGeom.attributes.position;
-  const colors = new Float32Array(positions.count * 3);
+  const terrainGeom = new THREE.PlaneGeometry(W, H, cols - 1, rows - 1);
+  terrainGeom.rotateX(-Math.PI / 2); // now XZ plane; -z = north after flip below
+  const pos = terrainGeom.attributes.position;
+  const colors = new Float32Array(pos.count * 3);
+  const slopeOf = new Float32Array(pos.count);
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const i = r * cols + c;
-      const cell = WORLD.heightfield[r][c];
-      const px = (c - (cols - 1) / 2) * cellW;
-      const pz = (r - (rows - 1) / 2) * cellH;
-      positions.setX(i, px);
-      // Exaggerate elevation ×3 so ridges read clearly in the diorama.
-      positions.setY(i, cell.elevation * 220);
-      positions.setZ(i, pz);
-      const t = cell.elevation;
-      const vegMix = cell.vegetation * 0.35;
-      const col = new THREE.Color()
-        .copy(PAL.terrainLow)
-        .lerp(PAL.terrain, Math.min(1, t * 1.3))
-        .lerp(PAL.terrainHigh, Math.max(0, t - 0.5) * 1.6)
-        .lerp(PAL.vegetation, vegMix);
-      colors[i * 3]     = col.r;
-      colors[i * 3 + 1] = col.g;
-      colors[i * 3 + 2] = col.b;
+      // PlaneGeometry after rotateX(-π/2): row 0 sits at z=-H/2 → north,
+      // so local north ly = -z (spans [-H/2, +H/2] correctly).
+      const px0 = pos.getX(i);
+      const pz0 = pos.getZ(i);
+      const lx = px0;          // local east
+      const ly = -pz0;         // local north
+      const [sx, sz] = toScene(lx, ly);
+      pos.setX(i, sx);
+      pos.setZ(i, sz);
+      pos.setY(i, terrainY(lx, ly));
+      const e0 = terrainY(lx, ly);
+      const ex = terrainY(lx + 25, ly) - e0;
+      const ey = terrainY(lx, ly + 25) - e0;
+      slopeOf[i] = Math.hypot(ex, ey) / 25;
     }
+  }
+  for (let i = 0; i < pos.count; i++) {
+    const t = Math.min(1, Math.max(0, pos.getY(i) / (elevRange * VEX)));
+    const col = new THREE.Color()
+      .copy(PAL.valley)
+      .lerp(PAL.mid, Math.min(1, t * 1.6))
+      .lerp(PAL.ridge, Math.max(0, t - 0.45) * 1.5);
+    // scrub tint on steep slopes
+    col.lerp(PAL.scrub, Math.min(0.45, slopeOf[i] * 3.2));
+    colors[i * 3] = col.r; colors[i * 3 + 1] = col.g; colors[i * 3 + 2] = col.b;
   }
   terrainGeom.setAttribute("color", new THREE.BufferAttribute(colors, 3));
   terrainGeom.computeVertexNormals();
+  worldGroup.add(new THREE.Mesh(terrainGeom, new THREE.MeshLambertMaterial({
+    vertexColors: true, flatShading: true,
+  })));
 
-  const terrainMat = new THREE.MeshLambertMaterial({
-    vertexColors: true,
-    flatShading: true,
-  });
-  scene.add(new THREE.Mesh(terrainGeom, terrainMat));
-
-  // ── Roads ──────────────────────────────────────────────────────────────
-  for (const ribbon of WORLD.roadRibbons) {
-    if (ribbon.points.length < 2) continue;
-    // Lift road points onto the terrain surface so they read as ground-
-    // hugging ribbons rather than floating lines.
-    const pts = ribbon.points.map(([x, z]) => {
-      const groundY = sampleTerrainY(x, z);
-      return new THREE.Vector3(x, groundY + 1.5, z);
-    });
-    const curve = new THREE.CatmullRomCurve3(pts, false, "catmullrom", 0.0);
-    const segments = Math.max(8, pts.length * 6);
-    // Exaggerate road width slightly so arterials read at aerial view.
-    const widthMul = ribbon.kind === "arterial" ? 2.2 : 1.5;
-    const tubeGeom = new THREE.TubeGeometry(curve, segments, (ribbon.width / 2) * widthMul, 6, false);
-    const mat = new THREE.MeshLambertMaterial({
-      color: ribbon.kind === "arterial" ? PAL.roadBright : PAL.road,
-      emissive: ribbon.kind === "arterial" ? new THREE.Color("#1A2840") : new THREE.Color("#000000"),
-    });
-    scene.add(new THREE.Mesh(tubeGeom, mat));
-  }
-
-  // ── Buildings ──────────────────────────────────────────────────────────
-  for (const b of WORLD.buildings) {
-    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
-    let cx = 0, cz = 0;
-    for (const [x, z] of b.footprint) {
-      minX = Math.min(minX, x); maxX = Math.max(maxX, x);
-      minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
-      cx += x; cz += z;
+  // Base plinth: solid dark block under the terrain, reads as a carved
+  // diorama model. MeshBasicMaterial — lighting-independent silhouette.
+  const baseY = -80;
+  const plinthColor = new THREE.Color("#141D2A");
+  function plinthSide(points: Array<[number, number]>): THREE.Mesh {
+    const verts: number[] = [];
+    for (let i = 0; i < points.length - 1; i++) {
+      const [lx1, ly1] = toScene(points[i][0], -(points[i][1]));
+      const [lx2, ly2] = toScene(points[i + 1][0], -(points[i + 1][1]));
+      const y1 = terrainY(points[i][0], -(points[i][1]));
+      const y2 = terrainY(points[i + 1][0], -(points[i + 1][1]));
+      verts.push(lx1, y1, ly1,  lx1, baseY, ly1,  lx2, y2, ly2);
+      verts.push(lx1, baseY, ly1,  lx2, baseY, ly2,  lx2, y2, ly2);
     }
-    cx /= b.footprint.length;
-    cz /= b.footprint.length;
-    const widthX = maxX - minX;
-    const depthZ = maxZ - minZ;
-
-    // Exaggerate building height ×3 so they read as visible blocks.
-    const visualHeight = b.height * 3;
-    // Lift the building onto the local terrain surface so it doesn't sink
-    // into the slope.
-    const groundY = sampleTerrainY(cx, cz);
-    const geom = new THREE.BoxGeometry(widthX * 0.85, visualHeight, depthZ * 0.85);
-    const baseColor = new THREE.Color().copy(PAL.building);
-    if (b.zoneHint.startsWith("residential")) {
-      baseColor.lerp(new THREE.Color("#3F526E"), 0.3);
-    }
-    const mat = new THREE.MeshLambertMaterial({
-      color: baseColor,
-    });
-    const mesh = new THREE.Mesh(geom, mat);
-    mesh.position.set(cx, groundY + visualHeight / 2, cz);
-    scene.add(mesh);
-
-    const rimGeom = new THREE.BoxGeometry(widthX * 0.88, 0.3, depthZ * 0.88);
-    const rimMat = new THREE.MeshLambertMaterial({
-      color: PAL.buildingRim,
-    });
-    const rim = new THREE.Mesh(rimGeom, rimMat);
-    rim.position.set(cx, groundY + visualHeight + 0.15, cz);
-    scene.add(rim);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+    g.computeVertexNormals();
+    return new THREE.Mesh(g, new THREE.MeshBasicMaterial({
+      color: plinthColor, side: THREE.DoubleSide,
+    }));
+  }
+  const E = W / 2, Zh = H / 2;
+  worldGroup.add(plinthSide([[ -E, -Zh ], [ E, -Zh ]]));
+  worldGroup.add(plinthSide([[ -E, Zh ], [ E, Zh ]]));
+  worldGroup.add(plinthSide([[ -E, -Zh ], [ -E, Zh ]]));
+  worldGroup.add(plinthSide([[ E, -Zh ], [ E, Zh ]]));
+  // bottom cap
+  {
+    const g = new THREE.PlaneGeometry(W, H);
+    g.rotateX(Math.PI / 2);
+    const cap = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: plinthColor }));
+    cap.position.y = baseY;
+    worldGroup.add(cap);
   }
 
-  // ── Fire ───────────────────────────────────────────────────────────────
-  const fireStart = new THREE.Vector3(
-    WORLD.fire.line.start[0],
-    WORLD.fire.line.start[1],
-    WORLD.fire.line.start[2],
-  );
-  const fireEnd = new THREE.Vector3(
-    WORLD.fire.line.end[0],
-    WORLD.fire.line.end[1],
-    WORLD.fire.line.end[2],
-  );
-  const fireGeom = new THREE.BufferGeometry().setFromPoints([fireStart, fireEnd]);
-  const fireMat = new THREE.LineBasicMaterial({ color: PAL.fire });
-  scene.add(new THREE.Line(fireGeom, fireMat));
-
-  const glowGeom = new THREE.CircleGeometry(45, 24);
-  const glowMat = new THREE.MeshBasicMaterial({
-    color: PAL.fireWarm,
-    transparent: true,
-    opacity: 0.55,
-    side: THREE.DoubleSide,
+  // ── Roads (real centerlines, draped, clipped to frame) ────────────────────
+  const roadMat = (kind: string) => new THREE.MeshLambertMaterial({
+    color: kind === "primary" || kind === "secondary" || kind === "tertiary"
+      ? PAL.arterial : PAL.road,
   });
-  const glow = new THREE.Mesh(glowGeom, glowMat);
-  glow.rotation.x = -Math.PI / 2;
-  glow.position.set(fireWorld[0], 0.4, fireWorld[1]);
-  scene.add(glow);
-
-  // ── Smoke ──────────────────────────────────────────────────────────────
-  for (const s of WORLD.fire.smoke) {
-    const geom = new THREE.PlaneGeometry(60, 60);
-    const mat = new THREE.MeshBasicMaterial({
-      color: PAL.smoke,
-      transparent: true,
-      opacity: s.opacity,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    });
-    const mesh = new THREE.Mesh(geom, mat);
-    mesh.position.set(s.position[0], s.height, s.position[1]);
-    mesh.lookAt(camera.position);
-    scene.add(mesh);
-  }
-
-  // ── Water ──────────────────────────────────────────────────────────────
-  for (const wt of WORLD.water) {
-    if (wt.points.length < 2) continue;
-    const pts = wt.points.map(([x, z]) => new THREE.Vector3(x, 0.2, z));
-    const curve = new THREE.CatmullRomCurve3(pts, false, "catmullrom", 0.0);
-    const tubeGeom = new THREE.TubeGeometry(curve, pts.length * 4, wt.width / 2, 6, false);
-    const mat = new THREE.MeshLambertMaterial({
-      color: PAL.water,
-      emissive: new THREE.Color("#0A1822"),
-    });
-    scene.add(new THREE.Mesh(tubeGeom, mat));
-  }
-
-  // ── Vegetation ─────────────────────────────────────────────────────────
-  for (const v of WORLD.vegetation) {
-    for (let i = 0; i < v.count; i++) {
-      const offsetX = (Math.random() - 0.5) * 12;
-      const offsetZ = (Math.random() - 0.5) * 12;
-      const geom = v.kind === "tree"
-        ? new THREE.ConeGeometry(3, 9, 6)
-        : new THREE.IcosahedronGeometry(2.5, 0);
-      const mat = new THREE.MeshLambertMaterial({
-        color: PAL.vegetation,
-        flatShading: true,
+  const E2 = W / 2, Zh2 = H / 2;
+  for (const road of WORLD.roads) {
+    // clip: keep points inside the frame (with 30m grace), split on exit
+    const segments: Array<Array<[number, number]>> = [];
+    let cur: Array<[number, number]> = [];
+    for (const [x, y] of road.points) {
+      if (Math.abs(x) <= E2 + 30 && Math.abs(y) <= Zh2 + 30) {
+        cur.push([x, y]);
+      } else if (cur.length) {
+        segments.push(cur); cur = [];
+      }
+    }
+    if (cur.length) segments.push(cur);
+    for (const seg of segments) {
+      if (seg.length < 2) continue;
+      const pts = seg.map(([x, y]) => {
+        const [sx, sz] = toScene(x, y);
+        return new THREE.Vector3(sx, terrainY(x, y) + 1.2, sz);
       });
-      const tree = new THREE.Mesh(geom, mat);
-      // Exaggerate tree height for visibility
-      tree.scale.set(1, 3, 1);
-      tree.position.set(v.point[0] + offsetX, 4, v.point[1] + offsetZ);
-      scene.add(tree);
+      const curve = new THREE.CatmullRomCurve3(pts, false, "catmullrom", 0.1);
+      const segs = Math.min(160, Math.max(12, pts.length * 8));
+      const geom = new THREE.TubeGeometry(curve, segs, road.width / 2, 5, false);
+      worldGroup.add(new THREE.Mesh(geom, roadMat(road.kind)));
     }
   }
 
+  // ── Buildings (real footprints, extruded blocks) ─────────────────────────
+  function defaultHeight(kind: string): number {
+    if (/garage|shed|roof|hut/.test(kind)) return 3;
+    if (/commercial|retail|office|industrial|warehouse|church|school/.test(kind)) return 9;
+    return 5.5; // house / yes / residential
+  }
+  const bldgGeoCache = new Map<string, THREE.BufferGeometry>();
+  const bldgGroup = new THREE.Group();
+  for (const b of WORLD.buildings) {
+    let minX = Infinity, maxX = -Infinity, minZv = Infinity, maxZv = -Infinity;
+    let cx = 0, cy = 0;
+    for (const [x, y] of b.footprint) {
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+      minZv = Math.min(minZv, y); maxZv = Math.max(maxZv, y);
+      cx += x; cy += y;
+    }
+    cx /= b.footprint.length; cy /= b.footprint.length;
+    const [scx, scz] = toScene(cx, cy);
+    const sx = Math.max(4, maxX - minX);
+    const sz = Math.max(4, maxZv - minZv);
+    const h = (b.height ?? defaultHeight(b.kind)) * 2.2; // diorama scale
+    const groundY = terrainY(cx, cy);
+    const key = `${sx.toFixed(0)}x${sz.toFixed(0)}x${h.toFixed(0)}`;
+    let geo = bldgGeoCache.get(key);
+    if (!geo) {
+      geo = new THREE.BoxGeometry(sx * 0.9, h, sz * 0.9);
+      bldgGeoCache.set(key, geo);
+    }
+    const big = sx * sz > 300;
+    const mat = new THREE.MeshLambertMaterial({ color: big ? PAL.bldgBig : PAL.bldg });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(scx, groundY + h / 2 - 2.5, scz); // sink 2.5m so none float on slopes
+    bldgGroup.add(mesh);
+  }
+  worldGroup.add(bldgGroup);
+
+  // ── Fire (authored ridge band, diegetic warm light) ──────────────────────
+  const fireGroup = new THREE.Group();
+  const band = WORLD.fire.band;
+  for (let i = 0; i < band.length - 1; i++) {
+    const a = band[i], b = band[i + 1];
+    const [ax, az] = toScene(a.x, a.y);
+    const [bx, bz] = toScene(b.x, b.y);
+    const len = Math.hypot(bx - ax, bz - az);
+    const segGeom = new THREE.BoxGeometry(len, 6, 14);
+    const mat = new THREE.MeshBasicMaterial({
+      color: a.intensity > 0.85 ? PAL.fireHi : PAL.fire,
+    });
+    const seg = new THREE.Mesh(segGeom, mat);
+    const mx = (ax + bx) / 2, mz = (az + bz) / 2;
+    const mly = (a.y + b.y) / 2, mlx = (a.x + b.x) / 2;
+    seg.position.set(mx, terrainY(mlx, mly) + 14, mz);
+    seg.rotation.y = -Math.atan2(bz - az, bx - ax);
+    fireGroup.add(seg);
+
+    // glow disc under each intense segment
+    if (a.intensity > 0.6) {
+      const glow = new THREE.Mesh(
+        new THREE.CircleGeometry(55 * a.intensity, 12),
+        new THREE.MeshBasicMaterial({
+          color: PAL.fire, transparent: true, opacity: 0.3 * a.intensity,
+          side: THREE.DoubleSide, depthWrite: false,
+        }),
+      );
+      glow.rotation.x = -Math.PI / 2;
+      glow.position.set(mx, terrainY(mlx, mly) + 1.0, mz);
+      fireGroup.add(glow);
+    }
+  }
+  const fireMid = band[Math.floor(band.length / 2)];
+  const fireLight = new THREE.PointLight(PAL.fire.getHex(), 3.5, 900, 2);
+  {
+    const [fsx, fsz] = toScene(fireMid.x, fireMid.y);
+    fireLight.position.set(fsx, terrainY(fireMid.x, fireMid.y) + 60, fsz);
+  }
+  worldGroup.add(fireLight);
+  worldGroup.add(fireGroup);
+
+  // ── Smoke (radial-gradient sprites, not flat rectangles) ──────────────────
+  function smokeTexture(): THREE.Texture {
+    const c = document.createElement("canvas");
+    c.width = 128; c.height = 128;
+    const g = c.getContext("2d")!;
+    const grad = g.createRadialGradient(64, 64, 8, 64, 64, 64);
+    grad.addColorStop(0, "rgba(190,200,212,0.55)");
+    grad.addColorStop(0.55, "rgba(150,162,178,0.28)");
+    grad.addColorStop(1, "rgba(140,152,168,0)");
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 128, 128);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+  const smokeTex = smokeTexture();
+  for (const s of WORLD.fire.smoke) {
+    const m = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: smokeTex, transparent: true, opacity: s.opacity,
+      depthWrite: false,
+    }));
+    m.scale.set(320, 260, 1);
+    {
+      const [ssx, ssz] = toScene(s.x, s.y);
+      m.position.set(ssx, terrainY(s.x, s.y) + s.height, ssz);
+    }
+    worldGroup.add(m);
+  }
+
+
+  // ── Render ────────────────────────────────────────────────────────────────
   renderer.render(scene, camera);
 
-  // Read the framebuffer. When outputColorSpace=SRGB, the framebuffer
-  // stores sRGB-encoded values; when Linear, raw linear values. We
-  // detect and convert as needed.
+  // PNG extraction via readPixels → 2D canvas (canvas.toDataURL races with
+  // the framebuffer clear in headless Chromium).
   const gl = renderer.getContext();
   const pixels = new Uint8Array(NATIVE_W * NATIVE_H * 4);
   gl.readPixels(0, 0, NATIVE_W, NATIVE_H, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-
-  // If the framebuffer is linear, apply sRGB gamma so the PNG matches
-  // what the browser displays. (Three.js with outputColorSpace=SRGB
-  // writes sRGB to the framebuffer, but readPixels returns those bytes
-  // directly — no conversion needed in that case.)
-  // Detect: if framebuffer format hints "srgb" or color attachment is
-  // SRGB_ALPHA, treat as already-encoded.
-  const colorAttachment = gl.getParameter(gl.FRAMEBUFFER_BINDING);
-  // Apply linear→sRGB only if needed. For simplicity, always apply
-  // (idempotent if already sRGB since values are 0..255 ints).
-  // Actually skip — Three.js handles this. Use bytes as-is.
-
-  // Flip Y (WebGL origin is bottom-left, PNG is top-left)
   const flipped = new Uint8ClampedArray(NATIVE_W * NATIVE_H * 4);
   const rowBytes = NATIVE_W * 4;
   for (let y = 0; y < NATIVE_H; y++) {
     const src = (NATIVE_H - 1 - y) * rowBytes;
-    const dst = y * rowBytes;
-    flipped.set(pixels.subarray(src, src + rowBytes), dst);
+    flipped.set(pixels.subarray(src, src + rowBytes), y * rowBytes);
   }
+  const c2d = document.createElement("canvas");
+  c2d.width = NATIVE_W; c2d.height = NATIVE_H;
+  const ctx = c2d.getContext("2d");
+  if (!ctx) throw new Error("2D context unavailable");
+  ctx.putImageData(new ImageData(flipped, NATIVE_W, NATIVE_H), 0, 0);
+  const dataUrl = c2d.toDataURL("image/png");
 
-  // Composite onto a 2D canvas and emit as PNG data URL.
-  const canvas2d = document.createElement("canvas");
-  canvas2d.width = NATIVE_W;
-  canvas2d.height = NATIVE_H;
-  const ctx2d = canvas2d.getContext("2d");
-  if (!ctx2d) throw new Error("2D canvas context unavailable");
-  const imageData = new ImageData(flipped, NATIVE_W, NATIVE_H);
-  ctx2d.putImageData(imageData, 0, 0);
-  const dataUrl = canvas2d.toDataURL("image/png");
-  status.textContent = `rendered · ${WORLD.buildings.length} bldgs · ${WORLD.roadRibbons.length} roads · ${cols * rows} heightfield cells · ${(dataUrl.length / 1024).toFixed(0)}KB`;
+  status.textContent = `rendered · ${WORLD.buildings.length} bldgs · ${WORLD.roads.length} roads · ${cols}x${rows} terrain · ${(dataUrl.length / 1024).toFixed(0)}KB`;
   status.dataset.ready = "1";
   status.dataset.pngDataUrl = dataUrl;
 }
 
-function uvToWorld(u: number, v: number, w: number, h: number): [number, number] {
-  return [u * w, h * (1 - v)];
-}
-
-// Expose for the inline HTML harness
 declare global {
   interface Window {
     __renderWorld: (canvas: HTMLCanvasElement, status: HTMLElement) => void;

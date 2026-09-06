@@ -1,0 +1,13 @@
+{
+  "center": {
+    "lat": 34.032,
+    "lon": -118.815
+  },
+  "widthMeters": 2000.0,
+  "heightMeters": 1100.0,
+  "projection": "local-equirectangular",
+  "attribution": [
+    "Elevation: USGS 3DEP (public domain)",
+    "Buildings/roads/landuse: \u00a9 OpenStreetMap contributors (ODbL)"
+  ]
+}

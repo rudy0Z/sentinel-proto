@@ -82,32 +82,59 @@ Out of scope: portfolio embed sync (`node scripts/sync-embeds.mjs sentinel` from
 
 ---
 
-## Phase 1 — Built scene (shipped, commit 58365d9)
+## Phase 1 — Built scene: real-data diorama v2 (in progress, not yet accepted)
 
-The hand-painted `sentinel-map-overhaul.png` is replaced by a render of authored world data. The world is the source of truth; the picture is a render of that data.
+After the first attempt's rejection (see below), Phase 1 was rebuilt on real data following the Direction-B decision (stylized low-poly diorama, mood reference = original painted asset).
 
-### What landed
+### What's different this time
 
-- **`src/app/map/world/world.ts`** — `WORLD` constant. Real lat/lon frame (Encinal Canyon, Malibu CA, 34.05°N / 118.82°W, EPSG:3857-projected, 2000m × 1100m). 32×18 heightfield; 32 road ribbons anchored to existing `roads.ts` node positions; 144 buildings (residential grids + sparse ridge-base structures); fire as diegetic warm light at forest-north zone center; vegetation clusters + drainage wash. State-specific overlays (`spreadRings`, `proposedDrones`, `evacuationCorridors`, `tfrZones`, `wind`) for the four Sentinel states — Phase 1's render bakes the RESCUE state into the PNG; Phase 2's runtime SVG overlay reads the same data and toggles by state.
-- **`scripts/render-world-entry.ts` + `scripts/render-world-harness.html` + `scripts/render-world.mjs`** — headless Three.js renderer. Vite serves the harness under the existing `/embed/sentinel/` base; Playwright loads it in headless Chromium with `--use-gl=swiftshader`; the scene renders at exactly 1691×914. PNG extraction goes `gl.readPixels → 2D canvas → dataURL → Node writeFileSync` (the standard `canvas.toDataURL` races with the WebGL framebuffer clear in headless mode). `npm run render:world` regenerates the basemap.
-- **Backup** — the previous hand-painted asset is preserved as `src/assets/sentinel-map-overhaul.bak.png`.
-- **`three` + `@types/three`** added as devDependencies. `package.json` gains the `render:world` script.
+- **Real elevation.** `scripts/fetch-world-data.py` pulls USGS 3DEP via the National Map ImageServer for a 2.0 × 1.1 km frame at Encinal Canyon, Malibu (center 34.032, -118.815 — frame chosen by scoring candidates on ridge-position, flatness, and building density). 400×220 samples, 246 m relief — versus the failed attempt's 576 invented cells.
+- **Real buildings and roads.** Overpass (with mirror fallback + hard backoff) bakes 333 OSM building footprints and 80 road ways into `src/app/map/world/*.json`; frame metadata + attribution in `frame.json`.
+- **Data-driven composition.** DEM quadrant analysis (NW=143 m → SE=54 m) placed the camera SE-looking-NW so the real massif reads as backdrop and the residential flats fill the foreground — the original's structure, earned from data instead of painted.
+- **Fire authored on the real crest.** The band follows the massif's actual crest trace (x -700..-862, y 330..545 at 194-263 m), not a guessed line.
+- **Root-cause fix from v1:** the terrain sampling bug (`ly = H/2 - pz` spanned [0,H] instead of [-550,+550], offsetting the whole mesh and flattening half the slab) is fixed; debug axis pillars were used to verify placement before removal.
 
-### Renderer design choices
+### Pipeline
 
-- **Camera**: south-southwest diorama at `(-300, 900, 1500)` looking at `(0, 80, 0)`, FOV 45°. The 2000m × 1100m frame fits with margin.
-- **Terrain exaggeration ×3** (`elevation * 220m`) so ridges read clearly at this aerial distance. Real-world 70m ridges would be invisible from 1.5km up; the diorama is stylised.
-- **Buildings ×3 height, roads ×2.2 width, vegetation ×3 height** — same stylisation logic. Realistic-scale buildings would be sub-pixel.
-- **Buildings/roads sample the heightfield** at their (x, z) and lift onto the local terrain Y, so they sit on the slope rather than sinking into it.
-- **Fog** `THREE.Fog(#34465A, 600, 3000)` — atmospheric blue-steel mood without drowning the scene.
-- **Materials** `MeshLambertMaterial` throughout (cheap, mood-appropriate). `outputColorSpace = SRGBColorSpace`, `toneMapping = NoToneMapping` (ACES compresses the blue-steel palette too dark).
-- **Lighting** one `AmbientLight` (#A8BCD0, 0.9) + one `DirectionalLight` (#9CC0DD, 1.1, from -400,600,200) + one `PointLight` at the fire origin (warm, 8.0 intensity, 800m falloff).
+`npm run render:world` → `scripts/render-world.mjs` (Playwright + headless Chromium + WebGL) → `scripts/render-world-entry.ts` builds the Three.js scene from `WORLD` (dem.json + buildings.json + roads.json) → PNG extraction via `gl.readPixels` → 2D canvas → data URL → file write at exactly 1691×914. `python scripts/fetch-world-data.py --force` re-bakes data.
 
-### Where it stands visually
+### Current visual state (honest)
 
-The diorama reads: ridge silhouette across the upper third, residential grids in the lower third, road ribbons threading between them, fire glow on the east slope. Composition matches the existing overlay's spatial layout, so the SVG overlay lands on the new basemap the same way it landed on the old one. Phase 1c (visual polish — palette lift, ridge slope softening, residential scale tuning) is deferred; the current render passes all five gates and is functionally shipped.
+The scene reads: real low-poly canyon relief, ~333 real houses on real streets, fire band + smoke on the actual massif crest, blue-steel grade. Framing crops the slab edges so terrain fills the frame like the original. **Not yet accepted:** building scale/exaggeration (×2.2 height) and fire glow are first-pass values; terrain texture is uniform (no landuse tint variety — only 1 OSM landuse polygon came back for this bbox); the baked PNG still needs the user's side-by-side sign-off against the original before calling this shipped.
 
 ### Gate results
+
+| Gate | Result |
+|---|---|
+| `tsc --noEmit` | clean |
+| `audit:tokens` | 223 warnings (no failures) |
+| `verify:map` | 9/9 PASS — slice law intact |
+| `verify:flows` | 19/19 PASS |
+
+---
+
+## Phase 1 (v1) — Built scene: **abandoned**, renderer output rejected (commits 58365d9 reverted)
+
+**Status:** the `render:world` pipeline and `world.ts` data were authored (commits 58365d9 + 3c03b4d), but the rendered basemap was not at the visual bar. The original cinematic PNG has been restored as `src/assets/sentinel-map-overhaul.png`; the rejected render is preserved as `sentinel-map-overhaul.bak.png` (renamed back from the working `bak`) — actually, the rejected render lives only in git history now.
+
+### Why the render failed
+
+The original hand-painted basemap reads as a disaster-film still: sculpted mountain ridges with thousands of displacement samples forming real crevasses and slope variation; a populated residential grid of hundreds of individual houses arranged in organic block patterns with thin road ribbons threading through them; multiple glowing fire lines along the ridge scar with smoke wisps drifting into the air; atmospheric blue-steel mood with volumetric haze and ridge shadowing.
+
+What the first attempt produced: a flat-shaded trapezoid terrain with one bump; a 96-box checkerboard for the residential grid; thick tubes for roads; a single orange line for fire. It passed all five automated gates (which check structural contracts, not visual quality) but did not function as a basemap — the operator's eye reads "debug placeholder", not "incident scene".
+
+The root cause was treating Phase 1 as a code exercise instead of a craft problem: I never studied the original closely enough to identify what makes it read that way (high-frequency terrain displacement, organic building distribution with road curbs, atmospheric volumetrics, multi-source fire with smoke), and instead authored data primitives (`heightfield: number[][]`, `roadRibbons[]`, `buildings[]`) at a density and complexity that could not produce the visual.
+
+### What survives from the attempt
+
+The architectural primitives are still useful for Phase 2's runtime scene, even though Phase 1's static render couldn't deliver the visual:
+
+- **`src/app/map/world/world.ts`** — `WORLD` constant with real lat/lon frame (Encinal Canyon, Malibu CA, 34.05°N / 118.82°W, EPSG:3857-projected, 2000m × 1100m). The schema (`heightfield`, `roadRibbons`, `buildings`, `fire`, `stateOverlays`) is correct and Phase 2-ready. What it lacks is the **density and surface treatment** the original visual requires: terrain needs hundreds of displacement samples not 32×18; building footprints need to be authored from real street-network data not generated on a grid; road ribbons need curb geometry not tube radii.
+- **`scripts/render-world-{entry.ts,harness.html,mjs}`** — headless Three.js pipeline via Vite + Playwright. The infrastructure works end-to-end (PNG extraction via `gl.readPixels` is reliable in headless; the harness loads; WebGL renders; the file writes). The pipeline is a Phase 2 starting point. **However, these scripts have not been re-run since the original basemap was restored, and the renderer code currently produces the rejected output — running `npm run render:world` against the current code will reproduce the failure.**
+- **`three` + `@types/three`** as devDependencies — kept, for Phase 2.
+- **`backup`** — `sentinel-map-overhaul.bak.png` is now the previous hand-painted asset again (since it was the only copy of the cinematic PNG before the failed render overwrote the live asset). The rejected render lives only in git history at 58365d9.
+
+### Gate results at the time of the failed attempt
 
 | Gate | Result |
 |---|---|
@@ -115,19 +142,22 @@ The diorama reads: ridge silhouette across the upper third, residential grids in
 | `audit:tokens` | 223 warnings (no failures) |
 | `verify:map` | **9/9 PASS** — slice law intact |
 | `verify:flows` | **19/19 PASS** |
-| `verify:routes` | not re-run (no source touched in this phase) |
+| `verify:routes` | not re-run (no source touched) |
 
-### What did NOT change
+All structural gates passed. The gates did not, and could not, verify the visual quality of the rendered PNG — they verify the slice law contract and the surrounding app behaviour, both of which were preserved because the new PNG replaced the old at the same 1691×914 dimensions.
 
-- `frame.ts`, `zones.ts`, `roads.ts`, `agents.ts`, `routes.ts`, `types.ts` — untouched.
-- `SpatialMapCanvas.tsx` — untouched. It consumes the basemap through the slice law; the new PNG is dropped in at the same path.
-- The five design principles, the four Sentinel states, the TALON derivation — all untouched.
+### What needs to happen for a real Phase 1
+
+The handover is right that "make the world data, the picture a render of that data" is the thesis. But the *density* of the data has to match the visual fidelity of the original basemap. Realistic options:
+
+1. **Source the basemap from real data.** The frame is a 2km × 1.1km bbox centered at 34.05°N / 118.82°W. SRTM 30m DEM gives ~67×37 elevation samples; that produces real ridge sculpting. OSM buildings (downloaded via Overpass or pre-extracted GeoJSON) give real residential footprints with road curbs. ESRI World Imagery gives satellite texture. A composited render of those layers would deliver the visual and still satisfy the "world as data" thesis — the data is just higher-fidelity than hand-authored.
+2. **Hand-author a much higher-density heightfield.** 128×72 vertices with multi-octave Perlin noise sculpts real crevasses. Hundreds of individually-placed buildings along real street networks (or imported from OSM). Road geometry with curb edges. Fire as a textured mesh with smoke shader.
+3. **Render an existing reference scene to the right aspect ratio.** If the goal is to ship the cinematic look for the case study, render a reference scene (e.g. Mapscene, or a Cesium export of the bbox) at 1691×914 and use that as the basemap. The `world.ts` schema still anchors the data the overlay reads.
+
+None of these is a 1–2 day task. The handover's estimate was correct for an *implementation* of a primitive version; it was off for delivering the visual the case study needs.
 
 ### Phase 2 (deferred, per handover)
 
-- `SpatialMapCanvas.tsx` swaps the backdrop SVG `<image>` for a `<canvas>` rendered by Three.js at the same `viewBox` / slice mapping.
-- Overlay SVG survives as a projected HUD layer (raycast from camera through screen point → world point → u/v).
-- Day / IR variant = swap the directional light's colour and fog density. No code path forks; one parameter changes per variant.
-- Real coordinates become load-bearing: `world.ts.frame.center` + `projection: "web-mercator"` is the contract for swapping OSM / Mapbox / Cesium tiles.
+Phase 2's runtime scene plan is still sound: `SpatialMapCanvas.tsx` swaps the backdrop SVG `<image>` for a `<canvas>` rendered by Three.js at the same `viewBox` / slice mapping. Overlay SVG survives as a projected HUD layer (raycast from camera through screen point → world point → u/v). Day / IR variant = swap the directional light's colour and fog density. Real coordinates become load-bearing: `world.ts.frame.center` + `projection: "web-mercator"` is the contract for swapping OSM / Mapbox / Cesium tiles.
 
-Reference repos identified for Phase 2: `tentone/geo-three`, `xyzmaps/xyz-threejs`, `opengeos/GeoLibre`.
+Reference repos identified for Phase 2: `tentone/geo-three`, `xyzmaps/xyz-threejs`, `opengeos/GeoLibre`, `milos-agathon/forge3d`, `flywave/flywave.gl`, `w3reality/three-geo`, `img2threejs/img2threejs`, `milos-agathon/forge3d`.
