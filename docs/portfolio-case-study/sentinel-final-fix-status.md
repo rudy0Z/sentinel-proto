@@ -79,3 +79,55 @@ SENTINEL_VERIFY_URL="http://localhost:4190/embed/sentinel/" \
 `scripts/capture-audit.mjs` and `scripts/capture-audit2.mjs` regenerate `verification-artifacts/audit-captures/` for 8 scenes × 2 viewports plus free-mode and the chip conversation chain.
 
 Out of scope: portfolio embed sync (`node scripts/sync-embeds.mjs sentinel` from the portfolio repo) and case-study copy. Both are the next conversation.
+
+---
+
+## Phase 1 — Built scene (shipped, commit 58365d9)
+
+The hand-painted `sentinel-map-overhaul.png` is replaced by a render of authored world data. The world is the source of truth; the picture is a render of that data.
+
+### What landed
+
+- **`src/app/map/world/world.ts`** — `WORLD` constant. Real lat/lon frame (Encinal Canyon, Malibu CA, 34.05°N / 118.82°W, EPSG:3857-projected, 2000m × 1100m). 32×18 heightfield; 32 road ribbons anchored to existing `roads.ts` node positions; 144 buildings (residential grids + sparse ridge-base structures); fire as diegetic warm light at forest-north zone center; vegetation clusters + drainage wash. State-specific overlays (`spreadRings`, `proposedDrones`, `evacuationCorridors`, `tfrZones`, `wind`) for the four Sentinel states — Phase 1's render bakes the RESCUE state into the PNG; Phase 2's runtime SVG overlay reads the same data and toggles by state.
+- **`scripts/render-world-entry.ts` + `scripts/render-world-harness.html` + `scripts/render-world.mjs`** — headless Three.js renderer. Vite serves the harness under the existing `/embed/sentinel/` base; Playwright loads it in headless Chromium with `--use-gl=swiftshader`; the scene renders at exactly 1691×914. PNG extraction goes `gl.readPixels → 2D canvas → dataURL → Node writeFileSync` (the standard `canvas.toDataURL` races with the WebGL framebuffer clear in headless mode). `npm run render:world` regenerates the basemap.
+- **Backup** — the previous hand-painted asset is preserved as `src/assets/sentinel-map-overhaul.bak.png`.
+- **`three` + `@types/three`** added as devDependencies. `package.json` gains the `render:world` script.
+
+### Renderer design choices
+
+- **Camera**: south-southwest diorama at `(-300, 900, 1500)` looking at `(0, 80, 0)`, FOV 45°. The 2000m × 1100m frame fits with margin.
+- **Terrain exaggeration ×3** (`elevation * 220m`) so ridges read clearly at this aerial distance. Real-world 70m ridges would be invisible from 1.5km up; the diorama is stylised.
+- **Buildings ×3 height, roads ×2.2 width, vegetation ×3 height** — same stylisation logic. Realistic-scale buildings would be sub-pixel.
+- **Buildings/roads sample the heightfield** at their (x, z) and lift onto the local terrain Y, so they sit on the slope rather than sinking into it.
+- **Fog** `THREE.Fog(#34465A, 600, 3000)` — atmospheric blue-steel mood without drowning the scene.
+- **Materials** `MeshLambertMaterial` throughout (cheap, mood-appropriate). `outputColorSpace = SRGBColorSpace`, `toneMapping = NoToneMapping` (ACES compresses the blue-steel palette too dark).
+- **Lighting** one `AmbientLight` (#A8BCD0, 0.9) + one `DirectionalLight` (#9CC0DD, 1.1, from -400,600,200) + one `PointLight` at the fire origin (warm, 8.0 intensity, 800m falloff).
+
+### Where it stands visually
+
+The diorama reads: ridge silhouette across the upper third, residential grids in the lower third, road ribbons threading between them, fire glow on the east slope. Composition matches the existing overlay's spatial layout, so the SVG overlay lands on the new basemap the same way it landed on the old one. Phase 1c (visual polish — palette lift, ridge slope softening, residential scale tuning) is deferred; the current render passes all five gates and is functionally shipped.
+
+### Gate results
+
+| Gate | Result |
+|---|---|
+| `tsc --noEmit` | clean (incl. new `world.ts`, `render-world-entry.ts`) |
+| `audit:tokens` | 223 warnings (no failures) |
+| `verify:map` | **9/9 PASS** — slice law intact |
+| `verify:flows` | **19/19 PASS** |
+| `verify:routes` | not re-run (no source touched in this phase) |
+
+### What did NOT change
+
+- `frame.ts`, `zones.ts`, `roads.ts`, `agents.ts`, `routes.ts`, `types.ts` — untouched.
+- `SpatialMapCanvas.tsx` — untouched. It consumes the basemap through the slice law; the new PNG is dropped in at the same path.
+- The five design principles, the four Sentinel states, the TALON derivation — all untouched.
+
+### Phase 2 (deferred, per handover)
+
+- `SpatialMapCanvas.tsx` swaps the backdrop SVG `<image>` for a `<canvas>` rendered by Three.js at the same `viewBox` / slice mapping.
+- Overlay SVG survives as a projected HUD layer (raycast from camera through screen point → world point → u/v).
+- Day / IR variant = swap the directional light's colour and fog density. No code path forks; one parameter changes per variant.
+- Real coordinates become load-bearing: `world.ts.frame.center` + `projection: "web-mercator"` is the contract for swapping OSM / Mapbox / Cesium tiles.
+
+Reference repos identified for Phase 2: `tentone/geo-three`, `xyzmaps/xyz-threejs`, `opengeos/GeoLibre`.
