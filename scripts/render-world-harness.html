@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sentinel World Renderer</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #0B121C;
+      overflow: hidden;
+    }
+    #render-canvas {
+      display: block;
+      width: 1691px;
+      height: 914px;
+    }
+    #status {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      color: #5BB7E6;
+      font: 11px/1.4 monospace;
+      background: rgba(11, 18, 28, 0.85);
+      padding: 4px 8px;
+      border-radius: 2px;
+      z-index: 100;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="render-canvas" width="1691" height="914"></canvas>
+  <div id="status">initialising…</div>
+  <script type="module">
+    import { mount } from "/embed/sentinel/scripts/render-world-entry.ts";
+    const canvas = document.getElementById("render-canvas");
+    const status = document.getElementById("status");
+    try {
+      mount(canvas, status);
+    } catch (err) {
+      status.textContent = "render failed: " + (err && err.message ? err.message : String(err));
+      status.dataset.ready = "error";
+    }
+  </script>
+</body>
+</html>

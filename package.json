@@ -14,6 +14,7 @@
     "verify:map": "node scripts/verify-map.mjs",
     "verify:machine": "npx --yes tsx scripts/audit-machine.ts",
     "verify:signals": "npx --yes tsx scripts/audit-signals.ts",
+    "render:world": "node scripts/render-world.mjs",
     "verify:design": "npm run typecheck && npm run audit:tokens && npm run verify:map",
     "check": "npm run verify:design && npm run verify:flows"
   },
@@ -74,10 +75,12 @@
     "@tailwindcss/vite": "4.1.12",
     "@types/react": "18.3.30",
     "@types/react-dom": "18.3.7",
+    "@types/three": "^0.185.4",
     "@vitejs/plugin-react": "4.7.0",
     "axe-core": "^4.12.1",
     "playwright-core": "^1.61.1",
     "tailwindcss": "4.1.12",
+    "three": "^0.185.1",
     "typescript": "5.9.3",
     "vite": "^6.4.3"
   },
