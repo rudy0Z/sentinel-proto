@@ -6,6 +6,7 @@ import { DissentGate } from "./DissentGate";
 import { ExceptionBanner, ExceptionInterrupt } from "./ExceptionSurface";
 import type { ModalPayload } from "./ActionModal";
 import { SpatialMapCanvas, spatialCoordinatesForTarget } from "../map/SpatialMapCanvas";
+import { Map3DExplorer } from "./Map3DExplorer";
 import { nearestNodeId, nodePoint } from "../map/roads";
 import { fromPixel, toPixel } from "../map/frame";
 import { Navbar } from "./Navbar";
@@ -186,6 +187,8 @@ export function SentinelShell() {
   const [escalationElapsed, setEscalationElapsed] = useState(0);
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [spatialHover, setSpatialHover] = useState<SelectedEntity>(null);
+  /* 3D EXPLORE overlay — navigable spatial world, outside the critical flow. */
+  const [explore3d, setExplore3d] = useState(false);
   /* Seconds spent in contested watch — drives evidence climbing toward the re-raise bar. */
   const [contestedElapsed, setContestedElapsed] = useState(0);
   /* Pending dissent-gated move, held until the operator states a reason. */
@@ -879,6 +882,34 @@ export function SentinelShell() {
           onUpdateState={(updater) => updateState((draft) => { updater(draft as import("../tokens").ShellState); return draft; })}
         />
       </div>
+
+      {explore3d && (
+        <Map3DExplorer onClose={() => setExplore3d(false)} />
+      )}
+
+      {!explore3d && (
+        <button
+          onClick={() => setExplore3d(true)}
+          data-action="open-explore-3d"
+          style={{
+            position: "absolute",
+            left: 16,
+            bottom: 14,
+            zIndex: layer.map + 2,
+            padding: "7px 12px",
+            borderRadius: 4,
+            cursor: "pointer",
+            background: "rgba(11,18,28,0.8)",
+            border: "1px solid rgba(127,155,180,0.32)",
+            color: "#C7D3DE",
+            font: "600 11px/1 var(--font-sans, system-ui)",
+            letterSpacing: "0.12em",
+          }}
+          title="Navigable 3D terrain (drag orbit · wheel zoom · ESC exit)"
+        >
+          EXPLORE · 3D
+        </button>
+      )}
 
       <div
         style={{

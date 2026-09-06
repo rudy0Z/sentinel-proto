@@ -128,10 +128,11 @@ async function main() {
     console.log(`[render-world] loading ${harnessUrl}`);
     await page.goto(harnessUrl, { waitUntil: "domcontentloaded" });
 
-    // 5. Wait for the harness to signal ready
+    // 5. Wait for the harness to signal ready (SwiftShader is slow on the
+    //    6km scene: 240x130 terrain + forest instances + ~2.5k buildings)
     await page.waitForFunction(
       () => document.getElementById("status")?.dataset.ready === "1",
-      { timeout: 60000 },
+      { timeout: 300000 },
     );
     const statusText = await page.$eval("#status", (el) => el.textContent);
     console.log(`[render-world] harness ready: ${statusText}`);

@@ -33,8 +33,8 @@ import requests
 # ── Frame ────────────────────────────────────────────────────────────────────
 CENTER_LAT = 34.032
 CENTER_LON = -118.815
-WIDTH_M = 2000.0    # E-W
-HEIGHT_M = 1100.0   # N-S
+WIDTH_M = 6000.0    # E-W
+HEIGHT_M = 3250.0   # N-S (6.0 / 3.25 ≈ 1.85 matches the 1691×914 canvas)
 
 M_PER_DEG_LAT = 110540.0
 M_PER_DEG_LON = 111320.0 * np.cos(np.radians(CENTER_LAT))
@@ -224,6 +224,48 @@ def fetch_landuse():
     return out
 
 
+def fetch_vegetation():
+    """ESA WorldCover 10m land cover, windowed to the frame, downsampled
+    to a ~30m class grid. Classes: 10 tree, 20 shrub, 30 grass, 40 crop,
+    50 built, 60 bare, 80 water. Graceful fallback: returns None."""
+    print("· ESA WorldCover vegetation …")
+    # Tile named by lower-left corner (3° grid). Our frame spans
+    # lat 33.99..34.07, lon -118.90..-118.72 → tile N33W120.
+    tile_lat = int(np.floor(SOUTH / 3)) * 3
+    tile_lon = int(np.floor(WEST / 3)) * 3
+    lat_s = f"N{abs(tile_lat):02d}" if tile_lat >= 0 else f"S{abs(tile_lat):02d}"
+    lon_s = f"E{abs(tile_lon):03d}" if tile_lon >= 0 else f"W{abs(tile_lon):03d}"
+    url = (
+        "https://esa-worldcover.s3.eu-central-1.amazonaws.com/"
+        f"v200/2021/map/ESA_WorldCover_10m_2021_v200_{lat_s}{lon_s}_Map.tif"
+    )
+    try:
+        import rasterio
+        from rasterio.windows import from_bounds
+        with rasterio.open(url) as src:
+            win = from_bounds(WEST, SOUTH, EAST, NORTH, src.transform)
+            cover = src.read(1, window=win)
+        # Downsample by majority-ish (center sample per 30m cell)
+        step = max(1, cover.shape[1] // 200)
+        cover_ds = cover[::step, ::step]
+        classes = {
+            "cols": int(cover_ds.shape[1]),
+            "rows": int(cover_ds.shape[0]),
+            "cellMeters": round(WIDTH_M / cover_ds.shape[1], 1),
+            "labels": {"10": "tree", "20": "shrub", "30": "grass",
+                       "40": "crop", "50": "built", "60": "bare", "80": "water"},
+            "classes": cover_ds.astype(int).tolist(),
+        }
+        from collections import Counter
+        top = Counter(cover_ds.flatten().tolist()).most_common(4)
+        print(f"  {classes['cols']}x{classes['rows']} grid, dominant: {top}")
+        return classes
+    except Exception as exc:
+        print(f"  WorldCover unavailable ({type(exc).__name__}); "
+              "renderer falls back to slope/elevation heuristics")
+        return None
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--force", action="store_true",
@@ -244,15 +286,22 @@ def main():
         elevation=dem,
         south=SOUTH, north=NORTH, west=WEST, east=EAST,
     )
-    # Browser-side copy: rounded to 0.1 m keeps the JSON ~0.5 MB.
+    # Browser-side copies: binary Int16 (compact, for the 3D runtime) and
+    # JSON summary (bounds + stats; grid itself stays in the binary).
+    dem_i16 = np.round(dem).astype("<i2")  # little-endian int16, 0.1m-precision not needed
+    dem_i16.tofile(os.path.join(OUT_DIR, "dem.bin"))
     with open(os.path.join(OUT_DIR, "dem.json"), "w") as f:
         json.dump({
             "cols": dem.shape[1],
             "rows": dem.shape[0],
             "cellMeters": round(WIDTH_M / dem.shape[1], 2),
-            "elevation": [[round(float(v), 1) for v in row] for row in dem],
+            "min": round(float(dem.min()), 1),
+            "max": round(float(dem.max()), 1),
+            "format": "int16-le-bin",
+            "binRows": "north-to-south",
+            "binCols": "west-to-east",
         }, f)
-    print("  saved dem.npz + dem.json ✓")
+    print(f"  saved dem.npz + dem.bin + dem.json ✓ ({dem.shape[1]}x{dem.shape[0]})")
 
     buildings = fetch_buildings()
     with open(os.path.join(OUT_DIR, "buildings.json"), "w") as f:
@@ -272,6 +321,12 @@ def main():
     except RuntimeError as exc:
         # Non-fatal: vegetation tint can fall back to slope/height heuristics.
         print(f"  landuse skipped ({exc}); renderer will fall back to heuristics")
+
+    veg = fetch_vegetation()
+    if veg is not None:
+        with open(os.path.join(OUT_DIR, "vegetation.json"), "w") as f:
+            json.dump(veg, f)
+        print("  saved vegetation.json ✓")
 
     with open(os.path.join(OUT_DIR, "frame.json"), "w") as f:
         json.dump({
