@@ -1,0 +1,25 @@
+{
+  "steps": [
+    {
+      "step": "click Send Authority Packet",
+      "clicked": "Send Authority Packet"
+    },
+    {
+      "step": "modal after send click",
+      "modal": "Send authority packet\n\nReview the evidence, uncertainty, and human send gate before notifying authorities.\n\nOperator command · confirmation required\nSend Authority Packet\nMarks the 90-second milestone. Operations planning begins after dispatch receives this packet.\nIncident class\nAuthority-notifiable wildfire risk\nPacket ID\nAUD-90-0847\nConfidence\n78%\nHuman gate\nOperator send required\nTALON evidence summary\nThermal delta exceeds seasonal baseline\nSatellite IR confirms spread orientation\nScout LiDAR validates ridge-side heat bloom\nWind vector projects northeast movement\nIncluded uncertainty\nGround fuel survey is 48h stale\nDrone visual confidence reduced by smoke\nCancel\nSend Authority Packet"
+    },
+    {
+      "step": "input inside modal",
+      "pinInModal": null
+    },
+    {
+      "step": "inner confirm click",
+      "clicked": "Send Authority Packet"
+    },
+    {
+      "step": "after inner confirm",
+      "text": "SCOUT INVESTIGATION\nFOREST ZONE\nBUFFER ZONE 2\nBUFFER ZONE 1\nGRID 4C\nSCOUT-01\nLIDAR-02\nRELAY-01\nRELAY-02\nHERALD-01\nVANGUARD-01\nSCOUT-03\nRELAY-03\nVANGUARD-02\nTALON RECONSTRUCTION · SPATIAL OS\nEXPLORE · 3D\nFlytBaseSentinel\nINC-2024-0847\nQueue 3\nIntelligence\nDetect · Verify · Escalate\nT+00:04\nClock stop"
+    }
+  ],
+  "consoleErrors": []
+}

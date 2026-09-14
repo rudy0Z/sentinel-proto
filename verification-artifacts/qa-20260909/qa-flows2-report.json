@@ -1,0 +1,70 @@
+{
+  "flows": [
+    {
+      "flow": "chip→answer (baseline session)",
+      "consoleErrors": [],
+      "chips": [
+        "Why now?"
+      ],
+      "clicked": "Why now?",
+      "answerExcerpt": "BUFFER ZONE 2\nBUFFER ZONE 1\nSCOUT-01\nLIDAR-02\nRELAY-01\nRELAY-02\nHERALD-01\nVANGUARD-01\nSCOUT-03\nRELAY-03\nVANGUARD-02\nSATELLITE WATCH · SPATIAL OS\nEXPLORE · 3D\nFlytBaseSentinel\nNo active incident\nQueue 3\nIntelligence\nDetect · Verify · Escalate\nHandover\nTimeline\nPatrol\n3\n03:47:03 UTC\nA. Rao\nSCENES\n+\nInspect\nAssets\n10\nLedger\n3\nQuiet watch\nSurveillance baseline stable\nThermal, wind, burn-memory, and route telemetry remain inside nominal patrol thresholds.\n75%\nsource avg\nActive sources\n3\nDegraded\n1\nWi",
+      "modal": null
+    },
+    {
+      "flow": "authority send gate",
+      "consoleErrors": [],
+      "allButtons": [
+        "Hold escalation",
+        "Send Authority Packet"
+      ],
+      "pinInputFound": false,
+      "clicked": "Hold escalation",
+      "modal1": null
+    },
+    {
+      "flow": "network-degraded telemetry",
+      "consoleErrors": [],
+      "latencyMentions": [
+        "340ms"
+      ],
+      "railTabOrText": "FOREST ZONE\nBUFFER ZONE 2\nBUFFER ZONE 1\nRESIDENTIAL ZONE 2\nEVIDENCE ENVELOPE · +120 M\nGRID 4C\nTALON RECONSTRUCTION · SPATIAL OS\nZONE ENVELOPE\n−\n+\nClick ± to adjust uncertainty\nEXPLORE · 3D\nFlytBaseSentinel\nINC-2024-0847\nQueue 3\nOperations\nStage · Coordinate · Supervise\nTALON supervising\nHandover\nTim"
+    },
+    {
+      "flow": "keyboard tab order",
+      "consoleErrors": [],
+      "chain": [
+        "g:Scout-01. Select or drag to reposition",
+        "g:Lidar-02. Select or drag to reposition",
+        "g:Relay-01. Select or drag to reposition",
+        "g:Relay-02. Select or drag to reposition",
+        "g:Herald-01. Select or drag to reposition",
+        "g:Vanguard-01. Select or drag to reposition",
+        "g:Scout-03. Select or drag to reposition",
+        "g:Relay-03. Select or drag to reposition",
+        "g:Herald-02. Select or drag to reposition",
+        "g:Vanguard-02. Select or drag to reposition",
+        "BUTTON:EXPLORE · 3D",
+        "BUTTON:Open incident queue",
+        "BUTTON:Handover",
+        "BUTTON:Timeline Patrol 3",
+        "BUTTON:Notifications"
+      ],
+      "dupes": []
+    },
+    {
+      "flow": "reduced motion + 390px EXPLORE",
+      "consoleErrors": [],
+      "exploreButtonAt390": [
+        "EXPLORE · 3D"
+      ],
+      "clicked": "EXPLORE · 3D",
+      "after": "FOREST ZONE\nBUFFER ZONE 2\nBUFFER ZONE 1\nRESIDENTIAL ZONE 2\nGRID 4C\nTALON RECONSTRUCTION · SPATIAL OS\nZONE ENVELOPE\n−\n+\nClick ± to adjust uncertainty\nEXPLORE · 3D SPATIAL\ndrag orbit · wheel zoom · right-drag pan · H home · F fly-by\n60 FPS · 7 CALLS · ",
+      "hud": "60 FPS · 7 CALLS · 178K TRIS",
+      "viewport": {
+        "docW": 390,
+        "w": 390,
+        "overflow": false
+      }
+    }
+  ]
+}

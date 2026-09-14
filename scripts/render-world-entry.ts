@@ -17,6 +17,11 @@ export function mount(canvas: HTMLCanvasElement, status: HTMLElement): void {
   const renderer = makeRenderer(canvas);
   renderer.setPixelRatio(1);
   renderer.setSize(NATIVE_W, NATIVE_H, false);
+  canvas.addEventListener("webglcontextlost", (e) => {
+    e.preventDefault();
+    status.textContent = "error: WebGL context lost";
+    status.dataset.ready = "error";
+  });
 
   const scene = makeScene();
 
@@ -29,8 +34,10 @@ export function mount(canvas: HTMLCanvasElement, status: HTMLElement): void {
     renderer.render(scene, camera);
 
     const gl = renderer.getContext();
+    if (gl.isContextLost()) throw new Error("WebGL context lost before readback");
     const w = gl.drawingBufferWidth;
     const h = gl.drawingBufferHeight;
+    if (!w || !h) throw new Error(`zero drawing buffer ${w}x${h} (context lost?)`);
     const pixels = new Uint8Array(w * h * 4);
     gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
     const flipped = new Uint8ClampedArray(w * h * 4);

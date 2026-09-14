@@ -123,19 +123,38 @@ async function main() {
       if (msg.type() === "error") console.log(`[browser:error] ${msg.text()}`);
     });
     page.on("pageerror", (err) => console.log(`[browser:pageerror] ${err.message}`));
+    page.on("response", (r) => {
+      if (r.status() >= 400) console.log(`[browser:${r.status()}] ${r.url()}`);
+    });
 
     const harnessUrl = `${BASE_URL}/embed/sentinel/scripts/render-world-harness.html`;
     console.log(`[render-world] loading ${harnessUrl}`);
-    await page.goto(harnessUrl, { waitUntil: "domcontentloaded" });
 
-    // 5. Wait for the harness to signal ready (SwiftShader is slow on the
-    //    6km scene: 240x130 terrain + forest instances + ~2.5k buildings)
-    await page.waitForFunction(
-      () => document.getElementById("status")?.dataset.ready === "1",
-      { timeout: 300000 },
-    );
-    const statusText = await page.$eval("#status", (el) => el.textContent);
-    console.log(`[render-world] harness ready: ${statusText}`);
+    // Poll for ready with retries: SwiftShader occasionally loses the WebGL
+    // context mid-bake; a fresh page load usually succeeds.
+    let statusText = null;
+    for (let attempt = 1; attempt <= 3 && !statusText?.ready; attempt++) {
+      if (attempt > 1) {
+        console.log(`[render-world] retrying page load (attempt ${attempt})`);
+      }
+      await page.goto(harnessUrl, { waitUntil: "domcontentloaded" });
+      const deadline = Date.now() + 300000;
+      while (Date.now() < deadline) {
+        statusText = await page.$eval("#status", (el) => ({
+          text: el.textContent,
+          ready: el.dataset.ready === "1",
+          error: el.dataset.ready === "error",
+        })).catch(() => null);
+        if (statusText?.error) break;
+        if (statusText?.ready) break;
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+      if (statusText?.error) console.log(`[render-world] attempt failed: ${statusText.text}`);
+    }
+    if (!statusText?.ready) {
+      throw new Error(`harness not ready after 3 attempts: ${statusText?.text ?? "no status"}`);
+    }
+    console.log(`[render-world] harness ready: ${statusText.text}`);
 
     // 6. Extract the PNG data URL the harness built from readPixels.
     //    This bypasses canvas.toDataURL which races with the WebGL clear.
@@ -156,6 +175,23 @@ async function main() {
     await browser.close();
   } finally {
     vite.kill("SIGTERM");
+    // Windows: the spawn used shell:true, so kill()/tree-kill hits only the
+    // cmd shim and orphans the real Vite. Kill whatever still listens on the
+    // port instead — deterministic regardless of shim nesting.
+    if (process.platform === "win32") {
+      const { execSync } = await import("node:child_process");
+      try {
+        const out = execSync(
+          `netstat -ano | findstr ":${PORT}" | findstr "LISTENING"`,
+        ).toString();
+        const pids = new Set(
+          out.split("\n").map((l) => l.trim().split(/\s+/).pop()).filter(Boolean),
+        );
+        for (const pid of pids) {
+          try { execSync(`taskkill /PID ${pid} /T /F`, { stdio: "ignore" }); } catch (_) {}
+        }
+      } catch (_) { /* nothing listening — already gone */ }
+    }
     setTimeout(() => vite.kill("SIGKILL"), 1000);
   }
 }

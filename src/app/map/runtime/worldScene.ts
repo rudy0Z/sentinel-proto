@@ -56,7 +56,7 @@ export function makeRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer {
   const renderer = new THREE.WebGLRenderer({
     canvas, antialias: true, alpha: false,
   });
-  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  renderer.setPixelRatio(Math.min(1.25, window.devicePixelRatio || 1));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.NoToneMapping;
   return renderer;
@@ -130,37 +130,45 @@ export function buildWorldScene(scene: THREE.Scene, world: World): WorldScene {
     vertexColors: true, flatShading: true,
   }))));
 
-  // ── Plinth ──────────────────────────────────────────────────────────────
+  // ── Plinth: 1 draw call (4 side skirts merged into one geometry) ─────────
   const baseY = -160;
-  const plinthColor = new THREE.Color("#16202E");
-  function plinthSide(a: [number, number], b: [number, number]): void {
-    const y1 = terrainY(a[0], a[1]);
-    const y2 = terrainY(b[0], b[1]);
-    const v1 = sceneVec(a[0], a[1], y1), v2 = sceneVec(a[0], a[1], baseY);
-    const v3 = sceneVec(b[0], b[1], y2), v4 = sceneVec(b[0], b[1], baseY);
-    const verts: number[] = [
-      v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, v3.x, v3.y, v3.z,
-      v2.x, v2.y, v2.z, v4.x, v4.y, v4.z, v3.x, v3.y, v3.z,
+  const E = W / 2, Zh = H / 2;
+  {
+    const verts: number[] = [];
+    const edges: Array<[[number, number], [number, number]]> = [
+      [[-E, Zh], [E, Zh]],
+      [[-E, -Zh], [E, -Zh]],
+      [[-E, -Zh], [-E, Zh]],
+      [[E, -Zh], [E, Zh]],
     ];
+    for (const [a, b] of edges) {
+      const y1 = terrainY(a[0], a[1]);
+      const y2 = terrainY(b[0], b[1]);
+      const v1 = sceneVec(a[0], a[1], y1), v2 = sceneVec(a[0], a[1], baseY);
+      const v3 = sceneVec(b[0], b[1], y2), v4 = sceneVec(b[0], b[1], baseY);
+      verts.push(
+        v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, v3.x, v3.y, v3.z,
+        v2.x, v2.y, v2.z, v4.x, v4.y, v4.z, v3.x, v3.y, v3.z,
+      );
+    }
     const g = track(new THREE.BufferGeometry());
     g.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
     g.computeVertexNormals();
     scene.add(new THREE.Mesh(g, track(new THREE.MeshBasicMaterial({
-      color: plinthColor, side: THREE.DoubleSide,
+      color: new THREE.Color("#16202E"), side: THREE.DoubleSide,
     }))));
   }
-  const E = W / 2, Zh = H / 2;
-  plinthSide([-E, Zh], [E, Zh]);
-  plinthSide([-E, -Zh], [E, -Zh]);
-  plinthSide([-E, -Zh], [-E, Zh]);
-  plinthSide([E, -Zh], [E, Zh]);
 
-  // ── Roads: flat draped ribbons ──────────────────────────────────────────
+  // ── Roads: ONE merged geometry per class (2 draw calls total) ────────────
+  // Vertices for every clipped segment are pushed into shared arrays;
+  // arterial vs local roads get separate meshes so classes keep their tint.
   const roadColor = (kind: string): THREE.Color =>
     kind === "primary" || kind === "secondary" || kind === "tertiary"
       ? PAL.arterial : PAL.road;
-  const roadMat = track(new THREE.MeshLambertMaterial({ vertexColors: true }));
-  const roadGroup = new THREE.Group();
+  const roadBuckets: Record<"arterial" | "local", { verts: number[]; cols: number[] }> = {
+    arterial: { verts: [], cols: [] },
+    local: { verts: [], cols: [] },
+  };
   for (const road of world.roads) {
     const segments: Array<Array<[number, number]>> = [];
     let cur: Array<[number, number]> = [];
@@ -174,8 +182,10 @@ export function buildWorldScene(scene: THREE.Scene, world: World): WorldScene {
     if (cur.length) segments.push(cur);
     const halfW = Math.max(3, road.width / 2);
     const col = roadColor(road.kind);
+    const bucket = col === PAL.arterial ? roadBuckets.arterial : roadBuckets.local;
     for (const seg of segments) {
       if (seg.length < 2) continue;
+      // densified ribbon strip, same shape as before, accumulated not meshed
       const pts: THREE.Vector3[] = [];
       for (let i = 0; i < seg.length - 1; i++) {
         const [ax, ay] = seg[i];
@@ -189,8 +199,6 @@ export function buildWorldScene(scene: THREE.Scene, world: World): WorldScene {
       }
       const last = seg[seg.length - 1];
       pts.push(new THREE.Vector3(last[0], 0, -last[1]));
-      const verts: number[] = [];
-      const cols2: number[] = [];
       for (let i = 0; i < pts.length - 1; i++) {
         const p = pts[i];
         const q = pts[i + 1];
@@ -203,29 +211,36 @@ export function buildWorldScene(scene: THREE.Scene, world: World): WorldScene {
         const rr = new THREE.Vector3(p.x - nrm.x * halfW, y, p.z - nrm.z * halfW);
         const l2 = new THREE.Vector3(q.x + nrm.x * halfW, y2, q.z + nrm.z * halfW);
         const r2 = new THREE.Vector3(q.x - nrm.x * halfW, y2, q.z - nrm.z * halfW);
-        verts.push(l.x, l.y, l.z, rr.x, rr.y, rr.z, l2.x, l2.y, l2.z);
-        verts.push(rr.x, rr.y, rr.z, r2.x, r2.y, r2.z, l2.x, l2.y, l2.z);
-        for (let k = 0; k < 6; k++) cols2.push(col.r, col.g, col.b);
+        bucket.verts.push(
+          l.x, l.y, l.z, rr.x, rr.y, rr.z, l2.x, l2.y, l2.z,
+          rr.x, rr.y, rr.z, r2.x, r2.y, r2.z, l2.x, l2.y, l2.z,
+        );
+        for (let k = 0; k < 6; k++) bucket.cols.push(col.r, col.g, col.b);
       }
-      const g = track(new THREE.BufferGeometry());
-      g.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
-      g.setAttribute("color", new THREE.Float32BufferAttribute(cols2, 3));
-      g.computeVertexNormals();
-      roadGroup.add(new THREE.Mesh(g, roadMat));
     }
   }
-  scene.add(roadGroup);
+  const roadMats = {
+    arterial: track(new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true })),
+    local: track(new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true })),
+  };
+  for (const key of ["arterial", "local"] as const) {
+    const b = roadBuckets[key];
+    if (b.verts.length === 0) continue;
+    const g = track(new THREE.BufferGeometry());
+    g.setAttribute("position", new THREE.Float32BufferAttribute(b.verts, 3));
+    g.setAttribute("color", new THREE.Float32BufferAttribute(b.cols, 3));
+    g.computeVertexNormals();
+    scene.add(new THREE.Mesh(g, roadMats[key]));
+  }
 
-  // ── Buildings ───────────────────────────────────────────────────────────
+  // ── Buildings: ONE InstancedMesh (unit box, per-instance matrix + tint) ──
   function defaultHeight(kind: string): number {
     if (/garage|shed|roof|hut/.test(kind)) return 3;
     if (/commercial|retail|office|industrial|warehouse|church|school/.test(kind)) return 9;
     return 5.5;
   }
-  const bldgGeoCache = new Map<string, THREE.BufferGeometry>();
-  const bldgMat = track(new THREE.MeshLambertMaterial({ color: PAL.bldg }));
-  const bldgMatBig = track(new THREE.MeshLambertMaterial({ color: PAL.bldgBig }));
-  const bldgGroup = new THREE.Group();
+  const bldgMat = track(new THREE.MeshLambertMaterial({ color: 0xffffff }));
+  const placed: Array<{ cx: number; cy: number; sx: number; sy: number; h: number; big: boolean }> = [];
   for (const b of world.buildings) {
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     let cx = 0, cy = 0;
@@ -239,22 +254,39 @@ export function buildWorldScene(scene: THREE.Scene, world: World): WorldScene {
     const sx = Math.max(5, maxX - minX);
     const sy = Math.max(5, maxY - minY);
     const h = (b.height ?? defaultHeight(b.kind)) * 2.4;
-    const groundY = terrainY(cx, cy);
-    const gkey = `${sx.toFixed(0)}x${sy.toFixed(0)}x${h.toFixed(0)}`;
-    let geo = bldgGeoCache.get(gkey);
-    if (!geo) {
-      geo = new THREE.BoxGeometry(sx * 0.9, h, sy * 0.9);
-      bldgGeoCache.set(gkey, geo);
-    }
-    const mesh = new THREE.Mesh(geo, sx * sy > 260 ? bldgMatBig : bldgMat);
-    mesh.position.set(cx, groundY + h / 2 - 3, -cy);
-    bldgGroup.add(mesh);
+    placed.push({ cx, cy, sx, sy, h, big: sx * sy > 260 });
   }
-  scene.add(bldgGroup);
+  const bldgInst = new THREE.InstancedMesh(
+    track(new THREE.BoxGeometry(1, 1, 1)),
+    bldgMat,
+    placed.length,
+  );
+  bldgInst.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(placed.length * 3), 3);
+  const m = new THREE.Matrix4();
+  const c = new THREE.Color();
+  placed.forEach((p, i) => {
+    const groundY = terrainY(p.cx, p.cy);
+    m.makeScale(p.sx * 0.9, p.h, p.sy * 0.9);
+    m.setPosition(p.cx, groundY + p.h / 2 - 3, -p.cy);
+    bldgInst.setMatrixAt(i, m);
+    bldgInst.setColorAt(i, c.copy(p.big ? PAL.bldgBig : PAL.bldg));
+  });
+  bldgInst.instanceMatrix.needsUpdate = true;
+  bldgInst.instanceColor.needsUpdate = true;
+  track(bldgInst);
+  scene.add(bldgInst);
 
   // ── Forest (instanced cones on WorldCover tree cells) ───────────────────
   if (world.vegetation) {
     const v = world.vegetation;
+    // Seeded PRNG: bake output must be reproducible pixel-for-pixel.
+    let seed = 0x9e3779b9;
+    const rand = () => {
+      seed |= 0; seed = (seed + 0x6d2b79f5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
     const spots: Array<[number, number]> = [];
     for (let r = 0; r < v.rows; r += 1) {
       for (let c = 0; c < v.cols; c += 1) {
@@ -278,9 +310,9 @@ export function buildWorldScene(scene: THREE.Scene, world: World): WorldScene {
     let n = 0;
     for (let i = 0; i < spots.length; i += stride) {
       const [lx, ly] = spots[i];
-      const jx = lx + (Math.random() - 0.5) * 46;
-      const jy = ly + (Math.random() - 0.5) * 46;
-      const s = 0.7 + Math.random() * 0.7;
+      const jx = lx + (rand() - 0.5) * 46;
+      const jy = ly + (rand() - 0.5) * 46;
+      const s = 0.7 + rand() * 0.7;
       m.makeScale(s, s, s);
       m.setPosition(sceneVec(jx, jy, terrainY(jx, jy) + 14 * s));
       inst.setMatrixAt(n++, m);
@@ -289,36 +321,79 @@ export function buildWorldScene(scene: THREE.Scene, world: World): WorldScene {
     scene.add(inst);
   }
 
-  // ── Fire ────────────────────────────────────────────────────────────────
+  // ── Fire: 2 draw calls total (1 merged band + 1 merged glow) ────────────
   const fireGroup = new THREE.Group();
   const band = world.fire.band;
-  for (let i = 0; i < band.length - 1; i++) {
-    const a = band[i], b = band[i + 1];
-    const len = Math.hypot(b.x - a.x, b.y - a.y);
-    const seg = new THREE.Mesh(
-      track(new THREE.BoxGeometry(len, 10, 22)),
-      track(new THREE.MeshBasicMaterial({
-        color: a.intensity > 0.85 ? PAL.fireHi : PAL.fire,
-      })),
-    );
-    const mlx = (a.x + b.x) / 2, mly = (a.y + b.y) / 2;
-    seg.position.copy(sceneVec(mlx, mly, terrainY(mlx, mly) + 22));
-    const dir = new THREE.Vector3(b.x - a.x, 0, -(b.y - a.y));
-    seg.rotation.y = -Math.atan2(dir.z, dir.x);
-    fireGroup.add(seg);
+  {
+    const verts: number[] = [];
+    const cols: number[] = [];
+    const glowVerts: number[] = [];
+    const glowCols: number[] = [];
+    const BOX_H = 10, BOX_W = 22;
+    for (let i = 0; i < band.length - 1; i++) {
+      const a = band[i], b = band[i + 1];
+      const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      const mlx = (a.x + b.x) / 2, mly = (a.y + b.y) / 2;
+      const col = a.intensity > 0.85 ? PAL.fireHi : PAL.fire;
+      // oriented box corners in world-local metres (scene y = terrain + 22)
+      const ux = (b.x - a.x) / len, uy = (b.y - a.y) / len;
+      const px = -uy * (BOX_W / 2), py = ux * (BOX_W / 2);
+      const yLo = terrainY(mlx, mly) + 22 - BOX_H / 2;
+      const yHi = yLo + BOX_H;
+      const hl = len / 2;
+      // 8 corners: along ±hl, across ±p, up yLo/yHi
+      const c = [
+        [mlx - ux * hl + px, mly - uy * hl + py, yLo], [mlx - ux * hl - px, mly - uy * hl - py, yLo],
+        [mlx + ux * hl - px, mly + uy * hl - py, yLo], [mlx + ux * hl + px, mly + uy * hl + py, yLo],
+        [mlx - ux * hl + px, mly - uy * hl + py, yHi], [mlx - ux * hl - px, mly - uy * hl - py, yHi],
+        [mlx + ux * hl - px, mly + uy * hl - py, yHi], [mlx + ux * hl + px, mly + uy * hl + py, yHi],
+      ];
+      const faces = [
+        [0, 1, 2], [1, 3, 2], // bottom
+        [4, 6, 5], [5, 6, 7], // top
+        [0, 4, 1], [1, 4, 5], // side A
+        [2, 3, 6], [3, 7, 6], // side B
+        [0, 2, 4], [2, 6, 4], // end +
+        [1, 5, 3], [3, 5, 7], // end −
+      ];
+      for (const f of faces) {
+        for (const idx of f) {
+          verts.push(c[idx][0], c[idx][2], -c[idx][1]);
+          cols.push(col.r, col.g, col.b);
+        }
+      }
 
-    if (a.intensity > 0.6) {
-      const glow = new THREE.Mesh(
-        track(new THREE.CircleGeometry(120 * a.intensity, 12)),
-        track(new THREE.MeshBasicMaterial({
-          color: PAL.fire, transparent: true, opacity: 0.26 * a.intensity,
-          side: THREE.DoubleSide, depthWrite: false,
-        })),
-      );
-      glow.rotation.x = -Math.PI / 2;
-      glow.position.copy(sceneVec(mlx, mly, terrainY(mlx, mly) + 2));
-      fireGroup.add(glow);
+      if (a.intensity > 0.6) {
+        // glow disc, fanned in world space just above the terrain;
+        // per-vertex alpha preserves the 0.26 × intensity falloff
+        const gy = terrainY(mlx, mly) + 2;
+        const r = 120 * a.intensity;
+        const alpha = 0.26 * a.intensity;
+        const n = 12;
+        for (let s = 0; s < n; s++) {
+          const a0 = (s / n) * Math.PI * 2, a1 = ((s + 1) / n) * Math.PI * 2;
+          glowVerts.push(mlx, gy, -mly);
+          glowVerts.push(mlx + Math.cos(a0) * r, gy, -(mly + Math.sin(a0) * r));
+          glowVerts.push(mlx + Math.cos(a1) * r, gy, -(mly + Math.sin(a1) * r));
+          for (let k = 0; k < 3; k++) glowCols.push(PAL.fire.r, PAL.fire.g, PAL.fire.b, alpha);
+        }
+      }
     }
+    const bandGeom = track(new THREE.BufferGeometry());
+    bandGeom.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+    bandGeom.setAttribute("color", new THREE.Float32BufferAttribute(cols, 3));
+    fireGroup.add(new THREE.Mesh(bandGeom, track(new THREE.MeshBasicMaterial({
+      color: 0xffffff, vertexColors: true,
+      // hand-wound faces: DoubleSide makes winding order irrelevant
+      side: THREE.DoubleSide,
+    }))));
+    const glowGeom = track(new THREE.BufferGeometry());
+    glowGeom.setAttribute("position", new THREE.Float32BufferAttribute(glowVerts, 3));
+    glowGeom.setAttribute("color", new THREE.Float32BufferAttribute(glowCols, 4));
+    fireGroup.add(new THREE.Mesh(glowGeom, track(new THREE.MeshBasicMaterial({
+      color: 0xffffff, vertexColors: true, transparent: true,
+      side: THREE.DoubleSide, depthWrite: false,
+    }))));
   }
   const fireMid = band[Math.floor(band.length / 2)];
   const fireLight = new THREE.PointLight(PAL.fire.getHex(), 4.0, 2600, 2);

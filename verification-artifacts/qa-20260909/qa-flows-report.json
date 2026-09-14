@@ -1,0 +1,62 @@
+{
+  "flows": [
+    {
+      "flow": "chip→answer (baseline session)",
+      "sessionOpened": false,
+      "chipCount": 0,
+      "clicked": null,
+      "consoleErrors": []
+    },
+    {
+      "flow": "contested → ground truth",
+      "found": 1,
+      "clicked": true,
+      "sceneAfter": "BUFFER ZONE 2\nBUFFER ZONE 1\nGRID 4C\nSCOUT-01\nLIDAR-02\nRELAY-01\nRELAY-02\nHERALD-01\nVANGUARD-01\nSCOUT-03\nRELAY-03\nVANGUARD-02\nSATELLITE WATCH · SPATIAL OS\nEXPLORE · 3D\nFlytBaseSentinel\nINC-2024-0847\nQueue 3\nIntelligence\nDetect · Verify · Escalate\nT+00:03\nClock stops at authority notify\nHandover\nTimeline\nAuthorization\n13\n4\n03:47:06 UTC\nA. Rao\nSCENES\n+\nInspect\nAssets\n10\nLedger\n13\nEvidence observation\nEvidence sources converging\nThermal, wind, burn-memory, and route telemetry remain inside nominal pa",
+      "modal": "OPERATOR WAS RIGHT\n03:47:06 UTC\nTALON over-read the signal.\nGROUND TRUTH\n\nCounty records confirmed an active burn permit for Grid 4C. Thermal signature decayed on schedule and no ignition was reported.\n\nOPERATOR SAID\nFalse positive\nTALON SAID\nEscalate · 78%\nSYSTEM RESPONSE\n\nOperator judgment confirmed. TALON lowered the weighting of this signature pattern for Grid 4C and logged the correction against the model version.\n\nAudit AUD-DIS-0847-FP\nFile and return to watch",
+      "consoleErrors": []
+    },
+    {
+      "flow": "reraise → decline (dissent)",
+      "found": 1,
+      "clicked": true,
+      "buttonsBefore": [
+        "Decline again Decline the re-raise. TALON returns to contested watch a",
+        "Prepare authority packet Awaiting your authorization"
+      ],
+      "sceneAfter": "BUFFER ZONE 2\nBUFFER ZONE 1\nGRID 4C\nSCOUT-01\nLIDAR-02\nRELAY-01\nRELAY-02\nHERALD-01\nVANGUARD-01\nSCOUT-03\nRELAY-03\nVANGUARD-02\nSATELLITE WATCH · SPATIAL OS\nEXPLORE · 3D\nFlytBaseSentinel\nINC-2024-0847\nQueue 3\nIntelligence\nDetect · Verify · Escalate\nT+00:04\nClock stops at authority notify\nHandover\nTimeline\nDissent\n14\n5\n03:47:07 UTC\nA. Rao\nSCENES\n+\nInspect\nAssets\n10\nLedger\n14\nEvidence observation\nEvidence sources converging\nThermal, wind, burn-memory, and route telemetry remain inside nominal patrol thresholds.\n78%\nsource avg\nActive sources\n6\nDegraded\n1\nWind\nNE 38°\nGrid\nGrid 4C\nSource Freshness\nTher",
+      "modals": [
+        "OVERRULING A RECOMMENDATION\nYou are declining an escalation TALON recommends.\nTALON'S POSITION\n78% confidence\n\nThermal, satellite IR, and burn-history signals converge at 78%. I assess this as an authority-notifiable wildfire risk and recommend escalation.\n\nYour reason *\nFalse positive\nIncomplete data\nOperational constraint\nOther\nWhat do you know that TALON does not? (optional, goes on the record)\nWHAT HAPPENS NEXT\nThe incident closes on your authority, with your reason attached.\nTALON keeps the",
+        null
+      ],
+      "consoleErrors": []
+    },
+    {
+      "flow": "authority send → PIN gate",
+      "found": 1,
+      "pinSeen": false,
+      "consoleErrors": []
+    },
+    {
+      "flow": "EXPLORE orbit + zoom",
+      "hudBefore": "60 FPS · 12 CALLS · 178K TRIS",
+      "orbitDragged": true,
+      "hudAfterZoom": "60 FPS · 12 CALLS · 178K TRIS",
+      "exitAvailable": true,
+      "consoleErrors": []
+    },
+    {
+      "flow": "network-degraded telemetry",
+      "has340": false,
+      "textExcerpt": "FOREST ZONE\nBUFFER ZONE 2\nBUFFER ZONE 1\nRESIDENTIAL ZONE 2\nEVIDENCE ENVELOPE · +120 M\nGRID 4C\nTALON RECONSTRUCTION · SPATIAL OS\nZONE ENVELOPE\n−\n+\nClick ± to adjust uncertainty\nEXPLORE · 3D\nFlytBaseSentinel\nINC-2024-0847\nQueue 3\nOperations\nStage · Coordinate · Supervise\nTALON supervising\nHandover\nTimeline\nAuthorization\n13\n4\n03:47:03 UTC\nA. Rao\nSCENES\n+\nInspect\nzone\nAssets\n10\nLedger\n13\nSelected zone",
+      "consoleErrors": []
+    },
+    {
+      "flow": "satellite-loss ghost mode",
+      "canvas": 0,
+      "svg": 15,
+      "mapLabels": 0,
+      "text": "FOREST ZONE\nBUFFER ZONE 2\nBUFFER ZONE 1\nRESIDENTIAL ZONE 2\nEVIDENCE ENVELOPE · +200 M\nGRID 4C\nTALON RECONSTRUCTION · SPATIAL OS\nZONE ENVELOPE\n−\n+\nClick ± to adjust uncertainty\nEXPLORE · 3D\nFlytBaseSentinel\nINC-2024-0847\nQueue 3\nOperations\nStage · Coordinate · Supervise\nTALON supervising\nHandover\nTim",
+      "consoleErrors": []
+    }
+  ]
+}

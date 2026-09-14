@@ -81,6 +81,7 @@ import {
   typeScale,
   typeWeight,
   tracking,
+  shadow,
 } from "../tokens";
 
 const SCREEN_INSET = shellTokens.screenInset;
@@ -973,7 +974,7 @@ export function SentinelShell() {
           open={reviewDockOpen}
           activeScene={state.scene}
           bottomOffset={reviewDockBottom + (state.scene === "verify-active" ? 56 : 0)}
-          rightOffset={adaptiveRailWidth + SCREEN_INSET + 12}
+          rightOffset={adaptiveTalonRailWidth + SCREEN_INSET + 12}
           onToggle={() => setReviewDockOpen((current) => !current)}
           onJumpToScene={setScene}
         />
@@ -1061,11 +1062,12 @@ export function SentinelShell() {
         </div>
       ) : null}
 
-      {state.scene === "contain-alternate" ? (
+      {!explore3d && state.scene === "contain-alternate" ? (
         <CompactPanel
           title="Alternate containment plan active"
           subtitle={`Override reason: ${state.overrideReason}. TALON has rebalanced the plan toward the buffer corridor while keeping responder guidance active.`}
           tone={T.amber}
+          collapsed={isActionBarExpanded}
         >
           <InfoCallout title={CONTAINMENT_PLAN_SUMMARY.alternate.title} body={CONTAINMENT_PLAN_SUMMARY.alternate.reasoning} tone={T.amber} />
           <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap", marginBottom: 16 }}>
@@ -1151,11 +1153,12 @@ export function SentinelShell() {
         </CompactPanel>
       ) : null}
 
-      {state.scene === "contain-degraded" ? (
+      {!explore3d && state.scene === "contain-degraded" ? (
         <CompactPanel
           title="Fallback evidence mode active"
           subtitle="Containment review continues, but the terrain model is degraded and the raw feed fallback stays visible alongside the spatial surface."
           tone={T.amber}
+          collapsed={isActionBarExpanded}
         >
           <InfoCallout title={TERRAIN_MODEL_STATUS.rawFeedTitle} body={TERRAIN_MODEL_STATUS.rawFeedBody} tone={T.amber} />
           
@@ -1186,7 +1189,7 @@ export function SentinelShell() {
         </CompactPanel>
       ) : null}
 
-      {state.scene === "infrastructure-total-loss" && (
+      {!explore3d && state.scene === "infrastructure-total-loss" && (
         <InfrastructureLossTakeover
           isRestarting={isRestartingSystem}
           onRestart={() => {
@@ -1205,7 +1208,7 @@ export function SentinelShell() {
           Exception Queue and the blocked agents in TALON Workforce. The failure
           is therefore felt across the entire system, not shown in one frame.
       ────────────────────────────────────────────────────────────────────── */}
-      {(state.scene === "satellite-feed-loss" || state.scene === "network-degraded") && state.operationalException && (
+      {!explore3d && (state.scene === "satellite-feed-loss" || state.scene === "network-degraded") && state.operationalException && (
         <div
           style={{
             position: "absolute",
@@ -1228,7 +1231,7 @@ export function SentinelShell() {
           elevated to a human gate. Reinforces: TALON prepares, the human
           authorizes. The same exception also populates the right-rail queue.
       ────────────────────────────────────────────────────────────────────── */}
-      {state.scene === "rescue-battery-critical" && state.operationalException && (
+      {!explore3d && state.scene === "rescue-battery-critical" && state.operationalException && (
         <div
           style={{
             position: "absolute",
@@ -1258,13 +1261,16 @@ export function SentinelShell() {
           What TALON does after being overruled. Not baseline, not an alert —
           a visible, bounded watch with a stated bar it must clear to speak.
       ────────────────────────────────────────────────────────────────────── */}
-      {state.scene === "monitoring-contested" && state.dissent && (
+      {!explore3d && state.scene === "monitoring-contested" && state.dissent && (
         <div
           style={{
             position: "absolute",
             top: NAVBAR_H + 26,
             left: "50%",
             transform: "translateX(-50%)",
+            maxHeight: `calc(100dvh - ${NAVBAR_H + 26 + shellTokens.screenInset + 160}px)`,
+            overflowY: "auto",
+            scrollbarWidth: "none",
             zIndex: layer.alert,
           }}
         >
@@ -1279,13 +1285,16 @@ export function SentinelShell() {
           The appeal. Shows only what changed since the override, and routes to
           a second authority rather than re-prompting the operator who declined.
       ────────────────────────────────────────────────────────────────────── */}
-      {state.scene === "talon-reraise" && state.dissent && (
+      {!explore3d && state.scene === "talon-reraise" && state.dissent && (
         <div
           style={{
             position: "absolute",
             top: NAVBAR_H + 26,
             left: "50%",
             transform: "translateX(-50%)",
+            maxHeight: `calc(100dvh - ${NAVBAR_H + 26 + shellTokens.screenInset + 160}px)`,
+            overflowY: "auto",
+            scrollbarWidth: "none",
             zIndex: layer.alert,
           }}
         >
@@ -1359,7 +1368,7 @@ export function SentinelShell() {
           Floats over the baseline map. Does NOT replace the scene.
           Operator retains full spatial awareness of their current situation.
       ────────────────────────────────────────────────────────────────────── */}
-      {state.scene === "alert-command" && (
+      {!explore3d && state.scene === "alert-command" && (
         <AlertPopup
           onDispatch={() => handleAction("dispatch-scout")}
           onDismiss={() => handleAction("monitor-only")}
@@ -1371,7 +1380,7 @@ export function SentinelShell() {
           scene. TALON does NOT auto-dispatch drones — it routes the alert to
           a secondary operator. The primary operator can still take action.
       ────────────────────────────────────────────────────────────────────── */}
-      {showEscalationOverlay && state.scene === "alert-command" && (
+      {!explore3d && showEscalationOverlay && state.scene === "alert-command" && (
         <EscalationProtocolOverlay
           escalationElapsed={escalationElapsed}
           onOperatorResponds={() => {
@@ -1877,43 +1886,41 @@ function activitySeverityColor(severity: ActivityLogEntry["severity"]): string {
   }
 }
 
-function TopOverlay({
+function CompactPanel({
   title,
   subtitle,
   tone,
-  meta,
-  primaryLabel,
-  secondaryLabel,
-  onPrimary,
-  onSecondary,
+  collapsed = false,
+  children,
 }: {
   title: string;
   subtitle: string;
   tone: string;
-  meta: string;
-  primaryLabel: string;
-  secondaryLabel: string;
-  onPrimary: () => void;
-  onSecondary: () => void;
+  collapsed?: boolean;
+  children: ReactNode;
 }) {
-  return (
-    <div
-      style={{
-        position: "absolute",
-        top: NAVBAR_H + 18,
-        left: "50%",
-        transform: "translateX(-50%)",
-        width: 560,
-        zIndex: layer.alert,
-        ...material.overlay,
-        border: `1px solid ${tone}4D`,
-        padding: "14px 18px 14px 22px",
-        overflow: "hidden",
-      }}
-    >
-      {/* Severity edge — same signature as every exception surface */}
-      <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: tone, borderRadius: "16px 0 0 16px" }} aria-hidden="true" />
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+  if (collapsed) {
+    return (
+      <div
+        style={{
+          position: "absolute",
+          top: NAVBAR_H + 12,
+          left: "50%",
+          transform: "translateX(-50%)",
+          maxWidth: "min(520px, calc(100vw - 32px))",
+          zIndex: layer.alert,
+          ...material.overlay,
+          border: `1px solid ${tone}4D`,
+          padding: "8px 16px",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          borderRadius: radius.panel,
+          boxShadow: shadow.edgeOverlay,
+        }}
+        role="region"
+        aria-label={title}
+      >
         <span
           style={{
             width: 7,
@@ -1922,65 +1929,22 @@ function TopOverlay({
             background: tone,
             display: "inline-block",
             animation: "pulse 1.2s infinite",
+            flexShrink: 0,
           }}
+          aria-hidden="true"
         />
-        <span
-          style={{
-            fontFamily: font.mono,
-            fontSize: typeScale.label,
-            fontWeight: typeWeight.bold,
-            color: tone,
-            letterSpacing: tracking.eyebrow,
-            textTransform: "uppercase",
-          }}
-        >
-          Interrupt command
-        </span>
+        <div style={{ minWidth: 0, display: "flex", alignItems: "baseline", gap: 8 }}>
+          <span style={{ fontFamily: font.sans, fontSize: typeScale.label, color: T.textPrimary, fontWeight: typeWeight.semibold }}>
+            {title}
+          </span>
+          <span style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: tone, letterSpacing: tracking.eyebrow, textTransform: "uppercase" }}>
+            TALON Session Active
+          </span>
+        </div>
       </div>
+    );
+  }
 
-      <div style={{ fontFamily: font.sans, fontSize: typeScale.heading, fontWeight: typeWeight.bold, color: T.textPrimary }}>{title}</div>
-      <div style={{ fontFamily: font.sans, fontSize: typeScale.body, color: T.textSecondary, lineHeight: 1.5, marginTop: 6 }}>{subtitle}</div>
-
-      <div
-        style={{
-          marginTop: 14,
-          padding: "10px 12px",
-          borderRadius: radius.panel,
-          background: surface.controlHover,
-          border: `1px solid ${border.default}`,
-          fontFamily: font.mono,
-          fontSize: typeScale.metadata,
-          color: tone,
-          letterSpacing: "0.05em",
-          textTransform: "uppercase",
-        }}
-      >
-        {meta}
-      </div>
-
-      <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-        <button type="button" onClick={onSecondary} style={secondaryButtonStyle}>
-          {secondaryLabel}
-        </button>
-        <button type="button" onClick={onPrimary} style={primaryButtonStyle(tone)}>
-          {primaryLabel}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function CompactPanel({
-  title,
-  subtitle,
-  tone,
-  children,
-}: {
-  title: string;
-  subtitle: string;
-  tone: string;
-  children: ReactNode;
-}) {
   return (
     <div
       style={{
