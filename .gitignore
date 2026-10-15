@@ -55,3 +55,4 @@ static-server.log
 # carries no source — it is session/decsion/event history from local runs.
 server/*.db
 server/*.db-journal
+.env
