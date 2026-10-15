@@ -13,5 +13,9 @@ export const router = createHashRouter([
     path: "/design-system",
     lazy: async () => ({ Component: (await import("./pages/DesignSystemPage")).default }),
   },
+  {
+    path: "/hairline-map",
+    lazy: async () => ({ Component: (await import("./pages/HairlineMapPage")).default }),
+  },
   { path: "*", loader: () => redirect("/") },
 ]);

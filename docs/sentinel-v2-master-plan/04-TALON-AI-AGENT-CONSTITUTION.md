@@ -37,23 +37,13 @@ In Sentinel V2:
 
 Every capability in Sentinel is mapped to a strict permission class:
 
-```
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                    THREE-TIER HITL TAXONOMY                                      │
-├─────────┬──────────────────────────┬─────────────────────────────────┬───────────────────────────┤
-│ Class   │ Name                     │ Permitted Actions               │ Authorization Requirement │
-├─────────┼──────────────────────────┼─────────────────────────────────┼───────────────────────────┤
-│ Class 1 │ Autonomous Telemetry     │ Sensor fusion, thermal contour  │ 100% Autonomous.          │
-│         │ Synthesis                │ interpolation, camera tracking  │ Operates without prompts. │
-├─────────┼──────────────────────────┼─────────────────────────────────┼───────────────────────────┤
-│ Class 2 │ Supervised Tactical      │ Drone patrol orbit adjustments, │ Single-Click Confirm or   │
-│         │ Adjustments              │ battery critical scout handover │ automatic timeout fallback│
-├─────────┼──────────────────────────┼─────────────────────────────────┼───────────────────────────┤
-│ Class 3 │ Irreversible High-       │ Statutory Authority Packet send,│ Strict 2-Second Hold on   │
-│         │ Consequence Acts         │ Evacuation corridor closure,    │ tactile plinth. TALON     │
-│         │                          │ Manual radio takeover trigger   │ strictly forbidden to act.│
-└─────────┴──────────────────────────┴─────────────────────────────────┴───────────────────────────┘
-```
+**[REPAIRED — B1/B5]** The Class 2 row no longer contains any automatic-timeout fallback: a staged action **expires back to watch; expiry is logged; expiry is never execution**. Silence at a staged gate leaves state unchanged. The Class 3 row replaces statutory/legal-instrument language with the mutual-aid notification draft.
+
+| Class | Name | Permitted Actions | Authorization Requirement |
+|---|---|---|---|
+| Class 1 | Autonomous Telemetry Synthesis | Sensor fusion, thermal contour interpolation, camera tracking | 100% Autonomous. Operates without prompts. |
+| Class 2 | Supervised Tactical Adjustments | Drone patrol orbit adjustments, battery critical scout handover | **Staged action with explicit human confirm or veto.** A staged action expires back to watch; expiry is logged; expiry is never execution. Silence at a staged gate leaves state unchanged. |
+| Class 3 | Irreversible High-Consequence Acts | Mutual-aid notification draft send (operator-owned), Evacuation corridor closure, Manual radio takeover trigger | Strict 2-Second Hold on tactile plinth. TALON strictly forbidden to act. |
 
 ---
 
@@ -158,7 +148,7 @@ export const talonToolDeclarations = [
   },
   {
     name: "draft_authority_packet",
-    description: "Assembles corroborating evidence into cryptographic packet AUD-90-0847. Does NOT send it.",
+    description: "Assembles corroborating evidence into a hash-chained mutual-aid notification draft (AUD-90-0847). Draft only — TALON never sends it.",
     parameters: {
       type: "object",
       properties: {

@@ -118,9 +118,9 @@ Grounded directly in the **ICS-209 (Incident Status Summary)**, this packet cont
 │    • Corroborating: Drone Lidar-02 FLIR (91%), GOES-R Satellite IR (87%), Ground Sensor (84%)    │
 │    • Stated Caveats: Ground fuel moisture data is 48 hours stale; smoke limits visual optical    │
 │                                                                                                  │
-│ 4. STATUTORY HUMAN AUTHORIZATION:                                                                │
+│ 4. HUMAN AUTHORIZATION (MUTUAL-AID NOTIFICATION):                                                │
 │    • Operator: A. Rao (ID: OPERATOR-9042)                                                        │
-│    • Cryptographic SHA-256 Digest: 8f4b29c017d8e11a3b58941f...                                   │
+│    • Hash-Chained Receipt (node:crypto): 8f4b29c017d8e11a3b58941f...                             │
 │    • TALON Policy Verification: SENT UNDER HUMAN CONTROL — TALON NEVER AUTO-DISPATCHES          │
 └──────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```

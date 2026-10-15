@@ -1,0 +1,21 @@
+{
+  "source": "USGS NAIP (National Agriculture Imagery Program)",
+  "service": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage",
+  "license": "public domain (US Government work)",
+  "attribution": "Aerial imagery: USGS NAIP via the National Map ImageServer (public domain).",
+  "bbox": {
+    "west": -118.84751902740781,
+    "south": 34.01729943911706,
+    "east": -118.78248097259218,
+    "north": 34.04670056088293
+  },
+  "widthPx": 2048,
+  "heightPx": 1109,
+  "frameMetres": {
+    "width": 6000.0,
+    "height": 3250.0
+  },
+  "groundResolutionMPerPx": 2.93,
+  "projection": "WGS84 lon/lat, drawn over the local-equirectangular frame",
+  "note": "Real orthophoto draped on the real 3DEP DEM. The fire scenario, zones, and telemetry layered on top remain authored \u2014 see world.ts for the real/authored split."
+}

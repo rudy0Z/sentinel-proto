@@ -1,0 +1,36 @@
+Good — because yes, you're missing the hard parts. The deck + edge slider *looks* futuristic in a paragraph, but the current rails survive for boring reasons. Here's the pushback, rail-first:
+
+**1. The slider is at the worst ergonomic address.**
+You put primary navigation on the outer left/right bezel. On a desk-embedded panel (arms resting, low angle) that's maximum shoulder abduction — the farthest, glariest pixel. On mouse, a 14-16px tall-full strip is a Fitts's law nightmare: long thin targets are slow to acquire and easy to slip off. `RailStack.tsx:129-207` tabs are already small at 260px and clip to `Exce…`. A thinner strip is worse, not faster. If headers are always visible and tappable, the strip is redundant. If the strip is the *only* fast path, you've hidden navigation in chrome. Which one is real?
+
+**2. Scrub vs. snap is undefined, and both break something.**
+"Slide across panels instantly and smoothly" — is that continuous scrub with live preview, or discrete snap? Continuous means mounting all 7 panels at once (`inspect/assets/ledger` + `talon/priorities/readiness/exceptions`). Today only `resolved.render()` mounts (`RailStack.tsx:250-253`). 7× charts + agent lists + freshness matrices = DOM weight that kills the 12-draw-call budget from `09-TALON-ORB-IDENTITY-AND-SURFACE-SPEC.md:116` and makes `verify:routes` screenshots non-deterministic. Discrete snap is just tabs with extra steps. You need to pick, and continuous is almost certainly wrong.
+
+**3. Scroll vs. switch will fight.**
+Left rail scrolls as one column with hidden scrollbar + fade (`RailStack.tsx:218-272`). Map drag uses pointer capture. Where does an edge-drag start and a panel-scroll or map-pan end? On touch desk, edge swipes are also OS gestures. Without an explicit `touch-action: none` zone + 24px minimum target (WCAG 2.5.8, you proposed 14-16px), you'll get accidental panel swaps mid-scroll. That's a mode error during live ops.
+
+**4. Auto-raise steals place.**
+Operator is reading Ledger to answer "what did we authorize?" TALON gets new telemetry and pops Evidence to front. Operator loses position, has to re-find it. In `04-TALON-AI-AGENT-CONSTITUTION.md:59-64` this is explicitly forbidden: Rule of One + Anti-Nagging. Two panels wanting attention at once — battery critical + source conflict — who wins? No arbitration, no hysteresis, so it flaps. And if the gate button lives in a panel that can auto-collapse mid-hold, you violate the one stability guarantee `DESIGN.md §9` makes: command surface stays physically stable during a 2s hold. Gates must never live in a sliding surface. Ever.
+
+**5. Pin vs. TALON: who wins?**
+`RailStack.tsx:62-70` has `userPinned` — smart defaults follow context until the operator pins, then pins win. Your deck inverts that: TALON wins whenever it has news. Then pinning is meaningless, and handover breaks — incoming lead in `handoff-pending` inherits a deck arranged by someone else's auto-raises with no log of *why* it raised. If raises aren't in `activityLog` + audit, debrief can't reconstruct them. That's a receipt gap (`PRODUCT.md:56`).
+
+**6. Focus + screen reader breaks on arrival.**
+Moving focus on auto-raise without user request is a WCAG failure. `role=slider` for nominal panels is also wrong — slider needs `valuenow/min/max`, panels have no order value. You'd need `tablist` semantics anyway, which is what you already have. Reduced motion (`PRODUCT.md:69`) must snap, not slide — then what's left of the "smooth reveal" differentiator? Color + text, which today's badges already do.
+
+**7. Top gutter isn't free space.**
+Dropping rails to e.g. `top: 76px` exposes the top band of `sentinel-map-overhaul.png` — which `10-EXECUTIVE-DESIGN-AUDIT.md:38-44` already convicted as empty night sky with zones floating in it. Empty top draws eyes to dead pixels. Floating navbar pills there will occlude north zones/anomaly at exactly the wrong moment. Empty ≠ useful.
+
+**8. Left ≠ Right, so why same interaction?**
+Left is inspection (operator-driven, slow). Right is synthesis (TALON-driven, bursty). Same deck both sides implies symmetry that doesn't exist. If anything, left should be manual-tabs, right should be attention-badged.
+
+Refinement that keeps the crazy but survives contact:
+
+* Keep tabs. Add **peek headers** (title + pill + dot, 32px) above the active body instead of replacing it. Tap jumps, no scrub strip.
+* TALON never auto-expands. It sets `attention: gated > blocked > new-evidence > routine`. Gated/blocked pulse header; rest badge-count. Operator opens. Raise is logged like dissent.
+* Gates stay center-bottom (`ActionBar.tsx:334-495`), never in deck. Deck mirrors the staged action sticky at bottom of right rail if you want connection — mirror, not move.
+* Navbar becomes 3 floating pills (incident / phase+arc / clock), not a bar. Frees top without creating a void.
+
+The test that kills or confirms this: `verify-active → rescue-battery-critical` in 30s. If the operator can finish the hold without losing their rail position, the deck works. If the raise interrupts the hold, it doesn't.
+
+Lock these three and the spec writes itself: 1) scrub or snap? 2) does TALON ever auto-expand, or only badge? 3) desk-panel primary, or tablet primary?

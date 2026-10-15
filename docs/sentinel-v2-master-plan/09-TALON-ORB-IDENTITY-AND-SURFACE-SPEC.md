@@ -1,4 +1,4 @@
-﻿# FlytBase Sentinel V2: Master Blueprint Vault
+# FlytBase Sentinel V2: Master Blueprint Vault
 ## 09 — TALON Orb Identity, Shader Architecture & Surface UX
 
 > **Document Status**: Canonical Identity & Visual System Standard  
@@ -25,7 +25,7 @@ Earlier attempts to integrate off-the-shelf orb libraries (such as libraries.dev
 
 ### 2.1 WebGL Context Thrashing & Canvas Stacking
 * Sentinel already mounts a full-screen Three.js WebGL canvas (worldScene.ts in Map3DExplorer.tsx / SentinelShell.tsx).
-* Off-the-shelf orb packages create their own standalone <canvas> element running an independent equestAnimationFrame loop, WebGL context, and post-processing pipeline (bloom, chromatic aberration).
+* Off-the-shelf orb packages create their own standalone <canvas> element running an independent requestAnimationFrame loop, WebGL context, and post-processing pipeline (bloom, chromatic aberration).
 * On high-DPI (Retina/4K) displays, running dual uncoordinated WebGL contexts inside fixed-position DOM overlays caused frame drops, context-loss crashes, and layout container sizing glitches (0x0 canvas collapse inside dynamic flexbox containers).
 
 ### 2.2 Semantic Illiteracy (The Siri Blob Problem)
@@ -37,7 +37,7 @@ Earlier attempts to integrate off-the-shelf orb libraries (such as libraries.dev
 * Emergency operators make life-or-death decisions in high-stress environments. An ambiguous, wobbling pink/purple gradient conveys frivolity and unpredictability rather than deterministic reliability.
 
 ### 2.3 Brand & Visual Token Incoherence
-* Sentinel's design language is strictly calibrated around instrument cyan (#44d7b6), tactical amber (#d48b38), alert red (#d24b43), muted charcoal glass, and JetBrains Mono data tables.
+* Sentinel's design language is strictly calibrated around instrument cyan (#1CB8E6), tactical amber (#F5A623), alert red (#E5533C), receipt teal (#2DD4A0), muted charcoal glass, and JetBrains Mono data tables. **[REPAIRED — B4]** The earlier invented hex set is deleted; these four are the real tokens.
 * A consumer-grade iridescent multi-color orb destroyed the monochromatic discipline and optical hierarchy of the bottom command plate.
 
 ---
@@ -80,26 +80,31 @@ To satisfy both the **AI Product Designer** (mission-critical safety, state clar
     │  (Precision SVG Instrument)   │                               │         Energy Pulse          │
     ├───────────────────────────────┤                               ├───────────────────────────────┤
     │ • 3-bladed aperture reticle   │                               │ • Multi-layered radial sheen  │
-    │ • Physical close on HOLD GATE │                               │ • Voice frequency harmonics   │
+    │ • Physical close on HOLD GATE │                               │ • Voice-phase harmonics       │
     │ • Hard ticks & state glyphs   │                               │ • State-locked token hues:    │
-    │   (Lock, Caution, Check)      │                               │   - Cyan 400: Watching        │
-    │ • Zero performance penalty    │                               │   - Amber 400: Reasoning      │
-    │ • Absolute state precision    │                               │   - Red 500: Hold-Gated       │
-    └───────────────────────────────┘                               └───────────────────────────────┘
+    │   (Lock, Caution, Check)      │                               │   - Cyan #1CB8E6: watching,   │
+    │ • Budget: idle 0% GPU         │                               │     searching, executing      │
+    │   (verified by perf HUD)      │                               │   - Amber #F5A623: solving,   │
+    │ • Absolute state precision    │                               │     gated                     │
+    └───────────────────────────────┘                               │   - Red #E5533C: blocked      │
+                                                                    │   - Teal #2DD4A0: receipt     │
+                                                                    └───────────────────────────────┘
 `
 
 ### 4.1 The 8 Visual Postures & Kinetic Signatures
 
+**[REPAIRED — B4]** Table re-pinned to the real tokens (cyan `#1CB8E6`, amber `#F5A623`, red `#E5533C`, teal `#2DD4A0` — the earlier invented hex set is deleted). Gated moved red → **amber**: blades-closed geometry plus stillness carry the distinction from solving-amber; red is reserved for blocked/danger; teal for receipt/complete. Listening moved cyan → **red** per the temporal contract (red marks operator time being spent). "Locked" renamed **blocked** to match the posture vocabulary. The watching cadence is resolved to the single **4s cycle** (the earlier "60s ambient drift" reading was the inconsistency): visible liveness without noise.
+
 | State | Outer Aperture Geometry | Inner Core Dynamics | Token Color | Semantic Meaning |
 | :--- | :--- | :--- | :--- | :--- |
-| **watching** | Open reticle, slow 60s ambient drift | Gentle breathing glint (0.2 to 0.5 opacity, 4s cycle) | cyan-400 (#44d7b6) | Passive sensor monitoring |
-| **listening** | Concentric tick rings active | Frequency ripple modulating with voice input | cyan-400 (#44d7b6) | Operator prompt active |
-| **searching** | Fast dual-ring counter-rotation | Sweeping orbital radar beam | cyan-300 (#7de7d1) | Querying SQLite fixtures & sensors |
-| **solving** | Blades narrowing to 60° aperture | Dense core pulsation (120 BPM harmonic pulse) | mber-400 (#d48b38) | LLM generating action proposal |
-| **gated** | **Blades locked dead shut over core** | Heavy breathing behind closed blades + Lock Glyph | ed-400 (#d24b43) | **Awaiting 2-second human hold** |
-| **executing** | Segmented ring spinning clockwise | Solid luminescent burn | cyan-400 (#44d7b6) | Supervised action dispatched |
-| **locked** | Aperture vibrating slightly | Warning pulse + Caution triangle glyph | ed-500 (#b53a33) | Safety guard / boundary refusal |
-| **eceipt** | Aperture settled at rest | Soft expanding ripple + Checkmark glyph | emerald-400 (#34d399) | Event permanently committed to log |
+| **watching** | Open reticle, gentle breath on the 4s watching cadence | Gentle breathing glint (0.2 to 0.5 opacity, 4s cycle) | cyan `#1CB8E6` | Passive sensor monitoring |
+| **listening** | Concentric tick rings active | Outward ripple keyed to the operator's voice phase (derived from conversation state — no mic pipeline) | red `#E5533C` (temporal contract) | Operator prompt active |
+| **searching** | Fast dual-ring counter-rotation | Sweeping orbital radar beam, inward sweep | cyan `#1CB8E6` | Querying fixtures & sensors |
+| **solving** | Blades narrowing, consolidating density | Dense core pulsation (120 BPM harmonic pulse) | amber `#F5A623` | LLM generating action proposal |
+| **gated** | **Blades locked dead shut over core** | Core still behind closed blades + Lock Glyph — stillness is the signature no orb library has | amber `#F5A623` + lock glyph | **Awaiting 2-second human hold** |
+| **executing** | Segmented ring spinning clockwise | Steady luminescent burn | cyan `#1CB8E6` | Supervised action dispatched |
+| **blocked** | Aperture tremor | Warning pulse + Caution triangle glyph | red `#E5533C` | Safety guard / boundary refusal |
+| **receipt** | Aperture settled at rest | Soft expanding ripple + Checkmark glyph | teal `#2DD4A0` | Event permanently committed to log |
 
 ---
 
@@ -107,9 +112,9 @@ To satisfy both the **AI Product Designer** (mission-critical safety, state clar
 
 ### 5.1 Technology Choice: CSS / SVG Filter Mesh (No Canvas Stacking)
 Instead of an external Three.js canvas or npm bundle:
-1. **Zero Library Dependencies**: Built directly using SVG geometry and GPU-accelerated CSS properties (will-change: transform, ilter: drop-shadow, ackdrop-filter).
-2. **Deterministic Frame Rate**: 60fps locked across all devices without consuming WebGL context limits.
-3. **Sound-Reactive / Token-Reactive**: Hooked directly into 	alonSurface.ts and TalonMark.tsx.
+1. **Zero Library Dependencies**: Built directly using SVG geometry and GPU-accelerated CSS properties (will-change: transform, filter: drop-shadow, backdrop-filter).
+2. **Performance budget (not a locked-fps claim) — [REPAIRED — B4]**: compositor-only CSS/SVG animation. Budget: idle 0% GPU, ≤12 draw calls — verified by the perf HUD (`{fps} FPS · {calls} CALLS · {tris} TRIS`). Frame rate is device-dependent; we claim budgets, never "60fps locked / zero penalty".
+3. **Voice-Phase-Reactive / Token-Reactive — [REPAIRED — B4]**: driven by the derived conversation state in `talonSurface.ts` (`deriveTalonSurface()`) and `TalonMark.tsx`. No mic pipeline is scoped, so nothing is sound-reactive.
 
 ### 5.2 File Structure & Ownership
 * **Component**: src/app/components/talon/TalonMark.tsx (geometry and state morphs)

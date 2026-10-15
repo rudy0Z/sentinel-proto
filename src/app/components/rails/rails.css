@@ -1,0 +1,76 @@
+/*
+ * ─── Rail system v3 motion — docs/redesign-2026/14 §1.4 ────────────────────
+ * Every pulse ring and gooey morph lives here as a CSS keyframe, never as an
+ * inline camelCase boxShadow (audit: no-glow-shadow). Rings use the token
+ * colors: cyan rgb(28,184,230), amber rgb(245,166,35), red rgb(229,83,60).
+ * Durations respect tokens.ts motion budgets; reduced motion collapses all.
+ */
+
+/* T1 gate — the only loud pulse (ISA-18.2: interrupts are rare and actionable) */
+@keyframes rlsAlertPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(229, 83, 60, 0), 0 0 6px rgba(229, 83, 60, 0.18); }
+  50% { box-shadow: 0 0 0 5px rgba(229, 83, 60, 0.12), 0 0 14px rgba(229, 83, 60, 0.36); }
+}
+
+/* T2 exception / degraded — soft amber */
+@keyframes rlsSoftPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 166, 35, 0), 0 0 5px rgba(245, 166, 35, 0.14); }
+  50% { box-shadow: 0 0 0 4px rgba(245, 166, 35, 0.10), 0 0 12px rgba(245, 166, 35, 0.28); }
+}
+
+/* T3 computing — quiet cyan breathe while TALON works */
+@keyframes rlsBreathe {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+
+/* Fresh content — one-shot pop (decorative spring, ≤240ms budget) */
+@keyframes rlsFreshPop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.4); }
+  100% { transform: scale(1); }
+}
+
+/* Gooey panel morph: the panel grows out of the rail, radius settling 24 → 16 */
+@keyframes rlsPanelInLeft {
+  from { opacity: 0; transform: translateX(-12px); border-radius: 24px; }
+  to { opacity: 1; transform: translateX(0); border-radius: 16px; }
+}
+@keyframes rlsPanelInRight {
+  from { opacity: 0; transform: translateX(12px); border-radius: 24px; }
+  to { opacity: 1; transform: translateX(0); border-radius: 16px; }
+}
+
+/* Peek dissolve — the glimpse folds back toward its rail */
+@keyframes rlsPeekOutLeft {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(-10px); }
+}
+@keyframes rlsPeekOutRight {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(10px); }
+}
+
+/* TALON orb gate ring — amber attention when the incident parks on a gate */
+@keyframes rlsOrbGatePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 166, 35, 0), 0 0 8px rgba(245, 166, 35, 0.16); }
+  50% { box-shadow: 0 0 0 8px rgba(245, 166, 35, 0.10), 0 0 18px rgba(245, 166, 35, 0.32); }
+}
+
+.rls-dot--t1 { animation: rlsAlertPulse 1.6s ease-in-out infinite; }
+.rls-dot--t2 { animation: rlsSoftPulse 2.4s ease-in-out infinite; }
+.rls-dot--computing { animation: rlsBreathe 1.8s ease-in-out infinite; }
+.rls-dot--fresh { animation: rlsFreshPop 240ms cubic-bezier(0.34, 1.56, 0.64, 1) 1; }
+.rls-panel--left { animation: rlsPanelInLeft 240ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+.rls-panel--right { animation: rlsPanelInRight 240ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+.rls-peek--left { animation: rlsPeekOutLeft 180ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+.rls-peek--right { animation: rlsPeekOutRight 180ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+.rls-orb--gate { animation: rlsOrbGatePulse 1.8s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rls-dot--t1, .rls-dot--t2, .rls-dot--computing, .rls-dot--fresh,
+  .rls-panel--left, .rls-panel--right, .rls-peek--left, .rls-peek--right,
+  .rls-orb--gate {
+    animation: none !important;
+  }
+}

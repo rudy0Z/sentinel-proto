@@ -8,8 +8,8 @@ import type {
   ShellState,
   TalonConversationChangeHandler,
 } from "../tokens";
-import { T, border, font, layer, material, motion, radius, surface, tint, tracking, typeScale } from "../tokens";
-import { getTalonSessionView } from "../domain/talon";
+import { T, border, font, layer, material, motion, radius, surface, space, tint, tracking, typeScale } from "../tokens";
+import { cancelTalonConversation, getTalonSessionView } from "../domain/talon";
 import { OperationalIcon } from "./OperationalIcon";
 import { TalonSession } from "./talon/TalonSession";
 
@@ -278,7 +278,7 @@ function ModalHeader({ title, subtitle, accentColor, icon }: { title: string; su
           Operator command · confirmation required
         </span>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: space.sm, marginBottom: 4 }}>
         {icon}
         <div style={{ fontFamily: font.sans, fontSize: typeScale.heading, fontWeight: 700, color: T.textPrimary, letterSpacing: tracking.tight }}>
           {title}
@@ -299,7 +299,7 @@ function ModalFooter({ onClose, onConfirm, confirmLabel, confirmColor, disabled 
   disabled?: boolean;
 }) {
   return (
-    <div style={{ padding: "16px 24px 22px", display: "flex", gap: 10, justifyContent: "flex-end" }}>
+    <div style={{ padding: "16px 24px 22px", display: "flex", gap: space.sm, justifyContent: "flex-end" }}>
       <button
         type="button"
         onClick={onClose}
@@ -687,7 +687,7 @@ function NotifyAuthoritiesModal({ onClose, onConfirm }: { onClose: () => void; o
           ))}
         </div>
 
-        <div style={{ background: "rgba(0,200,255,0.07)", border: `1px solid ${T.cyan}22`, borderRadius: 12, padding: "12px 14px" }}>
+        <div style={{ background: tint(T.cyan, 0.07), border: `1px solid ${T.cyan}22`, borderRadius: 12, padding: "12px 14px" }}>
           <div style={{ fontFamily: font.mono, fontSize: 11, color: T.cyan, marginBottom: 8 }}>
             TALON evidence summary
           </div>
@@ -776,7 +776,7 @@ function ShiftHandoverModal({
     <div>
       <ModalHeader
         title="Shift Handover Transfer"
-        subtitle="Cryptographic transfer of active tactical incident command."
+        subtitle="Authorized transfer of active tactical incident command."
         accentColor={T.amber}
         icon={<OperationalIcon actionId="shift-handover" color={T.amber} size={18} />}
       />
@@ -814,7 +814,7 @@ function ShiftHandoverModal({
           padding: 14,
           display: "flex",
           flexDirection: "column",
-          gap: 10,
+          gap: space.md,
         }}>
           <div style={{ fontFamily: font.sans, fontSize: 11, fontWeight: 700, color: T.textPrimary, borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: 6 }}>
             Tactical Operational Summary
@@ -855,7 +855,7 @@ function ShiftHandoverModal({
           <label htmlFor="shift-handover-pin" style={{ fontFamily: font.sans, fontSize: 11, fontWeight: 600, color: T.textSecondary }}>
             Enter Shift Lead PIN to log handoff:
           </label>
-          <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ display: "flex", gap: space.sm }}>
             <input
               id="shift-handover-pin"
               name="shift-handover-pin"
@@ -879,7 +879,7 @@ function ShiftHandoverModal({
                 fontFamily: font.mono,
                 fontSize: 14,
                 textAlign: "center",
-                letterSpacing: "0.4em",
+                letterSpacing: tracking.wide,
               }}
             />
             <button
@@ -908,7 +908,7 @@ function ShiftHandoverModal({
       </div>
 
       <Divider />
-      <div style={{ padding: "16px 24px 22px", display: "flex", justifyContent: "flex-end", gap: 10 }}>
+      <div style={{ padding: "16px 24px 22px", display: "flex", justifyContent: "flex-end", gap: space.sm }}>
         <button
           type="button"
           onClick={onClose}
@@ -1087,7 +1087,7 @@ function MissionBriefModal({
               borderRadius: 12,
               padding: "12px 14px",
             }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: space.sm }}>
                 <div>
                   <div style={{ fontFamily: font.sans, fontSize: 13, fontWeight: 600, color: T.textPrimary }}>{zoneData.label}</div>
                   <div style={{ fontFamily: font.sans, fontSize: 11, color: T.textSecondary, marginTop: 3, lineHeight: 1.4 }}>{zoneData.spreadWindow}</div>
@@ -1161,7 +1161,7 @@ function MissionBriefModal({
       <Divider />
 
       {/* ── Custom footer with voice override button ─────────────────────── */}
-      <div style={{ padding: "16px 24px 22px", display: "flex", gap: 10, alignItems: "center" }}>
+      <div style={{ padding: "16px 24px 22px", display: "flex", gap: space.sm, alignItems: "center" }}>
         {/* Cancel (left-aligned) */}
         <button
           type="button"
@@ -1299,13 +1299,17 @@ export function ActionModal({
   const onCloseRef = useRef(onClose);
   const conversationRef = useRef(_state.talonConversation);
   const conversationHandlerRef = useRef(onTalonConversationChange);
+  /* Always-current state for the Escape path. The listener is registered once
+   * per modalId, so it must not close over a value captured at mount time. */
+  const stateRef = useRef(_state);
   const meta = modalAccessibility(modalId);
 
   useEffect(() => {
     onCloseRef.current = onClose;
     conversationRef.current = _state.talonConversation;
     conversationHandlerRef.current = onTalonConversationChange;
-  }, [onClose, onTalonConversationChange, _state.talonConversation]);
+    stateRef.current = _state;
+  }, [onClose, onTalonConversationChange, _state]);
 
   useEffect(() => {
     restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -1318,9 +1322,25 @@ export function ActionModal({
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      const phase = getTalonSessionView(conversationRef.current).phase;
+      const handler = conversationHandlerRef.current;
+      // Read the LIVE phase off the state owner, not the snapshot captured when
+      // the modal mounted. The modal outlives the conversation transitions that
+      // happen inside it (a staged session advances after open), and a stale
+      // ref kept Escape in the "cancel work" branch forever, so the dialog
+      // could never be dismissed from the keyboard.
+      const phase = getTalonSessionView(stateRef.current.talonConversation).phase;
       const talonBusy = phase === "input" || phase === "review" || phase === "checking" || phase === "executing";
-      if (talonBusy && conversationHandlerRef.current) return;
+
+      // Escape is the cancel path for in-flight TALON work, not a dead key.
+      // cancelTalonConversation stops capture/review/checking/execution while
+      // preserving any completed recommendation, human-gate, or receipt — which
+      // is exactly the law in domain/talon.ts.
+      if (talonBusy && handler) {
+        event.preventDefault();
+        handler(cancelTalonConversation(stateRef.current.talonConversation));
+        return;
+      }
+
       event.preventDefault();
       onCloseRef.current();
     };

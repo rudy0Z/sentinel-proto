@@ -4,7 +4,7 @@
  * are only fallbacks for isolated rendering.
  */
 .talon-session {
-  --talon-state: #00c8ff;
+  --talon-state: #1CB8E6;
   --talon-ease: cubic-bezier(0.23, 1, 0.32, 1);
   --talon-overlay: rgba(8, 16, 28, 0.96);
   --talon-panel: rgba(8, 16, 28, 0.92);
@@ -289,18 +289,18 @@
   height: 60px;
   display: grid;
   place-items: center;
-  border: 2px solid var(--talon-state);
-  border-radius: 50%;
+  border: 1.5px solid var(--talon-state);
+  border-radius: 14px;
   /*
-   * Inside the command plate the blob below is the orb's BODY — the content
-   * stays a transparent state wash so the liquid silhouette shows through.
+   * Inside the command plate the body is a faceted EOTS reticle frame —
+   * radial state wash keeps the liquid silhouette and deep instrument depth.
    */
   background:
     radial-gradient(
       circle at 50% 40%,
       color-mix(in srgb, var(--talon-state) 26%, transparent) 0%,
       color-mix(in srgb, var(--talon-state) 10%, transparent) 62%,
-      transparent 100%
+      rgba(8, 16, 28, 0.94) 100%
     );
   color: var(--talon-state);
   cursor: pointer;
@@ -485,10 +485,34 @@
   transform: scale(0.98);
 }
 
+/* Primary session button.
+ * WCAG AA fix: at the original 15% tint, the danger tone (T.red #E5533C on
+ * #122033) sat at 3.78:1 — below AA 4.5:1. Darkening the backdrop under the
+ * state tone raises contrast for warm/low-luminance hues (red, violet) without
+ * washing out the cool ones, because their foregrounds are already brighter
+ * relative to the backdrop. Border carries the state cue regardless. */
+/* Primary session button.
+ * Two changes, both WCAG-motivated:
+ *  1. A solid (non color-mix) backdrop. axe-core cannot resolve color-mix()
+ *     backgrounds, so it fell back to the parent surface and computed the
+ *     foreground against itself (ratio 1.18) — a false positive that still
+ *     fails the gate. A literal fill is machine-checkable.
+ *  2. The fill is a fixed dark neutral, and the state tone stays in the border
+ *     and the label. Every tone's label clears AA against it (worst case
+ *     amber #F5A623 on #0E1119 = 8.3:1; red #E5533C = 4.9:1). */
 .talon-session__button--primary {
   border-color: color-mix(in srgb, var(--talon-state) 58%, transparent);
-  background: color-mix(in srgb, var(--talon-state) 15%, #122033);
+  background: #0E1119;
   color: var(--talon-state);
+  /* The primary label is a STATE (voice armed / reviewing), not a hover affordance.
+   * Inheriting the base `color 140ms` transition made the tone fade in from
+   * --talon-text-secondary on mount, so a mid-transition sample rendered amber
+   * as #7d5a1f — a real AA failure that only the axe gate caught. State colours
+   * land immediately; only the surface may animate. */
+  transition:
+    transform 110ms var(--talon-ease),
+    border-color 140ms var(--talon-ease),
+    background-color 140ms var(--talon-ease);
 }
 
 .talon-session__button:disabled {

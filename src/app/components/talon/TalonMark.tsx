@@ -111,27 +111,30 @@ function TalonMarkInner({
       aria-label={decorative ? undefined : `${title}: ${TALON_MARK_STATE_LABEL[state]}`}
       aria-hidden={decorative || undefined}
     >
-      {/* Outer perimeter. A second, wider ring pulses outward once on every
-          state change (talon-mark__burst) so a transition is caught in the
-          instant it happens, not deduced from two static frames. */}
-      <circle
+      {/* Outer collimator frame — chamfered tactical polygon with cardinal ticks */}
+      <path
         className="talon-mark__ring"
-        cx="24"
-        cy="24"
-        r="21"
+        d="M14 4 L34 4 L44 14 L44 34 L34 44 L14 44 L4 34 L4 14 Z"
         stroke="currentColor"
-        strokeWidth="1.5"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
         opacity=".45"
       />
-      <circle
+      <path
         className="talon-mark__burst"
-        cx="24"
-        cy="24"
-        r="21"
+        d="M14 4 L34 4 L44 14 L44 34 L34 44 L14 44 L4 34 L4 14 Z"
         stroke="currentColor"
         strokeWidth="2"
+        strokeLinejoin="round"
         fill="none"
       />
+      {/* 4 Cardinal optical reticle ticks */}
+      <g className="talon-mark__ticks" stroke="currentColor" strokeWidth="1.5" opacity=".55" strokeLinecap="round">
+        <line x1="24" y1="2" x2="24" y2="5" />
+        <line x1="24" y1="43" x2="24" y2="46" />
+        <line x1="2" y1="24" x2="5" y2="24" />
+        <line x1="43" y1="24" x2="46" y2="24" />
+      </g>
 
       {/* Three inbound source vectors, entering through the aperture gaps. */}
       <g
@@ -141,28 +144,33 @@ function TalonMarkInner({
         strokeLinecap="round"
         opacity=".9"
       >
-        <path d="M41.32 14 L31.79 19.5" />
+        <path d="M40 13 L31 19" />
         <path d="M24 44 L24 33" />
-        <path d="M6.68 14 L16.21 19.5" />
+        <path d="M8 13 L17 19" />
       </g>
 
-      {/* Aperture blades. These rotate closed at a gate and open on release. */}
+      {/* Prehensile vector claws (The Grip) — 3 angular chevrons that rotate and clamp shut. */}
       <g
         className="talon-mark__blades"
         stroke="currentColor"
-        strokeWidth="3"
+        strokeWidth="1.5"
         strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="currentColor"
+        fillOpacity="0.22"
       >
-        <path className="talon-mark__blade" d="M16.96 10.76 A15 15 0 0 1 31.04 10.76" />
-        <path className="talon-mark__blade" d="M38.99 24.52 A15 15 0 0 1 31.95 36.72" />
-        <path className="talon-mark__blade" d="M16.05 36.72 A15 15 0 0 1 9.01 24.52" />
+        {/* Top claw */}
+        <path className="talon-mark__blade" d="M14 12 L24 6 L34 12 L28 15 L24 11 L20 15 Z" />
+        {/* Bottom-right claw */}
+        <path className="talon-mark__blade" d="M39.4 21.3 L39.6 33 L29.4 38.7 L29.8 32 L35.3 30.5 L33.8 25 Z" />
+        {/* Bottom-left claw */}
+        <path className="talon-mark__blade" d="M8.6 21.3 L8.4 33 L18.6 38.7 L18.2 32 L12.7 30.5 L14.2 25 Z" />
       </g>
 
-      {/* The guarded decision centre — a filled disc, not a hollow ring, so
-          "lit" vs. "resting" is a shape change, not a shade change. */}
+      {/* The guarded decision centre — faceted diamond core with state-reactive fill */}
       <g className="talon-mark__core">
-        <circle className="talon-mark__core-fill" cx="24" cy="24" r="9" fill="currentColor" />
-        <circle cx="24" cy="24" r="9" stroke="currentColor" strokeWidth="1.4" opacity=".5" />
+        <polygon className="talon-mark__core-fill" points="24,17 31,24 24,31 17,24" fill="currentColor" />
+        <polygon points="24,15 33,24 24,33 15,24" stroke="currentColor" strokeWidth="1.4" opacity=".5" fill="none" />
       </g>
 
       {/* Unambiguous glyph overlays. Rendered always, shown only for their

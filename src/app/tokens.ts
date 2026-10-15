@@ -1,14 +1,21 @@
 import type { CSSProperties } from "react";
 
 export const T = {
-  bgBase: "#071019",
-  bgPanel: "#0D1724",
-  bgRaised: "#122033",
-  bgMap: "#060A12",
+  /*
+   * Obsidian deepening (redesign 2026 — docs/redesign-2026/04 §1.1): same hue
+   * family, lower floor. Glass materials carry the panel read now; the base
+   * recedes so the map and the glass edges do the work. Text hues unchanged —
+   * deepening only raises contrast.
+   */
+  bgBase: "#050B13",
+  bgPanel: "#0A121E",
+  bgRaised: "#0E1928",
+  bgMap: "#04070D",
   border: "#1E2D42",
   /*
-   * Instrument cyan, calibrated off the old pure-neon #00C8FF (0,200,255).
-   * Lifting the zero red channel and easing saturation reads as telemetry, not
+   * Instrument cyan, calibrated off the retired pure-neon value (0, 200, 255
+   * family — now a hard audit failure). Lifting the zero red channel and easing
+   * saturation reads as telemetry, not
    * a toy accent (vibecoded tell #29), while staying vivid on the dark map.
    * Feeds every tint()/tone.info/focus derivation, so the whole cyan family
    * shifts with this one value.
@@ -37,6 +44,59 @@ export const T = {
   talonListening: "#E5533C",
   talonProcessing: "#F5A623",
   talonResponded: "#2DD4A0",
+} as const;
+
+/*
+ * ─── Light chrome tier (build 2026-10-03, doc 13 Phase C) ───────────────────
+ * "Calm light chrome · dark instrument core": the rails, the TALON Mind
+ * thread, and card panels render on this near-white tier; the map, feeds,
+ * the Command Deck, and the gate stay on the dark T.* core above. One accent
+ * (T.cyan family) plus the semantic triad; nothing here invents a hue.
+ */
+export const light = {
+  base: "#F2F6FA",
+  panel: "#FFFFFF",
+  raised: "#FFFFFF",
+  inset: "rgba(15, 26, 38, 0.035)",
+  control: "rgba(15, 26, 38, 0.05)",
+  controlHover: "rgba(15, 26, 38, 0.09)",
+  border: "#D6E0EA",
+  borderStrong: "#818F9E",
+  textPrimary: "#0F1A26",
+  textSecondary: "#4D6074",
+  /** 5:1 on light.panel — passes the 4.5:1 floor at the 10px eyebrow size. */
+  textMuted: "#5F7288",
+  /**
+   * Semantic triad, contrast-calibrated for the near-white tier (4.5:1 on
+   * light.panel). The dark-core T.cyan/amber/red values fail WCAG on white, so
+   * light surfaces read tones from here; the instrument core keeps T.*.
+   */
+  tone: {
+    info: "#1A6890",
+    safe: "#1C7443",
+    caution: "#7A5E00",
+    danger: "#B0341E",
+    neutral: "#5F7288",
+  },
+} as const;
+
+/**
+ * LWIR (long-wave IR) thermal ramp — the diegetic night-sensor palette (P2.3).
+ * Monotonic by construction: void (cool ridge) → warm → hot → core. Terrain
+ * reads darker as it cools; the fire crest is the only saturated white. Defined
+ * here so the 3D explorer, the 2D thermal legend and any debrief surface share
+ * one ramp. audit:tokens is blind to in-scale literals, so the ramp must live in
+ * tokens, never at a call site.
+ */
+export const lwir = {
+  void: "#0D121A",
+  cool: "#141C26",
+  warm: "#5A3A28",
+  hot: "#8A5330",
+  core: "#FFFFFF",
+  fire: "#FF8A4A",
+  plume: "#0A0E14",
+  cone: "#FF8A4A",
 } as const;
 
 /** Consistent opacity for disabled interactive elements (WCAG-friendly) */
@@ -83,6 +143,8 @@ export const radius = {
   tile: 10,
   panel: 12,
   overlay: 16,
+  /** Command Deck outer shell. Concentric law: R_outer = R_inner + padding. */
+  deck: 20,
   pill: 999,
 } as const;
 
@@ -113,6 +175,8 @@ export const tracking = {
   telemetry: "0.06em",
   /** Uppercase section eyebrows. */
   eyebrow: "0.1em",
+  /** Spread glyphs inside a centered secure field (PIN / passcode). */
+  wide: "0.4em",
 } as const;
 
 /**
@@ -133,10 +197,15 @@ export const typeStyle = {
   control: { size: 12, lineHeight: 16, weight: typeWeight.semibold, family: "sans" as const, tracking: tracking.fine },
   label: { size: 11, lineHeight: 15, weight: typeWeight.semibold, family: "sans" as const, tracking: tracking.fine },
   metadata: { size: 10, lineHeight: 14, weight: typeWeight.medium, family: "mono" as const, tracking: tracking.fine },
+  /** Uppercase mono eyebrow — panel headers, spine lips, chip captions (doc 04 §1.4). */
+  eyebrow: { size: 10, lineHeight: 14, weight: typeWeight.semibold, family: "mono" as const, tracking: tracking.eyebrow },
   metric: { size: 32, lineHeight: 36, weight: typeWeight.bold, family: "sans" as const, tracking: tracking.displayTight },
   brand: { size: 14, lineHeight: 20, weight: typeWeight.bold, family: "sans" as const, tracking: tracking.tight },
   title: { size: 13, lineHeight: 18, weight: typeWeight.semibold, family: "sans" as const, tracking: tracking.fine },
 } as const;
+
+/** Tabular numerals — telemetry and metric digits never re-flow (doc 04 §1.4). */
+export const NUMERIC_TNUM = '"tnum"' as const;
 
 /** Thin size wrappers — prefer typeStyle for new work. */
 export const typeScale = {
@@ -165,9 +234,9 @@ export function tint(hex: string, alpha: number) {
 export const surface = {
   base: T.bgBase,
   map: T.bgMap,
-  panel: "rgba(8, 16, 28, 0.92)",
-  panelDense: "rgba(8, 16, 28, 0.90)",
-  raised: "rgba(18, 32, 51, 0.76)",
+  panel: "rgba(7, 13, 23, 0.90)",
+  panelDense: "rgba(7, 13, 23, 0.92)",
+  raised: "rgba(15, 26, 42, 0.80)",
   inset: "rgba(255, 255, 255, 0.025)",
   control: "rgba(255, 255, 255, 0.04)",
   controlHover: "rgba(255, 255, 255, 0.07)",
@@ -181,6 +250,9 @@ export const surface = {
 export const border = {
   soft: "rgba(255, 255, 255, 0.04)",
   subtle: "rgba(255, 255, 255, 0.06)",
+  /** 2026 glass hairline — the default edge for glass panels (doc 04 §1.3). */
+  hairline: "rgba(255, 255, 255, 0.07)",
+  hairlineStrong: "rgba(255, 255, 255, 0.10)",
   default: "rgba(255, 255, 255, 0.08)",
   strong: "rgba(255, 255, 255, 0.12)",
   focus: tint(T.cyan, 0.5),
@@ -204,6 +276,10 @@ export const shadow = {
   /** Menus and popovers: same edge, quiet drop. */
   edgePopover:
     "inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -1px 0 rgba(0, 0, 0, 0.18), 0 10px 26px rgba(0, 0, 0, 0.32)",
+  /** 2026 glass ladder (doc 04 §1.3): soft large-blur drops for floating glass. */
+  glassSm: "0 2px 8px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.04)",
+  glassMd: "0 12px 36px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.05)",
+  glassLg: "0 24px 64px rgba(0, 0, 0, 0.46), inset 0 1px 0 rgba(255, 255, 255, 0.06)",
 } as const;
 
 export const tone = {
@@ -275,21 +351,27 @@ export const focus = {
 } as const;
 
 /**
- * The two — and only two — sanctioned easing curves, standalone so progress
- * fills and draw-ins at custom durations reference the curve without a bundled
- * duration. A third curve is a review failure (see DESIGN.md §12).
+ * Sanctioned easing curves, standalone so progress fills and draw-ins at custom
+ * durations reference the curve without a bundled duration. `spring` is the
+ * 2026 addition: capped overshoot for DECORATIVE pops only (spine peeks, tile
+ * dissolve-in) — never for gates, holds, or anything authorization-adjacent.
+ * A fourth curve is a review failure (see DESIGN.md §12, updated at promote).
  */
 export const ease = {
   /** Default ease-out for UI transitions and hold/progress fills. */
   out: "cubic-bezier(0.23, 1, 0.32, 1)",
   /** Drawer / deliberate surfaces. */
   drawer: "cubic-bezier(0.32, 0.72, 0, 1)",
+  /** Decorative pops only — capped overshoot. */
+  spring: "cubic-bezier(0.34, 1.56, 0.64, 1)",
 } as const;
 
 export const motion = {
   fast: `120ms ${ease.out}`,
   normal: `180ms ${ease.out}`,
   deliberate: `240ms ${ease.drawer}`,
+  /** Pops: ≤240ms spring, decorative motion only (doc 04 §1.7). */
+  pop: `240ms ${ease.spring}`,
 } as const;
 
 /** Shared TALON UI and scripted-prototype timing. */
@@ -366,6 +448,105 @@ export const GI = {
   surfaceMid: surface.controlHover,
   dividerBg: border.soft,
   glow: shadow.quiet,
+} as const;
+
+/*
+ * ─── Light chrome materials (build 2026-10-03, doc 13 Phase C) ─────────────
+ * The calm-light counterpart to the obsidian glass law: same recipe discipline
+ * (one background, one edge, one drop per variant — never ad-hoc at a call
+ * site), near-white surfaces for rails, Mind console, and cards. The deck and
+ * gate keep materialGlass: the instrument core stays dark by design.
+ */
+export const materialLight: Record<"panel" | "raised" | "card" | "label", CSSProperties> = {
+  /*
+   * Elevation law (craft pass 2026-10-04): panels and cards sit IN the chrome
+   * — hairline border, no drop. Only takeovers and true overlays float. When
+   * everything floats, nothing does.
+   */
+  panel: {
+    background: light.panel,
+    borderRadius: radius.panel,
+    border: `1px solid ${light.border}`,
+  },
+  raised: {
+    background: light.raised,
+    borderRadius: radius.overlay,
+    border: `1px solid ${light.border}`,
+    boxShadow: "0 2px 4px rgba(15, 26, 38, 0.05), 0 16px 40px rgba(15, 26, 38, 0.08)",
+  },
+  card: {
+    background: light.panel,
+    borderRadius: radius.panel,
+    border: `1px solid ${light.border}`,
+  },
+  label: {
+    background: light.base,
+    borderRadius: radius.control,
+    border: `1px solid ${light.border}`,
+  },
+};
+
+/*
+ * ─── 2026 glass materials (doc 04 §1.2) ─────────────────────────────────────
+ * The obsidian-glass layer for the redesign kit. Same law as `material`:
+ * recipes only, never ad-hoc blur/border/shadow at a call site. Deep frost +
+ * hairline edge + soft large-blur drop; state stays semantic.
+ */
+const GLASS_FROST = "blur(22px) saturate(1.45)";
+const GLASS_FROST_DEEP = "blur(26px) saturate(1.5)";
+const GLASS_FROST_LABEL = "blur(16px) saturate(1.3)";
+
+export const materialGlass: Record<"panel" | "raised" | "deck" | "label", CSSProperties> = {
+  panel: {
+    background: "rgba(10, 17, 29, 0.78)",
+    backdropFilter: GLASS_FROST,
+    WebkitBackdropFilter: GLASS_FROST,
+    borderRadius: radius.panel,
+    border: `1px solid ${border.hairline}`,
+    boxShadow: shadow.glassMd,
+  },
+  raised: {
+    background: "rgba(13, 21, 34, 0.86)",
+    backdropFilter: GLASS_FROST_DEEP,
+    WebkitBackdropFilter: GLASS_FROST_DEEP,
+    borderRadius: radius.overlay,
+    border: `1px solid ${border.hairlineStrong}`,
+    boxShadow: shadow.glassLg,
+  },
+  deck: {
+    background: "rgba(9, 15, 26, 0.90)",
+    backdropFilter: GLASS_FROST_DEEP,
+    WebkitBackdropFilter: GLASS_FROST_DEEP,
+    borderRadius: radius.deck,
+    border: `1px solid ${border.hairlineStrong}`,
+    boxShadow: shadow.glassLg,
+  },
+  label: {
+    background: "rgba(8, 14, 24, 0.72)",
+    backdropFilter: GLASS_FROST_LABEL,
+    WebkitBackdropFilter: GLASS_FROST_LABEL,
+    borderRadius: radius.control,
+    border: `1px solid ${border.hairline}`,
+    boxShadow: shadow.glassSm,
+  },
+};
+
+/*
+ * ─── Data-viz ramps (doc 04 §1.6) ───────────────────────────────────────────
+ * Gradient fills for bars/arcs/cones/sparks. Bodies sit at low alpha with a
+ * strong edge — the "12% body, 100% 1px edge" law. Raw rgba lives here, never
+ * at a call site.
+ */
+export const viz = {
+  barTrack: "rgba(255, 255, 255, 0.06)",
+  barFill: (toneHex: string) => `linear-gradient(90deg, ${tint(toneHex, 0.85)} 0%, ${tint(toneHex, 0.45)} 100%)`,
+  arcTrack: "rgba(255, 255, 255, 0.06)",
+  arcFill: (toneHex: string) => `linear-gradient(135deg, ${tint(toneHex, 0.35)} 0%, ${tint(toneHex, 0.95)} 100%)`,
+  coneFill: (toneHex: string) => tint(toneHex, 0.18),
+  coneEdge: (toneHex: string) => tint(toneHex, 0.9),
+  sparkStroke: (toneHex: string) => tint(toneHex, 0.9),
+  sparkArea: (toneHex: string) => tint(toneHex, 0.1),
+  heatCell: (toneHex: string, level: number) => tint(toneHex, 0.08 + Math.min(1, Math.max(0, level)) * 0.18),
 } as const;
 
 export type OperationalMode = "scan" | "verify" | "contain" | "rescue";
@@ -534,7 +715,12 @@ export type SceneId =
   | "rescue-battery-critical"
   | "satellite-feed-loss"
   | "infrastructure-total-loss"
-  | "network-degraded";
+  | "network-degraded"
+  // ── Promoted states (vault 03 §2, plan Phase 3) ──
+  | "verify-source-conflict"
+  | "contain-awaiting-teams"
+  | "rescue-partial-evac"
+  | "handoff-pending";
 
 export type SurfaceMode = "map" | "drone-grid";
 export type PlanVariant = "recommended" | "alternate";
@@ -731,7 +917,35 @@ export interface DroneRosterEntry {
   route?: string;
   gridLabel: string;
   assignedMission?: DroneMissionType;
+  /** Live telemetry (panels-charter §7): AGL altitude, ground speed, heading, geodetic position. */
+  altitudeM: number;
+  groundSpeedMps: number;
+  headingDeg: number;
+  lat: number;
+  lon: number;
   note?: string;
+}
+
+export interface WeatherState {
+  observedAt: string;
+  windBearing: number;
+  windSpeedKts: number;
+  windGustKts: number;
+  tempF: number;
+  rh: number;
+  fuelModel: string;
+  haines: number;
+  source: 'scripted' | 'live';
+}
+
+export type ZoneOpState = 'nominal' | 'watch' | 'warning' | 'critical' | 'cleared';
+
+export interface ZoneOperationalStatus {
+  zoneId: string;
+  state: ZoneOpState;
+  /** Residential evacuation chip (panels-charter §6): the operator's G3 vocabulary. */
+  evac: 'GO' | 'WATCH' | 'CLEAR' | null;
+  timeToImpact?: string;
 }
 
 export interface QuickActionState {
@@ -944,6 +1158,8 @@ export interface ShellState {
   emergencyEvacuationActive: boolean;
   backupDeployed: boolean;
   standDownComplete: boolean;
+  /** Gate-able commands whose staged recommendation has expired this scene (see domain/staging.ts). */
+  expiredActions?: QuickActionId[];
   acknowledgedPriorityIds: string[];
   overrideReason: OverrideReason;
   /** Active operator/TALON disagreement, preserved until ground truth resolves it. */

@@ -81,6 +81,24 @@ try {
 
     await page.goto(`${baseUrl}#${route.route}`, { waitUntil: "commit", timeout: 20000 });
     await page.locator('[aria-label="TALON command bar"]').first().waitFor({ state: "visible" });
+    // Audit the RESTING surface, not a half-played entrance animation.
+    // Panels rise with an opacity/translate keyframe (talon-surface-in 220ms,
+    // rlsPanelIn* 240ms); sampling mid-fade composites foreground and background
+    // partway and reports a phantom color-contrast failure on transient frames.
+    // Contrast is a property of the settled state, so wait for animations out.
+    await page.evaluate(async () => {
+      // Only wait on FINITE animations (entrances/exits). Attention pulses and
+      // orb breathes are intentionally infinite (rlsAlertPulse, mark-breathe),
+      // so `a.finished` would never resolve and the gate would hang.
+      const finite = document
+        .getAnimations()
+        .filter((a) => a.playState === "running" && typeof a.effect?.getComputedTiming?.().endTime === "number" && a.effect.getComputedTiming().endTime !== Infinity);
+      await Promise.race([
+        Promise.allSettled(finite.map((a) => a.finished.catch(() => {}))),
+        new Promise((resolve) => setTimeout(resolve, 600)),
+      ]);
+      await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    });
     await page.addScriptTag({ path: axePath });
     const axe = await page.evaluate(async () =>
       window.axe.run(document, {
@@ -95,6 +113,20 @@ try {
       const root = document.documentElement;
       const body = document.body;
       const width = window.innerWidth;
+      /* Command-deck integrity. A clipped deck is a SAFETY defect, not a
+       * cosmetic one: the deck is the only surface that holds gates, so a tile
+       * pushed below the deck (or off-screen) hides an authorization control.
+       * The historical cause was a token `lineHeight` number rendered by React
+       * as `140px`, which grew the truth cluster, forced a second grid row, and
+       * pushed every command tile off the bottom of the viewport. Neither
+       * horizontal-overflow nor axe can see that, so assert it directly. */
+      const deck = document.querySelector('[data-deck]');
+      const deckBox = deck ? deck.getBoundingClientRect() : null;
+      const tiles = Array.from(document.querySelectorAll("[data-deck] button"));
+      const offscreenTiles = tiles.filter((t) => {
+        const b = t.getBoundingClientRect();
+        return b.width > 0 && (b.bottom > window.innerHeight + 1 || b.top > (deckBox ? deckBox.bottom + 1 : window.innerHeight));
+      });
       return {
         viewportWidth: width,
         documentWidth: Math.max(root.scrollWidth, body.scrollWidth),
@@ -102,6 +134,8 @@ try {
         reviewDockCount: document.querySelectorAll('[aria-label="Prototype review dock"]').length,
         droneMarkers: document.querySelectorAll('[aria-label*="Select or drag to reposition"]').length,
         modalCount: document.querySelectorAll('[aria-modal="true"]').length,
+        deckOverflowY: deck ? deck.scrollHeight - deck.clientHeight : 0,
+        deckOffscreenTiles: offscreenTiles.length,
       };
     });
 
@@ -116,6 +150,14 @@ try {
     }
     if (route.route.includes("authority-notification-ready") && metrics.droneMarkers === 0) {
       contractFailures.push("Authority scene has no visible drone markers.");
+    }
+    if (metrics.deckOverflowY > 1) {
+      contractFailures.push(`Command deck clips its own content (${metrics.deckOverflowY}px overflow).`);
+    }
+    if (metrics.deckOffscreenTiles > 0) {
+      contractFailures.push(
+        `${metrics.deckOffscreenTiles} command tile(s) render below the deck/viewport — a gate would be unreachable.`,
+      );
     }
 
     if (route.capture) {

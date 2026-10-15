@@ -87,6 +87,12 @@ export function DissentGate({
   useEffect(() => {
     const closeOnEscape = (event: globalThis.KeyboardEvent) => {
       if (event.key !== "Escape") return;
+      /* Window-CAPTURE, so this fires before bubble handlers. If another modal
+       * is stacked on top of this one (ActionModal opened while the dissent gate
+       * was up), the topmost dialog owns Escape — otherwise this gate would
+       * cancel itself out from under the operator's actual target. */
+      const dialogs = Array.from(document.querySelectorAll('[role="dialog"]'));
+      if (dialogs.length > 1) return;
       event.preventDefault();
       event.stopPropagation();
       onCancel();

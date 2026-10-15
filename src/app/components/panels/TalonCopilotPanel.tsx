@@ -188,8 +188,8 @@ function getChartCopy(scene: SceneId): ChartCopy {
       return {
         label: "Convergence (satellite offline)",
         statusLabel: "DEGRADED",
-        statusColor: "#F5A623",
-        thermalColor: "#F5A623",
+        statusColor: T.amber,
+        thermalColor: T.amber,
         moistureColor: "#7A8BA0",
         moistureMetric: "–stale–",
       };
@@ -197,9 +197,9 @@ function getChartCopy(scene: SceneId): ChartCopy {
       return {
         label: "Convergence (low-bandwidth)",
         statusLabel: "JITTER",
-        statusColor: "#FFD166",
-        thermalColor: "#FFD166",
-        moistureColor: "#F5A623",
+        statusColor: T.amber,
+        thermalColor: T.amber,
+        moistureColor: T.amber,
         moistureMetric: "-8%",
       };
     case "monitoring-contested":
@@ -215,9 +215,9 @@ function getChartCopy(scene: SceneId): ChartCopy {
       return {
         label: "Post-override evidence only",
         statusLabel: "THRESHOLD CROSSED",
-        statusColor: "#F5A623",
-        thermalColor: "#F5A623",
-        moistureColor: "#F5A623",
+        statusColor: T.amber,
+        thermalColor: T.amber,
+        moistureColor: T.amber,
         moistureMetric: "-17%",
       };
     case "baseline":
@@ -241,7 +241,7 @@ function getChartCopy(scene: SceneId): ChartCopy {
         statusLabel: "CONFIRMED",
         statusColor: "#2DD4A0",
         thermalColor: "#E5533C",
-        moistureColor: "#F5A623",
+        moistureColor: T.amber,
         moistureMetric: "-19%",
       };
     default:
@@ -540,7 +540,7 @@ function WorkforceMetric({ label, value, color }: { label: string; value: number
         padding: `${space.sm}px ${space.sm}px`,
       }}
     >
-      <div style={{ fontFamily: font.mono, fontSize: typeScale.title, fontWeight: typeWeight.heavy, color, lineHeight: 1 }}>
+      <div style={{ fontFamily: font.mono, fontSize: typeScale.title, fontWeight: typeWeight.heavy, color, lineHeight: 1.2 }}>
         {value}
       </div>
       <div style={{ marginTop: space.xs, fontFamily: font.mono, fontSize: typeScale.eyebrow, color: T.textMuted, letterSpacing: tracking.telemetry, textTransform: "uppercase" }}>
@@ -1673,7 +1673,7 @@ export function TalonCopilotPanel({ state }: TalonCopilotPanelProps) {
             </span>
             <div style={{ display: "flex", alignItems: "center", gap: space.sm }}>
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontFamily: font.mono, fontSize: typeScale.title, fontWeight: typeWeight.heavy, color: T.cyan, lineHeight: 1 }}>
+                <div style={{ fontFamily: font.mono, fontSize: typeScale.title, fontWeight: typeWeight.heavy, color: T.cyan, lineHeight: 1.2 }}>
                   {runningAgents}
                 </div>
                 <div style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: T.textMuted, letterSpacing: tracking.telemetry, textTransform: "uppercase" }}>
@@ -1681,7 +1681,7 @@ export function TalonCopilotPanel({ state }: TalonCopilotPanelProps) {
                 </div>
               </div>
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontFamily: font.mono, fontSize: typeScale.title, fontWeight: typeWeight.heavy, color: humanGatedTasks > 0 ? T.amber : T.teal, lineHeight: 1 }}>
+                <div style={{ fontFamily: font.mono, fontSize: typeScale.title, fontWeight: typeWeight.heavy, color: humanGatedTasks > 0 ? T.amber : T.teal, lineHeight: 1.2 }}>
                   {humanGatedTasks}
                 </div>
                 <div style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: T.textMuted, letterSpacing: tracking.telemetry, textTransform: "uppercase" }}>

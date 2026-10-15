@@ -131,7 +131,7 @@ CREATE TABLE decisions (
     action_id TEXT NOT NULL,           -- e.g. 'notify-authorities', 'authorize-containment'
     operator_id TEXT NOT NULL,
     clock_ms INTEGER NOT NULL,
-    sha256_digest TEXT NOT NULL,       -- Cryptographic audit hash
+    sha256_digest TEXT NOT NULL,       -- hash-chained event receipt (node:crypto, implemented in S3)
     authorized_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

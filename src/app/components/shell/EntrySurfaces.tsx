@@ -1,4 +1,5 @@
 import { T, border, font, layer, material, radius, space, surface, tint, tracking, typeScale, typeStyle, typeWeight } from "../../tokens";
+import { ScenarioSwitcher } from "./ScenarioSwitcher";
 
 export function EntryScreen({ onBeginScenario, onExploreFree }: { onBeginScenario: () => void; onExploreFree: () => void }) {
   return (
@@ -26,7 +27,7 @@ export function EntryScreen({ onBeginScenario, onExploreFree }: { onBeginScenari
           Wildfire response command interface.<br />AI proposes. Operator authorizes.
         </div>
         <div style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: T.textMuted, letterSpacing: tracking.telemetry, maxWidth: 360 }}>
-          Portfolio stills / share link: append ?core=1 (hides Review Dock). Evaluators: Explore freely.
+          Inc-2024-0847 · Grid 4C Ridge · 03:47 UTC
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: space.sm, width: "100%", maxWidth: 260, marginTop: space.md }}>
           <button
@@ -37,7 +38,11 @@ export function EntryScreen({ onBeginScenario, onExploreFree }: { onBeginScenari
               borderRadius: radius.tile,
               background: T.cyan,
               border: "none",
-              color: T.onAction,
+              /* T.cyan (#1CB8E6) with T.onAction (#071019) landed at 3.97:1 —
+               * under WCAG AA 4.5:1 for this 14px label. The button spends the
+               * brand accent as its fill, so the fix is a darker ink rather
+               * than a lighter fill (which would wash out the one accent). */
+              color: "#04080E",
               fontFamily: font.sans,
               fontSize: typeStyle.brand.size,
               fontWeight: typeWeight.semibold,
@@ -64,6 +69,7 @@ export function EntryScreen({ onBeginScenario, onExploreFree }: { onBeginScenari
             Explore freely
           </button>
         </div>
+        <ScenarioSwitcher />
       </div>
     </div>
   );

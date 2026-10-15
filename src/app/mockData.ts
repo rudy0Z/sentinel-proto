@@ -10,6 +10,7 @@ import type {
   PlanVariant,
   RescueProgress,
   SceneId,
+  ZoneOpState,
 } from "./tokens";
 import { T } from "./tokens";
 
@@ -50,6 +51,28 @@ export interface SpreadRing {
   radius: number;
   color: string;
   dash: string;
+  /**
+   * Age of this projection's basis, mm:ss since it was computed (G-08 honesty
+   * law: stale data must read stale). The 60-min ring is computed first, so it
+   * carries the oldest basis.
+   */
+  age: string;
+}
+
+export interface AirspaceTraffic {
+  id: string;
+  callsign: string;
+  x: number;
+  y: number;
+  /** Track in degrees, drawn as a short course vector (0 = north). */
+  headingDeg: number;
+}
+
+export interface AirspaceModel {
+  /** Incident geofence / TFR as a native-pixel polygon (same law as ZONES). */
+  geofence: string;
+  commsRing: { x: number; y: number; radius: number; label: string };
+  traffic: AirspaceTraffic[];
 }
 
 export interface RoutePath {
@@ -86,6 +109,11 @@ export const REVIEW_SCENES: Array<{ id: SceneId; label: string; note: string }> 
   { id: "satellite-feed-loss", label: "Failure: Satellite Loss", note: "Aerial intelligence offline, drone-only telemetry." },
   { id: "infrastructure-total-loss", label: "Failure: Infrastructure Loss", note: "Total system breakdown; operator manual protocol." },
   { id: "network-degraded", label: "Failure: Network Degraded", note: "High latency across all feeds; 340ms average." },
+  // Promoted states (vault 03 §2, plan Phase 3)
+  { id: "verify-source-conflict", label: "Intelligence: Source Conflict", note: "Satellite and ag-burn records disagree; verification paused." },
+  { id: "contain-awaiting-teams", label: "Operations: Awaiting Teams", note: "Packet delivered; holding for run-card crews to stage." },
+  { id: "rescue-partial-evac", label: "Operations: Partial Evacuation", note: "Route A blocked by smoke; Route B shift staged." },
+  { id: "handoff-pending", label: "Operations: Handover Open", note: "Shift change initiated; authority unassigned until PIN." },
 ];
 
 export const INCIDENT: FocusedIncidentDetail = {
@@ -255,10 +283,25 @@ export const ZONES: ZoneData[] = [
 ];
 
 export const SPREAD_RINGS: SpreadRing[] = [
-  { label: "15 MIN", minutes: 15, radius: 118, color: T.red, dash: "8 6" },
-  { label: "30 MIN", minutes: 30, radius: 196, color: T.amber, dash: "8 6" },
-  { label: "60 MIN", minutes: 60, radius: 292, color: T.textMuted, dash: "6 7" },
+  { label: "15 MIN", minutes: 15, radius: 118, color: T.red, dash: "8 6", age: "00:42" },
+  { label: "30 MIN", minutes: 30, radius: 196, color: T.amber, dash: "8 6", age: "01:56" },
+  { label: "60 MIN", minutes: 60, radius: 292, color: T.textMuted, dash: "6 7", age: "03:12" },
 ];
+
+/*
+ * L3 airspace (G-10) — the missing overlay layer. Authored fixture data in
+ * native pixel space, same law as ZONES/roads: the geofence drapes with the
+ * terrain, airborne traffic may cross the sky band.
+ */
+export const AIRSPACE: AirspaceModel = {
+  geofence: "880,250 1130,205 1290,300 1265,445 1035,505 885,430",
+  commsRing: { x: 530, y: 616, radius: 268, label: "C2 RELAY" },
+  traffic: [
+    { id: "adsb-tanker-94", callsign: "TANKER 94", x: 1320, y: 150, headingDeg: 235 },
+    { id: "adsb-patrol-2", callsign: "PATROL 2", x: 480, y: 165, headingDeg: 65 },
+    { id: "adsb-medevac-7", callsign: "MEDEVAC 7", x: 820, y: 120, headingDeg: 160 },
+  ],
+};
 
 export const EVACUATION_ROUTES: RoutePath[] = [
   {
@@ -282,7 +325,7 @@ export const EVACUATION_ROUTES: RoutePath[] = [
 export const RESPONDER_ROUTE: RoutePath = {
   id: "responder-route",
   label: "RESPONDER INGRESS",
-  color: "#FFD166",
+  color: T.cyan,
   path: "M 1120,612 C 1012,664 938,724 854,820 C 822,858 792,876 762,888",
   textX: 900,
   textY: 736,
@@ -328,6 +371,11 @@ const BASE_DRONES: DroneRosterEntry[] = [
     route: "North ridge loop",
     gridLabel: "Feed 01",
     assignedMission: "patrol",
+    altitudeM: 120,
+    groundSpeedMps: 8.2,
+    headingDeg: 94,
+    lat: 34.0369,
+    lon: -118.8241,
     note: "Primary visual overwatch drone.",
   },
   {
@@ -344,6 +392,11 @@ const BASE_DRONES: DroneRosterEntry[] = [
     zoneId: "forest-north",
     route: "Forest incident approach",
     gridLabel: "Feed 02",
+    altitudeM: 0,
+    groundSpeedMps: 0,
+    headingDeg: 12,
+    lat: 34.0328,
+    lon: -118.8058,
     note: "High-fidelity mapping and incident verification drone.",
   },
   {
@@ -360,6 +413,11 @@ const BASE_DRONES: DroneRosterEntry[] = [
     zoneId: "buffer-west",
     route: "West residential relay arc",
     gridLabel: "Feed 03",
+    altitudeM: 140,
+    groundSpeedMps: 0.3,
+    headingDeg: 271,
+    lat: 34.0284,
+    lon: -118.8249,
     note: "Maintains connectivity for field response units.",
   },
   {
@@ -376,6 +434,11 @@ const BASE_DRONES: DroneRosterEntry[] = [
     zoneId: "buffer-east",
     route: "Ingress relay corridor",
     gridLabel: "Feed 04",
+    altitudeM: 138,
+    groundSpeedMps: 0.4,
+    headingDeg: 269,
+    lat: 34.0273,
+    lon: -118.814,
     note: "Tied to responder guidance and field team coverage.",
   },
   {
@@ -392,6 +455,11 @@ const BASE_DRONES: DroneRosterEntry[] = [
     zoneId: "residential-south",
     route: "Residential zone 1 guidance hold",
     gridLabel: "Feed 05",
+    altitudeM: 45,
+    groundSpeedMps: 6.8,
+    headingDeg: 182,
+    lat: 34.0217,
+    lon: -118.7999,
     note: "Used for civilian instruction and route verification.",
   },
   {
@@ -408,6 +476,11 @@ const BASE_DRONES: DroneRosterEntry[] = [
     zoneId: "residential-south",
     route: "Residential reserve lane",
     gridLabel: "Feed 06",
+    altitudeM: 0,
+    groundSpeedMps: 0,
+    headingDeg: 0,
+    lat: 34.0241,
+    lon: -118.8061,
     note: "Fallback asset for rapid mission reassignment.",
   },
   {
@@ -424,6 +497,11 @@ const BASE_DRONES: DroneRosterEntry[] = [
     zoneId: "buffer-east",
     route: "Outer perimeter sweep",
     gridLabel: "Feed 07",
+    altitudeM: 110,
+    groundSpeedMps: 9.4,
+    headingDeg: 355,
+    lat: 34.0386,
+    lon: -118.801,
     note: "Ambient surveillance on the eastern edge.",
   },
   {
@@ -440,6 +518,11 @@ const BASE_DRONES: DroneRosterEntry[] = [
     zoneId: "buffer-east",
     route: "Deep signal anchor",
     gridLabel: "Feed 08",
+    altitudeM: 142,
+    groundSpeedMps: 0.3,
+    headingDeg: 268,
+    lat: 34.0309,
+    lon: -118.7972,
     note: "Background relay for extreme edge connectivity.",
   },
   {
@@ -456,6 +539,11 @@ const BASE_DRONES: DroneRosterEntry[] = [
     zoneId: "residential-south",
     route: "Southern staging",
     gridLabel: "Feed 09",
+    altitudeM: 0,
+    groundSpeedMps: 0,
+    headingDeg: 0,
+    lat: 34.0189,
+    lon: -118.8127,
     note: "Ambient backup staged near residential route origins.",
   },
   {
@@ -472,6 +560,11 @@ const BASE_DRONES: DroneRosterEntry[] = [
     zoneId: "buffer-west",
     route: "Central standoff hold",
     gridLabel: "Feed 10",
+    altitudeM: 90,
+    groundSpeedMps: 0.2,
+    headingDeg: 15,
+    lat: 34.0262,
+    lon: -118.8225,
     note: "Holding aloft above central command for quick dispatch.",
   },
 ];
@@ -867,4 +960,54 @@ export function createActivityLog(scene: SceneId): ActivityLogEntry[] {
     },
     ...createActivityLog("contain-recommended"),
   ];
+}
+
+
+/*
+ * ─── Panels-charter data (sentinel-core/07) ─────────────────────────────────
+ * Weather (L4), incident airspace (geofence/TFR), per-zone operational states,
+ * and the projection-basis age. Scripted values; live frames override wind.
+ */
+export const WEATHER = {
+  observedAt: "03:47:03 UTC",
+  windBearing: 38,
+  windSpeedKts: 16,
+  windGustKts: 24,
+  tempF: 84,
+  rh: 22,
+  fuelModel: "G-29 · chaparral",
+  haines: 5,
+  source: "scripted",
+};
+
+
+/** The spread projection was generated when verification converged. */
+export const PROJECTION_GENERATED_AT_S = 45;
+
+type ZoneOpEntry = { state: ZoneOpState; evac: 'GO' | 'WATCH' | 'CLEAR' | null; timeToImpact?: string };
+const ZONE_OP_STATES: Record<string, Record<string, ZoneOpEntry>> = {
+  "alert-command": { "forest-north": { state: "watch", evac: null }, "residential-south": { state: "watch", evac: "WATCH" }, "residential-west": { state: "nominal", evac: "WATCH" } },
+  "investigation-pending": { "forest-north": { state: "warning", evac: null }, "buffer-west": { state: "watch", evac: null }, "buffer-east": { state: "watch", evac: null }, "residential-south": { state: "watch", evac: "WATCH", timeToImpact: "31 min" }, "residential-west": { state: "nominal", evac: "WATCH", timeToImpact: "38 min" } },
+  "verify-active": { "forest-north": { state: "warning", evac: null }, "buffer-west": { state: "watch", evac: null }, "buffer-east": { state: "watch", evac: null }, "residential-south": { state: "watch", evac: "WATCH", timeToImpact: "26 min" }, "residential-west": { state: "nominal", evac: "WATCH" } },
+  "verify-source-conflict": { "forest-north": { state: "warning", evac: null }, "residential-south": { state: "watch", evac: "WATCH" }, "residential-west": { state: "nominal", evac: "WATCH" } },
+  "authority-notification-ready": { "forest-north": { state: "critical", evac: null }, "buffer-west": { state: "warning", evac: null }, "buffer-east": { state: "warning", evac: null }, "residential-south": { state: "warning", evac: "WATCH", timeToImpact: "19 min" }, "residential-west": { state: "watch", evac: "WATCH", timeToImpact: "26 min" } },
+  "contain-recommended": { "forest-north": { state: "critical", evac: null }, "buffer-west": { state: "warning", evac: null }, "buffer-east": { state: "warning", evac: null }, "residential-south": { state: "warning", evac: "WATCH", timeToImpact: "14 min" }, "residential-west": { state: "watch", evac: "WATCH", timeToImpact: "21 min" } },
+  "contain-alternate": { "forest-north": { state: "critical", evac: null }, "buffer-east": { state: "warning", evac: null }, "residential-south": { state: "warning", evac: "WATCH", timeToImpact: "12 min" }, "residential-west": { state: "watch", evac: "WATCH", timeToImpact: "24 min" } },
+  "contain-degraded": { "forest-north": { state: "critical", evac: null }, "buffer-west": { state: "warning", evac: null }, "residential-south": { state: "warning", evac: "WATCH", timeToImpact: "16 min" }, "residential-west": { state: "watch", evac: "WATCH" } },
+  "contain-awaiting-teams": { "forest-north": { state: "critical", evac: null }, "residential-south": { state: "warning", evac: "WATCH", timeToImpact: "11 min" }, "residential-west": { state: "watch", evac: "WATCH" } },
+  "rescue-nominal": { "forest-north": { state: "critical", evac: null }, "residential-south": { state: "warning", evac: "GO", timeToImpact: "6 min" }, "residential-west": { state: "watch", evac: "GO", timeToImpact: "14 min" } },
+  "rescue-partial-evac": { "forest-north": { state: "critical", evac: null }, "residential-south": { state: "critical", evac: "GO", timeToImpact: "4 min" }, "residential-west": { state: "warning", evac: "GO", timeToImpact: "12 min" } },
+  "rescue-signal-degraded": { "residential-south": { state: "critical", evac: "GO", timeToImpact: "5 min" }, "residential-west": { state: "warning", evac: "GO" } },
+  "rescue-battery-critical": { "residential-south": { state: "critical", evac: "GO", timeToImpact: "5 min" }, "residential-west": { state: "warning", evac: "GO" } },
+  "handoff-pending": { "residential-south": { state: "critical", evac: "GO", timeToImpact: "6 min" }, "residential-west": { state: "warning", evac: "GO" } },
+  "monitoring-contested": { "forest-north": { state: "watch", evac: null }, "residential-south": { state: "nominal", evac: "CLEAR" }, "residential-west": { state: "nominal", evac: "CLEAR" } },
+  "talon-reraise": { "forest-north": { state: "warning", evac: null }, "residential-south": { state: "watch", evac: "WATCH" }, "residential-west": { state: "nominal", evac: "WATCH" } },
+  "satellite-feed-loss": { "forest-north": { state: "critical", evac: null }, "residential-south": { state: "warning", evac: "WATCH", timeToImpact: "17 min" } },
+  "network-degraded": { "forest-north": { state: "critical", evac: null }, "residential-south": { state: "warning", evac: "WATCH" } },
+  "infrastructure-total-loss": { "forest-north": { state: "critical", evac: null }, "residential-south": { state: "warning", evac: "WATCH" } },
+};
+
+/** Per-zone operational + evacuation state for the current scene (panels-charter §6). */
+export function getZoneOperationalStates(scene: SceneId): Record<string, { state: ZoneOpState; evac: 'GO' | 'WATCH' | 'CLEAR' | null; timeToImpact?: string }> {
+  return ZONE_OP_STATES[scene] || {};
 }

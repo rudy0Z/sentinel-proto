@@ -36,7 +36,7 @@ async function run(name, test) {
 
 try {
   await run("guided verification to authority gate", async (page) => {
-    await page.goto(`${baseUrl}#/?scene=verify-active&core=1`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${baseUrl}#/?scene=verify-active&core=1&layout=legacy`, { waitUntil: "domcontentloaded" });
     await page.getByText(/source conflict/i).first().waitFor();
     // The calibrator is a deliberate confirm control inside TALON's voice panel,
     // not a form checkbox — clearing it unlocks the gated forward command.
@@ -100,16 +100,16 @@ try {
 
   /* Reconciliation must be willing to say TALON was wrong, not only the operator. */
   await run("reconciliation records the verdict in both directions", async (page) => {
-    await page.goto(`${baseUrl}#/?scene=monitoring-contested&core=1`, { waitUntil: "domcontentloaded" });
-    await page.getByRole("button", { name: /Ground truth arrived/i }).click();
+    await page.goto(`${baseUrl}#/?scene=monitoring-contested&core=1&layout=legacy`, { waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: /Ground truth arrived/i }).first().click();
     await page.getByRole("dialog", { name: /reconciliation/i }).waitFor();
     await page.getByText(/Operator was right|TALON was right|Inconclusive/i).first().waitFor();
     await page.getByText(/System response/i).waitFor();
   });
 
   await run("reconciliation preserves an auditable verdict", async (page) => {
-    await page.goto(`${baseUrl}#/?scene=monitoring-contested`, { waitUntil: "domcontentloaded" });
-    await page.getByRole("button", { name: /Ground truth arrived/i }).click();
+    await page.goto(`${baseUrl}#/?scene=monitoring-contested&layout=legacy`, { waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: /Ground truth arrived/i }).first().click();
     const dialog = page.getByRole("dialog", { name: /reconciliation/i });
     await dialog.waitFor();
     await dialog.getByRole("button", { name: /File and return to watch/i }).click();
@@ -120,7 +120,7 @@ try {
   /* Regression: the exception banner used to offer a recovery command that
      assigned a drone and left the operator stranded in the degraded scene. */
   await run("degraded scene recovery actually exits the scene", async (page) => {
-    await page.goto(`${baseUrl}#/?scene=network-degraded&core=1`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${baseUrl}#/?scene=network-degraded&core=1&layout=legacy`, { waitUntil: "domcontentloaded" });
     const degradedBanner = page.getByText(/Network degraded/i).first();
     await degradedBanner.waitFor();
 
@@ -135,10 +135,36 @@ try {
     await page.goto(`${baseUrl}#/?scene=authority-notification-ready&core=1`, {
       waitUntil: "domcontentloaded",
     });
-    await page.getByRole("button", { name: /Send Authority Packet/i }).first().click();
+    const send = page.getByRole("button", { name: /Send Authority Packet/i }).first();
+    await send.waitFor();
+
+    // Constitution: a gated verb is refused by a plain click. The packet is the
+    // 90-second promise's irreversible moment — it must never fire on one click.
+    if ((await send.getAttribute("data-gated")) !== "true") {
+      throw new Error("Send Authority Packet is not marked gated.");
+    }
+    await send.click();
+    await page.waitForTimeout(600);
+    if ((await page.getByRole("dialog").count()) !== 0) {
+      throw new Error("A plain click fired a gated verb — hold-to-authorize was bypassed.");
+    }
+
+    // It opens only after the operator holds past the 2s bar.
+    await send.hover();
+    await page.mouse.down();
+    await page.waitForTimeout(2400);
+    await page.mouse.up();
     await page.getByRole("dialog").waitFor();
+    // Escape is deliberately withheld while TALON's session is mid-flight
+    // (ActionModal handleEscape: input/review/checking/executing). Wait for
+    // the session to settle rather than guessing a delay, then assert cancel.
+    await page
+      .getByRole("button", { name: /Cancel/i })
+      .first()
+      .waitFor({ state: "visible" });
+    await page.waitForTimeout(1800);
     await page.keyboard.press("Escape");
-    await page.getByRole("dialog").waitFor({ state: "hidden" });
+    await page.getByRole("dialog").waitFor({ state: "hidden", timeout: 10000 });
   });
 
   await run("TALON suggested-question conversation", async (page) => {
@@ -158,7 +184,7 @@ try {
   });
 
   await run("map selection, pinned rail, and drag", async (page) => {
-    await page.goto(`${baseUrl}#/?scene=contain-recommended`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${baseUrl}#/?scene=contain-recommended&layout=legacy`, { waitUntil: "domcontentloaded" });
     const ledgerTab = page.getByRole("tab", { name: /Ledger/ });
     await ledgerTab.click();
     const drone = page.locator('[aria-label*="Select or drag to reposition"]').first();
@@ -183,7 +209,10 @@ try {
   });
 
   await run("rail filters and map cross-highlighting", async (page) => {
-    await page.goto(`${baseUrl}#/?scene=contain-recommended`, { waitUntil: "domcontentloaded" });
+    // Pins layout=legacy: this flow asserts the legacy rail's "Assets" tab and
+    // its searchbox affordance, which v3 replaced with the collapsed rail dots
+    // (Fleet / FLT). v3 rail behaviour is covered by the v2/v3 chrome flows.
+    await page.goto(`${baseUrl}#/?scene=contain-recommended&layout=legacy`, { waitUntil: "domcontentloaded" });
     await page.getByRole("tab", { name: /Assets/ }).click();
     const row = page.getByTestId("drone-row-scout-01");
     await row.hover();
@@ -195,7 +224,7 @@ try {
   });
 
   await run("plan comparison, observed outcome, and queue disclosure", async (page) => {
-    await page.goto(`${baseUrl}#/?scene=rescue-nominal`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${baseUrl}#/?scene=rescue-nominal&layout=legacy`, { waitUntil: "domcontentloaded" });
     await page.getByRole("tab", { name: /Priorities/ }).click();
     // Plan Comparison and Observed Outcome default collapsed (inspection-only,
     // not the primary decision surface) — expand them the way an operator would.
@@ -242,7 +271,7 @@ try {
     const voiceEyebrow = async () =>
       (await page.locator(".talon-voice > div").first().textContent()) ?? "";
 
-    await page.goto(`${baseUrl}#/?scene=monitoring-contested&core=1`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${baseUrl}#/?scene=monitoring-contested&core=1&layout=legacy`, { waitUntil: "domcontentloaded" });
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.locator(".talon-voice").waitFor();
     let eyebrow = await voiceEyebrow();
@@ -250,7 +279,7 @@ try {
       throw new Error(`Contested scene voice says "${eyebrow}" instead of naming the contested watch.`);
     }
 
-    await page.goto(`${baseUrl}#/?scene=talon-reraise&core=1`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${baseUrl}#/?scene=talon-reraise&core=1&layout=legacy`, { waitUntil: "domcontentloaded" });
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.locator(".talon-voice").waitFor();
     eyebrow = await voiceEyebrow();
@@ -258,7 +287,7 @@ try {
       throw new Error(`Re-raise scene voice says "${eyebrow}" instead of naming the threshold crossing.`);
     }
 
-    await page.goto(`${baseUrl}#/?scene=authority-notification-ready&core=1`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${baseUrl}#/?scene=authority-notification-ready&core=1&layout=legacy`, { waitUntil: "domcontentloaded" });
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.locator(".talon-voice").waitFor();
     eyebrow = await voiceEyebrow();
@@ -266,7 +295,7 @@ try {
       throw new Error(`Authority-ready voice says "${eyebrow}" instead of naming the gate.`);
     }
 
-    await page.goto(`${baseUrl}#/?scene=baseline&core=1`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${baseUrl}#/?scene=baseline&core=1&layout=legacy`, { waitUntil: "domcontentloaded" });
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.locator(".talon-voice").waitFor();
     eyebrow = await voiceEyebrow();
@@ -292,7 +321,7 @@ try {
   });
 
   await run("backup recovery exits signal-degraded scene", async (page) => {
-    await page.goto(`${baseUrl}#/?scene=rescue-signal-degraded&core=1`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${baseUrl}#/?scene=rescue-signal-degraded&core=1&layout=legacy`, { waitUntil: "domcontentloaded" });
     await page.getByRole("button", { name: /Deploy backup/i }).first().click();
     const dialog = page.getByRole("dialog");
     await dialog.waitFor();
@@ -301,6 +330,35 @@ try {
     if (await page.getByText(/Relay signal is degraded/i).count()) {
       throw new Error("Signal-degraded TALON brief remained after confirmed backup recovery.");
     }
+  });
+
+  await run("staged recommendation expires back to watch", async (page) => {
+    await page.goto(`${baseUrl}#/?scene=authority-notification-ready&stagedTtlMs=1200&layout=legacy`, { waitUntil: "domcontentloaded" });
+    await page.locator('[data-staged="true"]').first().waitFor({ timeout: 10000 });
+    await page.waitForTimeout(2600);
+    if (await page.locator('[data-staged="true"]').count()) {
+      throw new Error("Staged command survived its expiry window.");
+    }
+    // Expiry is never execution: the packet scene is unchanged and nothing was sent.
+    await page.getByText(/AUD-90-0847/).first().waitFor({ timeout: 8000 });
+  });
+
+  await run("layout v2: deck, spines, and mind console render", async (page) => {
+    await page.goto(`${baseUrl}#/?scene=authority-notification-ready&layout=v2&stagedTtlMs=0`, { waitUntil: "domcontentloaded" });
+    await page.locator('[data-deck="true"]').waitFor({ timeout: 10000 });
+    await page.locator('[data-mind="true"]').waitFor();
+    // The staged gate appears on the deck tiles with its expiry ring.
+    await page.locator('[data-staged="true"]').first().waitFor({ timeout: 10000 });
+    // The mind console carries the convergence hero + tool trace + evidence.
+    await page.getByText(/fused confidence/i).first().waitFor({ timeout: 8000 });
+  });
+
+  await run("layout v2: spine tab expands its panel", async (page) => {
+    await page.goto(`${baseUrl}#/?scene=baseline&layout=v2`, { waitUntil: "domcontentloaded" });
+    const tab = page.locator('[data-spine-tab="true"]').first();
+    await tab.waitFor({ timeout: 10000 });
+    await tab.click();
+    await page.locator('[data-spine-panel="open"]').waitFor({ timeout: 8000 });
   });
 } finally {
   await browser.close();

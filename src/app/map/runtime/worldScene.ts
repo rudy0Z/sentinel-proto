@@ -12,9 +12,23 @@ import {
   W, H, sampleElevation, sampleVegetation,
   type World,
 } from "../world/world";
+import { lwir } from "../../tokens";
+import { FIRE, activeFront, burnScarPolygon } from "../fire/fireModel";
+
+/** Day (baked basemap look) or LWIR (night thermal sensor). */
+export type SceneMode = "day" | "lwir";
 
 // Vertical exaggeration for the diorama read.
 export const VEX = 1.6;
+
+/**
+ * Sample the authored DEM into scene elevation (metres, VEX applied) — the
+ * exact law buildWorldScene uses for its terrainY, exported so the 3D
+ * operational overlays can drape geometry without re-entering the build.
+ */
+export function sampleTerrainY(world: World, lx: number, ly: number): number {
+  return (sampleElevation(world, lx, ly) - world.dem.min) * VEX;
+}
 
 export const PAL = {
   valley:  new THREE.Color("#3A4A5C"),
@@ -49,6 +63,20 @@ export interface WorldScene {
   scene: THREE.Scene;
   terrainY(lx: number, ly: number): number;
   sceneVec(lx: number, ly: number, y: number): THREE.Vector3;
+  /** Swap the whole rig between daylight and the LWIR night sensor. */
+  setMode(mode: SceneMode): void;
+  /** Pointer ray → world-local metres on the terrain surface (P2.4). */
+  raycastTerrain(ray: THREE.Raycaster): { lx: number; ly: number } | null;
+  /**
+   * Resolves once every async texture in the scene has decoded.
+   *
+   * The offline basemap bake (render-world-entry) renders a single frame and
+   * reads it back with `readPixels`. TextureLoader is asynchronous, so without
+   * awaiting this the bake captured the frame BEFORE the orthophoto decoded and
+   * wrote a black terrain into the 2D basemap. Interactive 3D hid the bug
+   * because it renders continuously.
+   */
+  ready(): Promise<void>;
   dispose(): void;
 }
 
@@ -62,10 +90,41 @@ export function makeRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer {
   return renderer;
 }
 
+/**
+ * Vertical sky gradient as a 2x256 canvas texture.
+ *
+ * A flat `background = fog` left the sky as a dead void and made the terrain
+ * end in a hard black cut at the horizon. A gradient costs ONE small texture
+ * and zero draw calls (it is the background, not geometry), and it gives the
+ * ridgeline something to separate against. Night ops: cool near-horizon haze
+ * lifting to a deeper zenith, warmer toward the fire side of the sky.
+ */
+function makeSkyTexture(): THREE.Texture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 2;
+  canvas.height = 256;
+  const ctx = canvas.getContext("2d")!;
+  const grad = ctx.createLinearGradient(0, 0, 0, 256);
+  grad.addColorStop(0.0, "#070C16"); // zenith
+  grad.addColorStop(0.45, "#0C1626");
+  grad.addColorStop(0.78, "#16273A"); // horizon haze
+  grad.addColorStop(1.0, "#1D3145"); // just above the ridgeline
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 2, 256);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.magFilter = THREE.LinearFilter;
+  tex.minFilter = THREE.LinearFilter;
+  return tex;
+}
+
 export function makeScene(): THREE.Scene {
   const scene = new THREE.Scene();
-  scene.background = PAL.fog;
-  scene.fog = new THREE.Fog(PAL.fog.getHex(), 3500, 11000);
+  scene.background = makeSkyTexture();
+  /* Fog is the cheap depth cue: the frame is 6.0 x 3.25 km, so a 3.5–11 km
+   * band never engaged and every ridge sat at the same value. Pulling it in
+   * makes the far ridge recede and the near ridge read as near. */
+  scene.fog = new THREE.Fog(0x16273A, 1400, 7200);
   scene.add(new THREE.AmbientLight(0xd4e2f0, 2.0));
   const key = new THREE.DirectionalLight(0xb4cce6, 1.5);
   key.position.set(-2400, 3200, 1800);
@@ -82,17 +141,27 @@ export function buildWorldScene(scene: THREE.Scene, world: World): WorldScene {
   const elevRange = dem.max - dem.min;
 
   function terrainY(lx: number, ly: number): number {
-    return (sampleElevation(world, lx, ly) - dem.min) * VEX;
+    return sampleTerrainY(world, lx, ly);
   }
   function sceneVec(lx: number, ly: number, y: number): THREE.Vector3 {
     return new THREE.Vector3(lx, y, -ly);
   }
 
   const disposables: Array<{ dispose(): void }> = [];
+  /** Async texture decodes the offline bake must wait on before readPixels. */
+  const textureReady: Promise<void>[] = [];
   function track<T extends { dispose(): void }>(obj: T): T {
     disposables.push(obj);
     return obj;
   }
+  // The sky gradient is a GPU resource the scene owns; release it with the rest
+  // or a re-mount leaks one 2x256 texture per EXPLORE open.
+  if (scene.background instanceof THREE.Texture) track(scene.background);
+
+  // LWIR scratch colours (P2.3) — the thermal ramp endpoints.
+  const thermal = new THREE.Color();
+  const lwirCool = new THREE.Color(lwir.cool);
+  const lwirWarm = new THREE.Color(lwir.warm);
 
   // ── Terrain ─────────────────────────────────────────────────────────────
   const cols = 240, rows = 130;
@@ -100,6 +169,7 @@ export function buildWorldScene(scene: THREE.Scene, world: World): WorldScene {
   terrainGeom.rotateX(-Math.PI / 2);
   const pos = terrainGeom.attributes.position;
   const colors = new Float32Array(pos.count * 3);
+  const colorsLwir = new Float32Array(pos.count * 3);
   const slopeOf = new Float32Array(pos.count);
   const tint = new THREE.Color();
   for (let i = 0; i < pos.count; i++) {
@@ -123,12 +193,72 @@ export function buildWorldScene(scene: THREE.Scene, world: World): WorldScene {
     tint.lerp(veg, 0.62);
     tint.lerp(PAL.bare, Math.min(0.4, Math.max(0, slopeOf[i] - 0.45) * 1.4));
     colors[i * 3] = tint.r; colors[i * 3 + 1] = tint.g; colors[i * 3 + 2] = tint.b;
+    // LWIR: monotonic read — cool ridge (high t) dark, warm low ground brighter.
+    const heat = THREE.MathUtils.clamp((1 - t) * 0.84 + Math.min(0.5, slopeOf[i]) * 0.16, 0, 1);
+    thermal.copy(lwirCool).lerp(lwirWarm, heat);
+    colorsLwir[i * 3] = thermal.r; colorsLwir[i * 3 + 1] = thermal.g; colorsLwir[i * 3 + 2] = thermal.b;
   }
-  terrainGeom.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  const dayColorAttr = new THREE.BufferAttribute(colors, 3);
+  /* When the orthophoto is draped, the vertex colours stop being the surface and
+   * become a MODULATION. Left at full strength they multiply the photo down to
+   * the old diagrammatic look, which defeats the whole point of the drape. Pull
+   * them toward neutral so the aerial carries the surface and the grade only
+   * keeps the slope/vegetation shaping (and the night-console value ceiling). */
+  if (world.imagery) {
+    for (let i = 0; i < pos.count; i++) {
+      const k = i * 3;
+      const lum = (colors[k] + colors[k + 1] + colors[k + 2]) / 3;
+      colors[k] = THREE.MathUtils.lerp(0.86, lum, 0.42);
+      colors[k + 1] = THREE.MathUtils.lerp(0.9, lum, 0.42);
+      colors[k + 2] = THREE.MathUtils.lerp(1.0, lum, 0.42);
+    }
+    dayColorAttr.needsUpdate = true;
+  }
+  const lwirColorAttr = new THREE.BufferAttribute(colorsLwir, 3);
+  terrainGeom.setAttribute("color", dayColorAttr);
   terrainGeom.computeVertexNormals();
-  scene.add(new THREE.Mesh(terrainGeom, track(new THREE.MeshLambertMaterial({
+  const terrainMatDay = track(new THREE.MeshLambertMaterial({
     vertexColors: true, flatShading: true,
-  }))));
+  }));
+
+  /* ── Aerial drape ──────────────────────────────────────────────────────────
+   * The orthophoto covers exactly the frame bbox, so terrain UVs map 1:1 with
+   * no reprojection. The vertex colours stay as the MULTIPLIER: the baked
+   * elevation/vegetation/slope grade still shapes the light, and the photo
+   * supplies the texture and colour that vertex colours never could. That
+   * combination is what stops the ridge reading as painted geometry.
+   *
+   * Cost: one 2048px texture. Draw calls unchanged (same single mesh).
+   */
+  if (world.imagery) {
+    const loader = new THREE.TextureLoader();
+    const map = track(loader.load(world.imagery.url));
+    map.colorSpace = THREE.SRGBColorSpace;
+    map.anisotropy = 8;
+    map.wrapS = THREE.ClampToEdgeWrapping;
+    map.wrapT = THREE.ClampToEdgeWrapping;
+    terrainMatDay.map = map;
+    // Night-console ceiling: the photo must sit UNDER the chrome, not compete.
+    terrainMatDay.color = new THREE.Color(0.62, 0.66, 0.74);
+    terrainMatDay.needsUpdate = true;
+    // The bake reads pixels on its first frame, so hold the render until the
+    // decode lands. THREE's typed EventDispatcher only exposes "dispose", so
+    // poll `image` rather than subscribing to load/error. The timeout keeps a
+    // failed fetch from hanging the bake forever.
+    textureReady.push(
+      new Promise<void>((resolve) => {
+        const deadline = performance.now() + 8000;
+        const poll = () => {
+          if (map.image || performance.now() > deadline) resolve();
+          else setTimeout(poll, 25);
+        };
+        poll();
+      }),
+    );
+  }
+  const terrainMatLwir = track(new THREE.MeshBasicMaterial({ vertexColors: true, fog: true }));
+  const terrainMesh: THREE.Mesh = new THREE.Mesh(terrainGeom, terrainMatDay);
+  scene.add(terrainMesh);
 
   // ── Plinth: 1 draw call (4 side skirts merged into one geometry) ─────────
   const baseY = -160;
@@ -324,6 +454,7 @@ export function buildWorldScene(scene: THREE.Scene, world: World): WorldScene {
   // ── Fire: 2 draw calls total (1 merged band + 1 merged glow) ────────────
   const fireGroup = new THREE.Group();
   const band = world.fire.band;
+  let bandMat: THREE.MeshBasicMaterial | null = null;
   {
     const verts: number[] = [];
     const cols: number[] = [];
@@ -382,18 +513,102 @@ export function buildWorldScene(scene: THREE.Scene, world: World): WorldScene {
     const bandGeom = track(new THREE.BufferGeometry());
     bandGeom.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
     bandGeom.setAttribute("color", new THREE.Float32BufferAttribute(cols, 3));
-    fireGroup.add(new THREE.Mesh(bandGeom, track(new THREE.MeshBasicMaterial({
+    const bandMaterial = track(new THREE.MeshBasicMaterial({
       color: 0xffffff, vertexColors: true,
       // hand-wound faces: DoubleSide makes winding order irrelevant
       side: THREE.DoubleSide,
-    }))));
+    }));
+    bandMat = bandMaterial;
+    fireGroup.add(new THREE.Mesh(bandGeom, bandMaterial));
     const glowGeom = track(new THREE.BufferGeometry());
     glowGeom.setAttribute("position", new THREE.Float32BufferAttribute(glowVerts, 3));
     glowGeom.setAttribute("color", new THREE.Float32BufferAttribute(glowCols, 4));
-    fireGroup.add(new THREE.Mesh(glowGeom, track(new THREE.MeshBasicMaterial({
+    const glowMat = track(new THREE.MeshBasicMaterial({
       color: 0xffffff, vertexColors: true, transparent: true,
       side: THREE.DoubleSide, depthWrite: false,
-    }))));
+    }));
+    fireGroup.add(new THREE.Mesh(glowGeom, glowMat));
+  }
+
+  /* ── Fire as the hero: scar, isochrones, head axis ─────────────────────────
+   * The old crest was a thin sliver of boxes. Fire now carries the scene:
+   *  - a dNBR-style BURN SCAR draped on the terrain (charcoal interior),
+   *  - TIME-STAMPED ISOCHRONES so the operator can read progression, not a circle,
+   *  - a HEAD-FIRE AXIS with direction chevrons, which is the thing that
+   *    actually answers "where is it going in an hour".
+   * All of it is ONE merged mesh + ONE line primitive, so the draw budget holds.
+   */
+  {
+    const scarVerts: number[] = [];
+    const scarCols: number[] = [];
+    const emitPoly = (
+      poly: Array<[number, number]>,
+      col: THREE.Color,
+      alpha: number,
+    ) => {
+      for (let i = 1; i < poly.length - 1; i++) {
+        const tri = [poly[0], poly[i], poly[i + 1]];
+        for (const [px, py] of tri) {
+          const v = sceneVec(px, py, terrainY(px, py) + 2);
+          scarVerts.push(v.x, v.y, v.z);
+          scarCols.push(col.r, col.g, col.b, alpha);
+        }
+      }
+    };
+
+    const scarOuter = burnScarPolygon(FIRE, 0.94);
+    const scarInner = burnScarPolygon(FIRE, 0.55);
+    // Severity ramps inward: ember at the edge → charcoal where it has consumed.
+    emitPoly(scarOuter, new THREE.Color("#3A1E14"), 0.62);
+    emitPoly(scarInner, new THREE.Color("#14100E"), 0.86);
+
+    /* ── Live fire front, merged into the SAME geometry ──────────────────────
+     * The front is a continuous emissive band along the newest perimeter, so the
+     * fire reads as a FRONT rather than boxes on a ridge. Emitting it into the
+     * scar buffer means the whole fire surface is ONE draw call.
+     */
+    const front = activeFront(FIRE).polygon;
+    const hot = new THREE.Color("#FFD9A0");
+    const cool = new THREE.Color(FIRE.isochrones[FIRE.isochrones.length - 1].tone);
+    const bandCol = hot.clone().lerp(cool, 0.35);
+    for (let i = 0; i < front.length; i++) {
+      const [x1, y1] = front[i];
+      const [x2, y2] = front[(i + 1) % front.length];
+      const len = Math.hypot(x2 - x1, y2 - y1) || 1;
+      const ux = (x2 - x1) / len;
+      const uy = (y2 - y1) / len;
+      const px = -uy * 18;
+      const py = ux * 18;
+      const seg = 6;
+      for (let s = 0; s < seg; s++) {
+        const t0 = s / seg;
+        const t1 = (s + 1) / seg;
+        const ax = x1 + (x2 - x1) * t0;
+        const ay = y1 + (y2 - y1) * t0;
+        const bx = x1 + (x2 - x1) * t1;
+        const by = y1 + (y2 - y1) * t1;
+        const quad: Array<[number, number]> = [
+          [ax + px, ay + py], [ax - px, ay - py],
+          [bx - px, by - py], [bx + px, by + py],
+        ];
+        for (const [ix, iy] of [quad[0], quad[1], quad[2], quad[0], quad[2], quad[3]]) {
+          const v = sceneVec(ix, iy, terrainY(ix, iy) + 7);
+          scarVerts.push(v.x, v.y, v.z);
+          scarCols.push(bandCol.r, bandCol.g, bandCol.b, 0.92);
+        }
+      }
+    }
+
+    const scarGeom = track(new THREE.BufferGeometry());
+    scarGeom.setAttribute("position", new THREE.Float32BufferAttribute(scarVerts, 3));
+    scarGeom.setAttribute("color", new THREE.Float32BufferAttribute(scarCols, 4));
+    const scarMat = track(new THREE.MeshBasicMaterial({
+      vertexColors: true, transparent: true, depthWrite: false,
+      side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2,
+    }));
+    const scar = new THREE.Mesh(scarGeom, scarMat);
+    scar.renderOrder = 2;
+    fireGroup.add(scar);
   }
   const fireMid = band[Math.floor(band.length / 2)];
   const fireLight = new THREE.PointLight(PAL.fire.getHex(), 4.0, 2600, 2);
@@ -413,19 +628,69 @@ export function buildWorldScene(scene: THREE.Scene, world: World): WorldScene {
   sg.fillRect(0, 0, 128, 128);
   const smokeTex = track(new THREE.CanvasTexture(smokeCanvas));
   smokeTex.colorSpace = THREE.SRGBColorSpace;
+  const smokeMats: Array<{ mat: THREE.SpriteMaterial; dayOpacity: number }> = [];
   for (const s of world.fire.smoke) {
-    const sp = new THREE.Sprite(track(new THREE.SpriteMaterial({
+    const smokeMaterial = track(new THREE.SpriteMaterial({
       map: smokeTex, transparent: true, opacity: s.opacity, depthWrite: false,
-    })));
+    }));
+    smokeMats.push({ mat: smokeMaterial, dayOpacity: s.opacity });
+    const sp = new THREE.Sprite(smokeMaterial);
     sp.scale.set(700, 560, 1);
     sp.position.copy(sceneVec(s.x, s.y, terrainY(s.x, s.y) + s.height));
     scene.add(sp);
   }
 
+  // ── Daylight ↔ LWIR rig (P2.3): one state machine, no duplicated scene ──
+  const ambient = scene.children.find(
+    (o): o is THREE.AmbientLight => (o as THREE.AmbientLight).isAmbientLight,
+  );
+  const dirLights = scene.children.filter(
+    (o): o is THREE.DirectionalLight => (o as THREE.DirectionalLight).isDirectionalLight,
+  );
+  const applyMode = (mode: SceneMode): void => {
+    const night = mode === "lwir";
+    /* Both modes keep the gradient sky: a flat void was what made the terrain
+     * end in a hard cut. LWIR shifts the fog colour, not the sky treatment. */
+    if (scene.fog instanceof THREE.Fog) {
+      scene.fog.color.set(night ? lwir.void : 0x16273A);
+      scene.fog.near = night ? 1400 : 1400;
+      scene.fog.far = night ? 7000 : 7200;
+    }
+    if (ambient) {
+      ambient.color.set(night ? 0x2a3038 : 0xd4e2f0);
+      ambient.intensity = night ? 0.55 : 2.0;
+    }
+    if (dirLights[0]) {
+      dirLights[0].color.set(night ? 0xff8a4a : 0xb4cce6);
+      dirLights[0].intensity = night ? 0.35 : 1.5;
+    }
+    if (dirLights[1]) {
+      dirLights[1].color.set(night ? 0x2a1408 : 0x76889f);
+      dirLights[1].intensity = night ? 0.18 : 0.8;
+    }
+    terrainMesh.material = night ? terrainMatLwir : terrainMatDay;
+    terrainGeom.setAttribute("color", night ? lwirColorAttr : dayColorAttr);
+    for (const s of smokeMats) {
+      s.mat.color.set(night ? lwir.plume : 0xffffff);
+      s.mat.opacity = night ? Math.min(0.9, s.dayOpacity + 0.45) : s.dayOpacity;
+    }
+    // Night: the crest blooms hotter (white-hot core reads through the plume).
+    fireLight.intensity = night ? 7.0 : 4.0;
+    bandMat?.color.set(night ? 0xffd9b0 : 0xffffff);
+  };
+
   return {
     scene,
     terrainY,
     sceneVec,
+    setMode: applyMode,
+    raycastTerrain: (ray) => {
+      const hits = ray.intersectObject(terrainMesh, false);
+      if (!hits.length) return null;
+      const p = hits[0].point;
+      return { lx: p.x, ly: -p.z };
+    },
+    ready: () => Promise.all(textureReady).then(() => undefined),
     dispose() {
       for (const d of disposables) d.dispose();
       scene.clear();

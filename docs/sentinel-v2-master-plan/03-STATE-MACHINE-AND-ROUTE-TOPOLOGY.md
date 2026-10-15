@@ -19,54 +19,96 @@ In Sentinel V2, the state machine (`src/app/domain/stateMachine.ts`) is the sing
 
 ---
 
-## 2. Complete 8-Stage Operational Lifecycle
+## 2. Complete Operational Lifecycle — Diagram Names vs Real SceneIds
+
+**[REPAIRED — B3]** The diagram below is rewritten to the exact `SceneId` values from `src/app/tokens.ts` (16 scenes). Names that appear only in older prose/diagrams are mapped in §2.1; nodes that do not exist in code yet are tagged **NEW** with planned `TRANSITIONS` rows in §2.2.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Baseline: Stage 0 (Surveillance Baseline)
-    Baseline --> AlertSurfaced: Anomaly Ping
-    AlertSurfaced --> Investigation: Scout Dispatched (Stage 1)
-    Investigation --> VerifyActive: Drone On Station (Stage 2)
-    
-    VerifyActive --> SourceConflict: Satellite/Ag Burn Discrepancy
-    SourceConflict --> VerifyActive: Conflict Cleared by Operator
-    
-    VerifyActive --> ContestedWatch: Operator Overrules / Permits Burn (Direction A)
-    ContestedWatch --> Baseline: Dissent Validated by Ground Truth
-    ContestedWatch --> TalonReraise: Thermal Expansion > 15% (New Evidence)
-    TalonReraise --> AuthorityReady: Supervisor Escalates
-    
-    Investigation --> AuthorityReady: Operator Escalates Past Hold (Direction B)
-    VerifyActive --> AuthorityReady: Incident Confirmed (Stage 3 - 90s Gate)
-    
-    AuthorityReady --> AwaitingTeams: Authorities Notified
-    AwaitingTeams --> ContainRecommended: Run-Card Teams Staged (Stage 4)
-    
-    ContainRecommended --> ContainAlternate: Operator Recomputes (Ridge B)
-    ContainRecommended --> ContainDegraded: Terrain Confidence Loss
-    
-    ContainRecommended --> RescueNominal: Containment Authorized (Stage 5)
-    ContainAlternate --> RescueNominal: Alternate Authorized
-    ContainDegraded --> RescueNominal: Wide-Buffer Authorized
-    
-    RescueNominal --> PartialEvac: Route A Blocked by Smoke
-    PartialEvac --> RescueNominal: Route B Shift Authorized
-    
-    RescueNominal --> BatteryCritical: Scout-01 Battery < 15% (Stage 6)
-    RescueNominal --> SignalDegraded: Comms Link Loss > 40%
-    RescueNominal --> InfrastructureLoss: Backhaul Severed (Black Sky)
-    
-    BatteryCritical --> RescueNominal: Scout-03 Handover Complete
-    SignalDegraded --> RescueNominal: Mesh Relay Restored
-    InfrastructureLoss --> Baseline: Manual System Restart
-    
-    RescueNominal --> HandoffPending: Shift Change
-    HandoffPending --> RescueNominal: Authority Transferred with PIN
-    
-    RescueNominal --> Debrief: Incident Contained (Stage 7)
-    Debrief --> Baseline: Post-Action Stand Down
-    Debrief --> [*]
+    [*] --> baseline: Surveillance Baseline
+    baseline --> alert-command: Anomaly Ping
+    alert-command --> investigation-pending: Scout Dispatched
+    investigation-pending --> verify-active: Drone On Station
+
+    verify-active --> verify-source-conflict: Satellite/Ag Burn Discrepancy (NEW)
+    verify-source-conflict --> verify-active: Conflict Cleared by Operator (NEW)
+
+    verify-active --> monitoring-contested: Operator Overrules / Permits Burn
+    monitoring-contested --> baseline: Dissent Validated by Ground Truth
+    monitoring-contested --> talon-reraise: Thermal Expansion > 15% (New Evidence)
+    talon-reraise --> authority-notification-ready: Supervisor Escalates
+
+    investigation-pending --> authority-notification-ready: Operator Escalates Past Hold
+    verify-active --> authority-notification-ready: Incident Confirmed (90s Gate)
+
+    authority-notification-ready --> contain-awaiting-teams: Authorities Notified (NEW)
+    contain-awaiting-teams --> contain-recommended: Run-Card Teams Staged (NEW)
+
+    contain-recommended --> contain-alternate: Operator Recomputes (Ridge B)
+    contain-recommended --> contain-degraded: Terrain Confidence Loss
+
+    contain-recommended --> rescue-nominal: Containment Authorized
+    contain-alternate --> rescue-nominal: Alternate Authorized
+    contain-degraded --> rescue-nominal: Wide-Buffer Authorized
+
+    rescue-nominal --> rescue-partial-evac: Route A Blocked by Smoke (NEW)
+    rescue-partial-evac --> rescue-nominal: Route B Shift Authorized (NEW)
+
+    rescue-nominal --> rescue-battery-critical: Scout-01 Battery < 15%
+    rescue-nominal --> rescue-signal-degraded: Comms Link Loss > 40%
+    rescue-nominal --> infrastructure-total-loss: Backhaul Severed (Black Sky)
+
+    rescue-battery-critical --> rescue-nominal: Scout-03 Handover Complete
+    rescue-signal-degraded --> rescue-nominal: Mesh Relay Restored
+    infrastructure-total-loss --> baseline: Manual System Restart
+
+    rescue-nominal --> handoff-pending: Shift Change (NEW)
+    handoff-pending --> rescue-nominal: Authority Transferred with PIN (NEW)
+
+    rescue-nominal --> post-incident-review: Incident Contained (NEW)
+    post-incident-review --> baseline: Post-Action Stand Down (NEW)
+    post-incident-review --> [*]
 ```
+
+### 2.1 Alias table: old doc/diagram names → real SceneIds
+
+Authority is the `SceneId` union in `src/app/tokens.ts` (~line 519): `baseline`, `alert-command`, `investigation-pending`, `verify-active`, `authority-notification-ready`, `contain-recommended`, `contain-alternate`, `contain-degraded`, `rescue-nominal`, `rescue-signal-degraded`, `monitoring-contested`, `talon-reraise`, `rescue-battery-critical`, `satellite-feed-loss`, `infrastructure-total-loss`, `network-degraded`.
+
+| Old doc/diagram name | Real SceneId | Status |
+|---|---|---|
+| Baseline | `baseline` | exact match |
+| AlertSurfaced | `alert-command` | renamed |
+| Investigation (bare name) | `investigation-pending` | renamed |
+| VerifyActive | `verify-active` | renamed |
+| SourceConflict | `verify-source-conflict` | **NEW** — planned (S5), not yet in code |
+| ContestedWatch | `monitoring-contested` | renamed |
+| TalonReraise | `talon-reraise` | renamed |
+| AuthorityReady / `authority-ready` | `authority-notification-ready` | renamed |
+| AwaitingTeams | `contain-awaiting-teams` | **NEW** — planned (S5), not yet in code |
+| ContainRecommended | `contain-recommended` | renamed |
+| ContainAlternate | `contain-alternate` | renamed |
+| ContainDegraded | `contain-degraded` | renamed |
+| RescueNominal | `rescue-nominal` | renamed |
+| PartialEvac | `rescue-partial-evac` | **NEW** — planned (S5), not yet in code |
+| BatteryCritical | `rescue-battery-critical` | renamed |
+| SignalDegraded | `rescue-signal-degraded` | renamed |
+| InfrastructureLoss | `infrastructure-total-loss` | renamed |
+| HandoffPending | `handoff-pending` | **NEW** — planned (S5), not yet in code |
+| Debrief | `post-incident-review` | **NEW** — planned (S5), not yet in code |
+
+Note: the 16th real SceneId, `network-degraded`, is a fault scene entered via the Review Dock and is not part of this happy-path diagram. The sixth planned S5 state, `scenario-select` (recruiter front door), exists outside this diagram.
+
+### 2.2 Planned `TRANSITIONS` rows for every NEW node
+
+**[REPAIRED — B3]** Every non-existent node above is tagged NEW with its planned transition row (event / guard / gate / reason):
+
+| NEW SceneId | Event (in → out) | Guard | Gate | Reason |
+|---|---|---|---|---|
+| `verify-source-conflict` | in: `source-conflict-detected` · out: `resolve-source-conflict` | in: satellite IR vs burn-permit discrepancy open · out: operator resolution recorded | out: forced calibrator (burn-permit checkbox promoted to addressable state) | Two primary sources must not silently cancel out; the conflict is resolved by a human, with a dedicated TALON pitch |
+| `contain-awaiting-teams` | in: `authorities-notified` · out: `teams-staged` | in: notification receipt exists · out: ground crews confirmed staged | none (staging check, not an authorization) | Distinguishes "plan not ready" from "teams not yet staged" so containment cannot be authorized before crews exist |
+| `rescue-partial-evac` | in: `route-a-stalled` · out: `route-b-authorized` | in: Route A blocked by smoke · out: Route B verified passable | out: human authorize (exception path) | Models real evacuation stalls; Route-B shift is a priority exception the operator must approve |
+| `handoff-pending` | in: `shift-change-requested` · out: `confirm-handover` | in: outgoing operator is active · out: incoming operator PIN verified | out: PIN receipt gate | Shift change becomes a structured briefing moment with a PIN receipt, not an activity-log entry |
+| `post-incident-review` | in: `incident-contained` · out: `stand-down` | in: all gates resolved and receipts written · out: debrief exported | none | Outcome-vs-expected review, dissent resolutions, and export before stand-down |
 
 ---
 
@@ -74,31 +116,16 @@ stateDiagram-v2
 
 The first 90 seconds are choreographed to maintain urgency without causing panic:
 
-```
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                 THE 90-SECOND INITIAL ATTACK ARC                                 │
-├───────┬──────────────────────┬───────────────────────────────┬───────────────────────────────────┤
-│ Clock │ State / Route        │ Operator Question Answered    │ TALON Behavioral Posture          │
-├───────┼──────────────────────┼───────────────────────────────┼───────────────────────────────────┤
-│ T+00s │ `baseline`           │ "What is nominal?"            │ Watching: 3 active sources, 3     │
-│       │                      │                               │ aligning. Ambient patrol vectors. │
-├───────┼──────────────────────┼───────────────────────────────┼───────────────────────────────────┤
-│ T+12s │ `alert-command`      │ "Why was I interrupted?"      │ Listening: 3-source convergence   │
-│       │                      │                               │ (thermal spike + wind vector).    │
-├───────┼──────────────────────┼───────────────────────────────┼───────────────────────────────────┤
-│ T+20s │ `investigation`      │ "What is the scout doing?"    │ Solving: Scout Lidar-02 en route  │
-│       │                      │                               │ (ETA: 14s). Evidence prefilling.  │
-├───────┼──────────────────────┼───────────────────────────────┼───────────────────────────────────┤
-│ T+45s │ `verify-active`      │ "Is this fire real & urgent?" │ Solving: Live dual-stream active. │
-│       │                      │                               │ Burn permit conflict evaluated.   │
-├───────┼──────────────────────┼───────────────────────────────┼───────────────────────────────────┤
-│ T+75s │ `authority-ready`    │ "Do I send this packet?"      │ Gated: Cryptographic packet ready.│
-│       │                      │                               │ "I prepare; you authorize."       │
-├───────┼──────────────────────┼───────────────────────────────┼───────────────────────────────────┤
-│ T+88s │ `contain-recommended`│ "What is our tactical plan?"  │ Staging: Authorities notified.    │
-│       │                      │                               │ Tactical staging begins.          │
-└───────┴──────────────────────┴───────────────────────────────┴───────────────────────────────────┘
-```
+**[REPAIRED — B3/B5]** Scene names below are exact `SceneId`s; the packet line is downgraded to the hash-chained mutual-aid notification draft.
+
+| Clock | State / Route | Operator Question Answered | TALON Behavioral Posture |
+|---|---|---|---|
+| T+00s | `baseline` | "What is nominal?" | Watching: 3 active sources, 3 aligning. Ambient patrol vectors. |
+| T+12s | `alert-command` | "Why was I interrupted?" | Listening: 3-source convergence (thermal spike + wind vector). |
+| T+20s | `investigation-pending` | "What is the scout doing?" | Solving: Scout Lidar-02 en route (ETA: 14s). Evidence prefilling. |
+| T+45s | `verify-active` | "Is this fire real & urgent?" | Solving: Live dual-stream active. Burn permit conflict evaluated. |
+| T+75s | `authority-notification-ready` | "Do I send this draft?" | Gated: hash-chained receipt ready — mutual-aid notification draft prepared. "I prepare; you authorize." |
+| T+88s | `contain-recommended` | "What is our tactical plan?" | Staging: Authorities notified. Tactical staging begins. |
 
 ---
 

@@ -4,46 +4,68 @@
 
 ## Overview
 
-**FlytBase Sentinel** is a prototype of an autonomous drone intelligence orchestration platform, built over two weeks for a product design portfolio. 
+**FlytBase Sentinel** is a prototype of an AI-native emergency-response command interface: an autonomous-drone intelligence platform built for a product design portfolio.
 
-The core premise of the system rests on **Human-in-the-Loop AI Collaboration**. Sentinel (powered by an underlying AI brain called **TALON**) rapidly processes multispectral drone telemetrics during emergency scenarios, formulating response plans. The role of the human operator is no longer to manually path-find drones, but to _authorize, override, and execute_ high-level, AI-generated strategies.
+The core premise is **Human-in-the-Loop AI Collaboration**. Sentinel (driven by an AI copilot called **TALON**) assembles evidence, reasons, recommends, and stages plans during a wildfire initial-attack scenario. The operator's role is not to path-find drones but to **authorize, override, and execute** high-level AI-generated strategy. TALON never sends, deploys, or executes — the human authorizes every consequential action.
 
-## 📖 In-Depth UX Case Study
+The product runs on a **two-phase workflow model**:
 
-For a comprehensive breakdown of the design decisions, interface architecture, and problem-solving journey that birthed this prototype, please read the full case study:
+- **Intelligence** — Detect · Verify · Escalate (inform the first defensible escalation decision)
+- **Operations** — Stage · Coordinate · Supervise (post-notification tactical coordination)
 
-👉 **[Read the FlytBase Sentinel Case Study](https://rudrakshsingh.page/projects/sentinel/casestudy)**
+A scenario spans **20 states** — the guided 90-second arc, the human/AI **disagreement** arc (contested watch, re-raise), the operations arc, and four injected fault scenes, every one with a real recovery exit.
 
 ## Key Prototype Features
 
-- 🚁 **Autonomous Staging Flow**: Guided, linear progression from initial anomaly scanning to executing a full residential evacuation.
-- 🎨 **Adaptive Density Architecture**: The interface strips away peripheral data intelligently as the situation escalates, shifting focus strictly to what the operator needs to make split-second safety commitments. 
-- 🎙️ **Operator Overrides (`Voice-to-TALON`)**: Operators can override recommended response plans by issuing conversational voice corrections to the system in the `Action Brief` modals.
-- 📉 **Degraded Modes**: Fully integrated UI handling for localized fail-states like drone signal loss or operational timeouts, preserving operator confidence even when data streams break down.
+- 🚁 **Guided escalation arc** — from anomaly scan to a gated authority packet, under 90 seconds.
+- 🎨 **Adaptive density** — the interface sheds peripheral data as urgency rises, keeping one dominant decision in view.
+- 🥊 **Human/AI disagreement with memory** — the operator can overrule TALON; the dissent is recorded verbatim, the rejected hypothesis stays watched at reduced weight, and TALON may re-raise only once *new* evidence crosses the bar.
+- 🎙️ **Operator overrides** — conversational corrections to recommended plans ("TALON recomputes rather than argues").
+- 📉 **Degraded / fault modes** — signal loss, network degradation, battery-critical handoff, and total infrastructure loss, each with a verified recovery path.
+- 🔒 **Human gates + receipts** — high-consequence actions require explicit authorization and leave a plain-language audit receipt.
 
 ## Tech Stack
 
-This prototype is a purely local graphical simulation representing the front-end user experience of the theoretical software.
+A local, scripted graphical simulation of the front-end experience — no live drone feeds or production AI.
 
-- **Framework**: React + Vite (TypeScript)
-- **Styling**: Vanilla CSS Modules with custom utility logic
-- **Components**: Radix UI + Custom `sentinel` logic layers
-- **Data**: Live-simulated mock payloads transitioning across 4 distinct operational modes (`Scan`, `Verify`, `Contain`, `Rescue`)
+- **Framework:** React 18 + Vite (TypeScript)
+- **Design system:** `src/app/tokens.ts` (single source of truth) — consumed as inline styles / CSS with a strict token contract
+- **Components:** custom product surfaces + `motion` for animation; `src/app/components/ui/` is an archived, unused shadcn tree
+- **Map:** 2D SVG spatial canvas + a 3D explore mode (three.js)
+- **Data:** deterministic in-repo fixtures across the 20 scenes
 
 ## Running Locally
 
-To run this simulation environment locally and explore the UX flows:
-
 ```bash
-# Install dependencies
 npm install
-
-# Start the dev server
-npm run dev
+npm run dev                 # dev server → http://localhost:5173/embed/sentinel/
+npm run build && npm run preview -- --port 4190   # production preview
 ```
 
-Navigate to `http://localhost:5173` (or the port specified by Vite) and click "Begin Scenario" to experience the interactive product simulation.
+Open the app and use the **SCENES** chip (or `?scene=<id>` deep links) to walk the flows. Add `?core=1` for the portfolio embed view (hides the review dock). `?layout=legacy` falls back to the pre-promotion shell; the default is shell v2.
+
+## Verification
+
+The repo ships its own gates — keep them green:
+
+```bash
+npm run verify:design   # typecheck + token audit + map checks
+npm run verify:flows    # 19 browser flows
+npm run verify:routes   # 23 scene/view combos (a11y + console)
+npm run verify:machine  # state-machine integrity
+npm run verify:signals  # telemetry integrity
+```
+
+`verify:flows` / `verify:routes` need the preview server running (see `AGENTS.md` for the URL note).
+
+## Plan & Case Study
+
+- **Final build plan:** [`docs/sentinel-v2-master-plan/`](docs/sentinel-v2-master-plan/) — `00` (thesis) through `09` (TALON mark spec), with `08` as the phase roadmap.
+- **The journey:** every earlier planning generation, rejected concept, and case-study draft lives in [`docs/archive/`](docs/archive/) — the failure/decision/iteration record for the case study.
+- The published case-study link is maintained in the portfolio site (see `PORTFOLIO-DIRECTION.md`).
+
+> Working on this repo with an AI tool? **Read [`AGENTS.md`](AGENTS.md) first** — it defines the authority order, the golden rules, and the gates.
 
 ---
 
-*Designed and Developed as a showcase piece by Rudra.*
+*Designed and developed as a showcase piece by Rudra.*

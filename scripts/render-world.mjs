@@ -127,7 +127,12 @@ async function main() {
       if (r.status() >= 400) console.log(`[browser:${r.status()}] ${r.url()}`);
     });
 
-    const harnessUrl = `${BASE_URL}/embed/sentinel/scripts/render-world-harness.html`;
+    // BAKES: 2D ops basemap (top-down, registers with the top-down overlay layer)
+// vs the cinematic oblique (presentation). Default is the 2D basemap, because
+// an oblique backdrop behind a top-down overlay layer is a correctness defect,
+// not a look — see docs/sentinel-v2-master-plan/10 §2.
+const BAKE_MODE = process.env.BAKE_MODE === "oblique" ? "oblique" : "topo";
+const harnessUrl = `${BASE_URL}/embed/sentinel/scripts/render-world-harness.html?mode=${BAKE_MODE}`;
     console.log(`[render-world] loading ${harnessUrl}`);
 
     // Poll for ready with retries: SwiftShader occasionally loses the WebGL

@@ -410,6 +410,12 @@ export function ReconciliationPanel({
   useEffect(() => {
     const closeOnEscape = (event: globalThis.KeyboardEvent) => {
       if (event.key !== "Escape") return;
+      /* This is a window-CAPTURE listener, so it runs before every bubble-phase
+       * handler. When a real modal (ActionModal) is open it must stay out of the
+       * way: a modal owns Escape for its own lifetime (cancel work → dismiss).
+       * Checking for an open dialog stops this ambient panel from swallowing the
+       * key and leaving the operator unable to close a command dialog. */
+      if (document.querySelector('[role="dialog"]')) return;
       event.preventDefault();
       event.stopPropagation();
       onClose();

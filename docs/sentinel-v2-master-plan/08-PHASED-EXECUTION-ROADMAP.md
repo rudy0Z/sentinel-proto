@@ -34,7 +34,7 @@ To ensure zero regressions across the codebase and maintain test-passing integri
 │ Phase 2 │ **3D Spatial OS Overlays &**     │ • Project 2D zones, spread rings & corridors in 3D. │
 │         │ **Touch Drone Allotment**        │ • Implement 2D ↔ 3D camera sync on EXPLORE exit.    │
 │         │                                  │ • Add diegetic LWIR night thermal sensor mode.      │
-│         │                                  │ • Build touch-first drag & drop drone dispatch.     │
+│         │                                  │ • Build drag-as-staging drone dispatch.             │
 ├─────────┼──────────────────────────────────┼─────────────────────────────────────────────────────┤
 │ Phase 3 │ **Shared Domain Package &**      │ • Compile `src/app/domain/` for browser & Node.     │
 │         │ **State Machine Expansion**      │ • Add 4 promoted states: `verify-source-conflict`,  │
@@ -50,7 +50,7 @@ To ensure zero regressions across the codebase and maintain test-passing integri
 │         │                                  │ • Runtime surface-truth guard & prompt scaffold.    │
 ├─────────┼──────────────────────────────────┼─────────────────────────────────────────────────────┤
 │ Phase 6 │ **Multi-Scenario Authoring &**   │ • Seed Scenarios 2–6 (False Alarm, Wind Shift, etc).│
-│         │ **Debrief Replay UI**            │ • Add Scenario Switcher to Review Dock.             │
+│         │ **Debrief Replay UI**            │ • Scenario Switcher in scenario-select.             │
 │         │                                  │ • Build after-action debrief timeline scrubber.     │
 ├─────────┼──────────────────────────────────┼─────────────────────────────────────────────────────┤
 │ Phase 7 │ **AI Eval Harness & Case Study** │ • Automated eval script (`scripts/eval-talon.mjs`). │
@@ -103,13 +103,13 @@ To ensure zero regressions across the codebase and maintain test-passing integri
 ### Phase 6: Multi-Scenario Authoring & Debrief Replay UI
 - **Tasks**:
   1. Author SQLite fixtures for Scenarios 2 through 6.
-  2. Add Scenario Selector to developer Review Dock.
+  2. Add Scenario Selector to the scenario-select entry state; the dev Review Dock keeps a test-only shortcut.
   3. Build After-Action Debrief surface with timeline scrub and audit receipt inspection.
 - **Exit Criteria**: All 6 scenarios are selectable, walkable to resolution, and auditable.
 
 ### Phase 7: AI Eval Harness & Final Verification
 - **Tasks**:
   1. Execute `scripts/eval-talon.mjs` across common, ambiguous, and adversarial prompts.
-  2. Validate 100% surface-truth pass rate and zero prompt injection breaches.
+  2. Validate the surface-truth pass rate against its published threshold and log every failure by category; zero silent breaches.
   3. Run all 7 test gates: `tsc`, `audit:tokens`, `verify:map`, `verify:flows`, `verify:routes`, `audit:machine`, `audit:signals`.
 - **Exit Criteria**: All gates GREEN; high-res comparison assets exported for portfolio case study.

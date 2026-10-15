@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentinel Flow Atlas</title>
+<style>
+  :root {
+    --bg: #0e1218; --panel: #141a23; --panel2: #10151d; --border: #26303e; --border2: #1b2330;
+    --text: #d7dde6; --muted: #8b95a5; --faint: #5b6675;
+    --cyan: #3fc1c9; --amber: #e0a64e; --red: #e05252; --teal: #35b895; --blue: #5b8def;
+    --violet: #9a88c8; --rose: #e06c8a; --green: #6bbf6e; --gray: #7a8699;
+    --mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body { background: var(--bg); color: var(--text); font: 13px/1.45 -apple-system, "Segoe UI", system-ui, sans-serif; display: flex; flex-direction: column; }
+
+  header { display: flex; align-items: center; gap: 14px; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--panel2); flex-wrap: wrap; }
+  header .brand { font-family: var(--mono); font-size: 13px; letter-spacing: .08em; color: var(--cyan); white-space: nowrap; }
+  header .brand small { color: var(--faint); letter-spacing: 0; margin-left: 8px; }
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+  .tabs button { background: transparent; border: 1px solid transparent; color: var(--muted); font: 12px var(--mono); padding: 5px 10px; border-radius: 6px; cursor: pointer; }
+  .tabs button:hover { color: var(--text); border-color: var(--border); }
+  .tabs button.active { color: var(--cyan); border-color: var(--border); background: var(--panel); }
+  .searchwrap { margin-left: auto; position: relative; }
+  .searchwrap input { width: 260px; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 6px; font: 12px var(--mono); outline: none; }
+  .searchwrap input:focus { border-color: var(--cyan); }
+  #searchResults { position: absolute; top: 34px; right: 0; width: 320px; max-height: 260px; overflow-y: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; display: none; z-index: 30; box-shadow: 0 8px 24px rgba(0,0,0,.5); }
+  .sritem { padding: 7px 10px; cursor: pointer; border-bottom: 1px solid var(--border2); }
+  .sritem:last-child { border-bottom: none; }
+  .sritem:hover { background: var(--panel2); }
+  .sritem .l { font-size: 12px; color: var(--text); }
+  .sritem .k { font: 10px var(--mono); color: var(--faint); text-transform: uppercase; letter-spacing: .06em; }
+
+  main { flex: 1; display: flex; min-height: 0; }
+  #sidebar { width: 232px; border-right: 1px solid var(--border); background: var(--panel2); overflow-y: auto; flex-shrink: 0; }
+  .sblock { padding: 12px 14px; border-bottom: 1px solid var(--border2); }
+  .sblock h3 { font: 10px var(--mono); text-transform: uppercase; letter-spacing: .1em; color: var(--faint); margin-bottom: 8px; }
+  .kitem { display: flex; align-items: center; gap: 8px; padding: 3px 4px; border-radius: 4px; cursor: pointer; user-select: none; }
+  .kitem:hover { background: var(--panel); }
+  .kitem.off { opacity: .35; }
+  .kdot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+  .klabel { flex: 1; font-size: 12px; color: var(--text); }
+  .kcount { font: 10px var(--mono); color: var(--faint); }
+  .scenbtn { display: block; width: 100%; text-align: left; background: transparent; border: 1px solid var(--border2); color: var(--muted); font: 11px var(--mono); padding: 5px 8px; border-radius: 5px; margin-bottom: 4px; cursor: pointer; }
+  .scenbtn:hover { color: var(--text); border-color: var(--border); }
+  .scenbtn.active { color: var(--amber); border-color: var(--amber); }
+  .note { font-size: 11px; color: var(--faint); line-height: 1.5; }
+  .gatechip { display: inline-flex; align-items: center; gap: 5px; font: 10px var(--mono); color: var(--muted); margin: 2px 8px 2px 0; }
+  .gatechip i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+  #stageWrap { flex: 1; position: relative; min-width: 0; background: radial-gradient(ellipse at 50% 30%, #121826 0%, var(--bg) 65%); }
+  svg#stage { width: 100%; height: 100%; display: block; cursor: grab; }
+  svg#stage.dragging { cursor: grabbing; }
+  .viewtitle { position: absolute; top: 12px; left: 16px; pointer-events: none; }
+  .viewtitle .t1 { font: 13px var(--mono); color: var(--text); letter-spacing: .04em; }
+  .viewtitle .t2 { font-size: 11px; color: var(--faint); margin-top: 2px; max-width: 520px; }
+  #fitBtn { position: absolute; bottom: 14px; right: 14px; background: var(--panel); border: 1px solid var(--border); color: var(--muted); font: 11px var(--mono); padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+  #fitBtn:hover { color: var(--cyan); border-color: var(--cyan); }
+  #pathHint { position: absolute; bottom: 14px; left: 16px; font: 11px var(--mono); color: var(--amber); display: none; }
+
+  #detail { width: 330px; border-left: 1px solid var(--border); background: var(--panel2); overflow-y: auto; flex-shrink: 0; display: none; }
+  #detail.open { display: block; }
+  #detail .dhead { padding: 14px 16px 10px; border-bottom: 1px solid var(--border2); position: sticky; top: 0; background: var(--panel2); }
+  #detail .dkind { font: 10px var(--mono); text-transform: uppercase; letter-spacing: .1em; }
+  #detail .dtitle { font-size: 15px; margin-top: 4px; }
+  #detail .ddesc { padding: 12px 16px; color: var(--muted); font-size: 12.5px; border-bottom: 1px solid var(--border2); }
+  #detail .tags { padding: 8px 16px; border-bottom: 1px solid var(--border2); }
+  #detail .tag { display: inline-block; font: 10px var(--mono); color: var(--faint); border: 1px solid var(--border2); border-radius: 4px; padding: 1px 6px; margin: 2px 3px 2px 0; }
+  .dsec { padding: 10px 16px; border-bottom: 1px solid var(--border2); }
+  .dsec h4 { font: 10px var(--mono); text-transform: uppercase; letter-spacing: .1em; color: var(--faint); margin-bottom: 6px; }
+  .evitem { font: 11px var(--mono); color: var(--muted); padding: 5px 8px; background: var(--bg); border: 1px solid var(--border2); border-radius: 5px; margin-bottom: 5px; }
+  .evitem b { color: var(--cyan); font-weight: 500; }
+  .evitem .n { color: var(--faint); font-family: -apple-system, "Segoe UI", sans-serif; display: block; margin-top: 2px; }
+  .connitem { display: flex; align-items: baseline; gap: 7px; padding: 4px 6px; border-radius: 4px; cursor: pointer; border-left: 2px solid var(--border); margin-bottom: 2px; }
+  .connitem:hover { background: var(--panel); }
+  .connitem .cl { font-size: 12px; color: var(--text); flex: 1; }
+  .connitem .ck { font: 9px var(--mono); color: var(--faint); text-transform: uppercase; }
+  .connitem .cg { font: 9px var(--mono); }
+
+  footer { display: flex; gap: 18px; align-items: center; padding: 7px 16px; border-top: 1px solid var(--border); background: var(--panel2); font: 11px var(--mono); color: var(--faint); flex-wrap: wrap; }
+  footer .fstat b { color: var(--muted); font-weight: 500; }
+  footer .right { margin-left: auto; }
+  #discrepancies { cursor: pointer; }
+  #discrepancies:hover { color: var(--amber); }
+
+  /* modal for discrepancies/about */
+  #modal { position: fixed; inset: 0; background: rgba(6,9,13,.72); display: none; align-items: center; justify-content: center; z-index: 50; }
+  #modal.open { display: flex; }
+  #modal .mbox { width: 640px; max-height: 76vh; overflow-y: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; }
+  #modal h2 { font-size: 15px; margin-bottom: 10px; color: var(--cyan); font-family: var(--mono); letter-spacing: .04em; }
+  #modal .disc { border: 1px solid var(--border2); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
+  #modal .disc .top { font: 11px var(--mono); color: var(--amber); margin-bottom: 6px; }
+  #modal .disc .row { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  #modal .disc .row b { color: var(--text); font-weight: 500; }
+  #modal .closebtn { float: right; background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 5px; padding: 3px 9px; cursor: pointer; font: 11px var(--mono); }
+
+  svg text { user-select: none; }
+  .nlabel { fill: var(--text); font-size: 11px; font-weight: 500; }
+  .nsub { fill: var(--faint); font-size: 9.5px; font-family: var(--mono); }
+  .gsec { fill: var(--faint); font-size: 10px; font-family: var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+  .elabel { fill: var(--muted); font-size: 9px; font-family: var(--mono); }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">SENTINEL · FLOW ATLAS<small id="genStamp"></small></div>
+  <nav class="tabs" id="tabs"></nav>
+  <div class="searchwrap">
+    <input id="search" placeholder="Search nodes  ( / )  — try “dissent”, “packet”, “S-04”" autocomplete="off">
+    <div id="searchResults"></div>
+  </div>
+</header>
+<main>
+  <aside id="sidebar">
+    <div class="sblock"><h3>Node kinds</h3><div id="kindList"></div></div>
+    <div class="sblock"><h3>Edge gates</h3>
+      <span class="gatechip"><i style="background:#6b7686"></i>none</span>
+      <span class="gatechip"><i style="background:var(--amber)"></i>confirm</span>
+      <span class="gatechip"><i style="background:var(--red)"></i>human-approval</span>
+      <span class="gatechip"><i style="background:var(--violet)"></i>hold</span>
+    </div>
+    <div class="sblock"><h3>Scenario lens</h3><div id="scenList"></div></div>
+    <div class="sblock"><h3>Path finder</h3>
+      <div class="note">Click two nodes with Path mode on to trace the shortest connection between them.</div>
+      <button class="scenbtn" id="pathBtn" style="margin-top:8px">Path mode: off</button>
+    </div>
+    <div class="sblock"><h3>Reading the atlas</h3>
+      <div class="note">Every node and edge carries source evidence (file · lines). Consult the map before grepping the repo — same contract graphify installs for code. Discrepancies between docs and code are flagged <span style="color:var(--amber)">amber</span> in the footer.</div>
+    </div>
+  </aside>
+  <div id="stageWrap">
+    <svg id="stage"><g id="viewport"><g id="edgeLayer"></g><g id="nodeLayer"></g></g></svg>
+    <div class="viewtitle"><div class="t1" id="vt1"></div><div class="t2" id="vt2"></div></div>
+    <button id="fitBtn">Fit</button>
+    <div id="pathHint"></div>
+  </div>
+  <aside id="detail"></aside>
+</main>
+<footer>
+  <span class="fstat">nodes <b id="fn"></b></span>
+  <span class="fstat">edges <b id="fe"></b></span>
+  <span class="fstat">transitions <b id="ft"></b></span>
+  <span class="fstat">scenarios <b id="fs"></b></span>
+  <span class="fstat" id="discrepancies" title="docs vs code discrepancies">⚠ discrepancies <b id="fd"></b></span>
+  <span class="right">selection: <b id="fsel">—</b></span>
+</footer>
+<div id="modal"><div class="mbox">
+  <button class="closebtn" onclick="document.getElementById('modal').classList.remove('open')">Esc · close</button>
+  <h2>DOCS ↔ CODE DISCREPANCIES</h2>
+  <div id="discList"></div>
+  <h2 style="margin-top:16px">SOURCES</h2>
+  <div id="srcList" class="note"></div>
+</div></div>
+<script>
+const ATLAS = /*__ATLAS_DATA__*/{meta:{title:"Sentinel Flow Atlas"},nodes:[],edges:[],views:[],scenarios:[]}/*__END__*/;
+
+/* ---------- derived data ---------- */
+const nodeById = new Map(ATLAS.nodes.map(n => [n.id, n]));
+const adj = new Map(ATLAS.nodes.map(n => [n.id, []]));
+ATLAS.edges.forEach((e, i) => { e._i = i; if (adj.has(e.from)) adj.get(e.from).push(e); if (adj.has(e.to)) adj.get(e.to).push({ ...e, _rev: true }); });
+
+const KIND = {
+  screen:    { color: "#5b8def", label: "Screens & surfaces" },
+  state:     { color: "#3fc1c9", label: "Scenes & states" },
+  command:   { color: "#e0a64e", label: "Commands" },
+  component: { color: "#7a8699", label: "Shell & system" },
+  asset:     { color: "#9a88c8", label: "Evidence sources" },
+  scenario:  { color: "#e06c8a", label: "Scenarios" },
+  principle: { color: "#6bbf6e", label: "Design principles" },
+  phase:     { color: "#445060", label: "Phases" }
+};
+const GATE = { "none": "#6b7686", "confirm": "#e0a64e", "human-approval": "#e05252", "hold": "#9a88c8" };
+const gateOf = e => e.gate || (e.label && e.label.includes("[human-approval]") ? "human-approval" : e.label && e.label.includes("[confirm]") ? "confirm" : e.label && e.label.includes("[hold]") ? "hold" : "none");
+
+/* ---------- state ---------- */
+let curView = "full";
+let disabledKinds = new Set();
+let selected = null;            // node id
+let selectedEdge = null;        // edge index
+let scenarioLens = null;        // scenario id
+let pathMode = false, pathPicks = [], pathNodes = null, pathEdges = null;
+let tf = { x: 0, y: 0, k: 1 };  // transform
+
+/* ---------- svg helpers ---------- */
+const svg = document.getElementById("stage"), vp = document.getElementById("viewport");
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs, parent) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+
+function applyTransform() { vp.setAttribute("transform", `translate(${tf.x},${tf.y}) scale(${tf.k})`); }
+function fit(nodesPos) {
+  if (!nodesPos || !nodesPos.length) return;
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  for (const p of nodesPos) { x0 = Math.min(x0, p.x - 110); y0 = Math.min(y0, p.y - 50); x1 = Math.max(x1, p.x + 110); y1 = Math.max(y1, p.y + 50); }
+  const w = svg.clientWidth, h = svg.clientHeight;
+  tf.k = Math.min(1.6, Math.min(w / (x1 - x0 + 80), h / (y1 - y0 + 80)));
+  tf.x = (w - (x1 - x0) * tf.k) / 2 - x0 * tf.k; tf.y = 60 + (h - 60 - (y1 - y0) * tf.k) / 2 - y0 * tf.k;
+  applyTransform();
+}
+svg.addEventListener("wheel", ev => { ev.preventDefault(); const f = ev.deltaY < 0 ? 1.12 : 0.89; const r = svg.getBoundingClientRect(); const mx = ev.clientX - r.left, my = ev.clientY - r.top; tf.x = mx - (mx - tf.x) * f; tf.y = my - (my - tf.y) * f; tf.k = Math.max(0.25, Math.min(3, tf.k * f)); applyTransform(); }, { passive: false });
+let drag = null;
+svg.addEventListener("mousedown", ev => { if (ev.target.closest("#nodeLayer")) return; drag = { x: ev.clientX, y: ev.clientY, tx: tf.x, ty: tf.y }; svg.classList.add("dragging"); });
+window.addEventListener("mousemove", ev => { if (!drag) return; tf.x = drag.tx + ev.clientX - drag.x; tf.y = drag.ty + ev.clientY - drag.y; applyTransform(); });
+window.addEventListener("mouseup", () => { drag = null; svg.classList.remove("dragging"); });
+document.getElementById("fitBtn").onclick = () => { fit(currentPositions); };
+
+/* ---------- layouts ---------- */
+function gridPack(items, cols, x0, y0, pitchX, pitchY) {
+  const pos = new Map();
+  items.forEach((id, i) => { pos.set(id, { x: x0 + (i % cols) * pitchX, y: y0 + Math.floor(i / cols) * pitchY }); });
+  return pos;
+}
+function blockHeader(pos, title, x, y) { pos.set("__h_" + title, { x, y, header: title }); }
+
+const NW = 168, NH = 46;
+function layoutFull() {
+  const pos = new Map();
+  const byKind = k => ATLAS.nodes.filter(n => n.kind === k).map(n => n.id);
+  let y = 60;
+  const blocks = [
+    ["Screens & routes", byKind("screen"), 4],
+    ["Scenes & states", byKind("state"), 6],
+    ["Shell & system components", byKind("component"), 5],
+    ["Commands (gated actions)", byKind("command"), 5],
+    ["Evidence sources", byKind("asset"), 4],
+    ["Scenarios", byKind("scenario"), 3],
+    ["Design principles", byKind("principle"), 4],
+    ["Phases", byKind("phase"), 2]
+  ];
+  for (const [title, ids, cols] of blocks) {
+    if (!ids.length) continue;
+    blockHeader(pos, title, 40, y);
+    y += 26;
+    const packed = gridPack(ids, cols, 40, y, NW + 26, NH + 22);
+    for (const [k, v] of packed) pos.set(k, v);
+    const rows = Math.ceil(ids.length / cols);
+    y += rows * (NH + 22) + 34;
+  }
+  return pos;
+}
+function layoutView(v, nodeSet) {
+  const pos = new Map();
+  const ids = v.id === "lifecycle-states" ? [...(nodeSet || new Set())] : v.nodeIds.filter(id => nodeById.has(id));
+  if (v.id === "workflow-f1") {
+    const P = { "surf-entry": [0,0], "surf-brief": [1,0], "baseline": [2,0], "alert-command": [3,0], "investigation-pending": [4,0], "verify-active": [5,0], "verify-source-conflict": [5,1.6], "authority-notification-ready": [6,0], "monitoring-contested": [6,1.6], "talon-reraise": [7,1.6], "contain-awaiting-teams": [7,0], "contain-recommended": [8,0], "rescue-nominal": [9,0] };
+    ids.forEach(id => { const p = P[id] || [ids.indexOf(id), 3]; pos.set(id, { x: 90 + p[0] * 175, y: 150 + p[1] * 120 }); });
+  } else if (v.id === "lifecycle-states") {
+    const P = { "any-scene": [4.5, 5.2], "baseline": [0,1.4], "alert-command": [1,0.4], "investigation-pending": [2,0.4], "verify-active": [3,0.4], "verify-source-conflict": [3,2.6], "authority-notification-ready": [4,0.4], "monitoring-contested": [4,1.7], "talon-reraise": [5,2.6], "contain-awaiting-teams": [5,0.4], "contain-recommended": [6,0.4], "contain-alternate": [7,1.7], "contain-degraded": [7,2.9], "rescue-nominal": [8,0.4], "rescue-battery-critical": [9,0.4], "rescue-partial-evac": [9,1.5], "handoff-pending": [9,2.6], "rescue-signal-degraded": [9,3.7], "satellite-feed-loss": [7,4.6], "network-degraded": [8,4.6], "infrastructure-total-loss": [9,4.6] };
+    ids.forEach(id => { const p = P[id]; if (p) pos.set(id, { x: 90 + p[0] * 172, y: 130 + p[1] * 86 }); else pos.set(id, { x: 90 + ids.indexOf(id) * 172, y: 640 }); });
+  } else if (v.id === "dataflow-talon") {
+    const P = { "src-satellite-ir": [0,0], "src-drone-visual": [0,1], "src-ground-thermal": [0,2], "src-live-hd": [0,3], "talon-fusion": [1.6,1.5], "reg-talon-rail": [3,1.5], "verify-source-conflict": [4.4,0.6], "authority-notification-ready": [4.4,2.4] };
+    ids.forEach(id => { const p = P[id] || [1, 5]; pos.set(id, { x: 120 + p[0] * 205, y: 120 + p[1] * 95 }); });
+  } else if (v.id === "architecture-shell") {
+    const P = { "route-scan": [1,0], "route-components": [2.2,0], "route-design-system": [3.4,0], "nav-navbar": [1,1.2], "reg-left-rail": [2,1.2], "reg-talon-rail": [3,1.2], "reg-command-surface": [4,1.2], "reg-map3d": [5,1.2], "modal-mission": [1.6,2.5], "modal-authority": [2.6,2.5], "modal-handover": [3.6,2.5], "modal-abort": [4.6,2.5], "reg-exception-surface": [1,3.7], "reg-infra-takeover": [2.2,3.7], "reg-contested-watch": [3.4,3.7], "reg-debrief": [4.6,3.7], "reg-outcome-verification": [5.6,3.7] };
+    ids.forEach(id => { const p = P[id] || [1, 5]; pos.set(id, { x: 150 + p[0] * 185, y: 110 + p[1] * 105 }); });
+    const pr = ATLAS.nodes.filter(n => n.kind === "principle");
+    pr.forEach((n, i) => pos.set(n.id, { x: 150, y: 620 + i * 66 }));
+  } else if (v.id === "scenarios") {
+    const scen = ATLAS.nodes.filter(n => n.kind === "scenario");
+    scen.forEach((n, i) => pos.set(n.id, { x: 150 + i * 200, y: 130 }));
+    const targets = new Set(); ATLAS.edges.forEach(e => { if (nodeById.get(e.from)?.kind === "scenario") targets.add(e.to); });
+    [...targets].filter(t => nodeById.has(t)).forEach((t, i) => pos.set(t, { x: 110 + (i % 6) * 185, y: 320 + Math.floor(i / 6) * 78 }));
+  } else {
+    ids.forEach((id, i) => pos.set(id, { x: 120 + (i % 5) * 195, y: 120 + Math.floor(i / 5) * 78 }));
+  }
+  return pos;
+}
+let currentPositions = [];
+function viewNodeSet(v) {
+  if (!v || v.id === "full" || v.id === "graph") return new Set(ATLAS.nodes.map(n => n.id));
+  if (v.id === "lifecycle-states") {
+    const s = new Set();
+    ATLAS.edges.forEach(e => { if (e.kind === "transitions") { s.add(e.from); s.add(e.to); } });
+    return s;
+  }
+  const s = new Set(v.nodeIds.filter(id => nodeById.has(id)));
+  if (v.id === "architecture-shell" || v.id === "dataflow-talon" || v.id === "scenarios") {
+    ATLAS.nodes.forEach(n => { if (n.kind === "principle" && v.id === "architecture-shell") s.add(n.id); });
+  }
+  return s;
+}
+function viewEdges(v, nodeSet) {
+  if (!v || v.id === "full" || v.id === "graph") return ATLAS.edges;
+  const kinds = new Set(v.edgeKinds);
+  if (v.id === "lifecycle-states") return ATLAS.edges.filter(e => e.kind === "transitions" && nodeSet.has(e.from) && nodeSet.has(e.to));
+  return ATLAS.edges.filter(e => kinds.has(e.kind) && nodeSet.has(e.from) && nodeSet.has(e.to));
+}
+
+/* ---------- render ---------- */
+function render() {
+  const v = ATLAS.views.find(x => x.id === curView) || ATLAS.views[0];
+  const nodeSet = viewNodeSet(v);
+  let nodes = ATLAS.nodes.filter(n => nodeSet.has(n.id) && !disabledKinds.has(n.kind));
+  if (scenarioLens) {
+    const sc = ATLAS.scenarios.find(s => s.id === scenarioLens);
+    const keep = new Set(sc ? sc.nodeIds : []);
+    nodes = nodes.filter(n => keep.has(n.id) || n.kind === "scenario");
+  }
+  const nodeIds = new Set(nodes.map(n => n.id));
+  let edges = viewEdges(v, nodeSet).filter(e => nodeIds.has(e.from) && nodeIds.has(e.to));
+
+  // positions
+  let pos;
+  if (curView === "full" || v.id === "graph") pos = layoutFull(); else pos = layoutView(v, nodeSet);
+  currentPositions = nodes.map(n => ({ id: n.id, x: pos.get(n.id)?.x ?? 0, y: pos.get(n.id)?.y ?? 0 }));
+  // headers
+  const edgeLayer = document.getElementById("edgeLayer"), nodeLayer = document.getElementById("nodeLayer");
+  edgeLayer.innerHTML = ""; nodeLayer.innerHTML = "";
+
+  // highlight set
+  let hlNodes = null, hlEdges = null;
+  if (pathNodes) { hlNodes = pathNodes; hlEdges = pathEdges; }
+  else if (selected) {
+    hlNodes = new Set([selected]);
+    hlEdges = new Set();
+    for (const e of adj.get(selected)) { hlEdges.add(e._i); hlNodes.add(e._rev ? e.from : e.to); }
+  } else if (scenarioLens) {
+    const sc = ATLAS.scenarios.find(s => s.id === scenarioLens);
+    hlNodes = new Set(sc.nodeIds.filter(id => nodeById.has(id)));
+    hlEdges = new Set(ATLAS.edges.filter(e => hlNodes.has(e.from) && hlNodes.has(e.to)).map(e => e._i));
+  }
+
+  // edges
+  for (const e of edges) {
+    const a = pos.get(e.from), b = pos.get(e.to);
+    if (!a || !b || a.header || b.header) continue;
+    const g = gateOf(e);
+    const dim = hlEdges ? (hlEdges.has(e._i) ? 0 : 1) : 0;
+    const op = dim ? 0.05 : 0.5;
+    const stroke = hlEdges && hlEdges.has(e._i) ? (GATE[g] === "#6b7686" ? "#8fa3bd" : GATE[g]) : "#3a4656";
+    const w = hlEdges && hlEdges.has(e._i) ? 2.2 : 1.1;
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2 + (a.x === b.x ? 0 : 26);
+    const path = el("path", { d: `M ${a.x} ${a.y} C ${a.x} ${a.y + 40}, ${b.x} ${b.y - 40}, ${b.x} ${b.y}`, fill: "none", stroke, "stroke-width": w, opacity: op, "marker-end": "url(#arr)" }, edgeLayer);
+    path.style.cursor = "pointer";
+    path.addEventListener("click", ev => { ev.stopPropagation(); showEdge(e); });
+    const hasLabel = e.label && e.label.length < 34;
+    if (hasLabel && (tf.k > 0.85 || (hlEdges && hlEdges.has(e._i)))) {
+      const t = el("text", { x: mx, y: my - 4, "text-anchor": "middle", class: "elabel", opacity: dim ? 0.03 : 0.85 }, edgeLayer);
+      t.textContent = e.label;
+    }
+  }
+
+  // nodes
+  for (const n of nodes) {
+    const p = pos.get(n.id); if (!p) continue;
+    if (p.header !== undefined) { const t = el("text", { x: p.x, y: p.y, class: "gsec" }, nodeLayer); t.textContent = p.header; continue; }
+    const dim = hlNodes ? (hlNodes.has(n.id) ? 0 : 1) : 0;
+    const g = el("g", { transform: `translate(${p.x},${p.y})`, opacity: dim ? 0.12 : 1 }, nodeLayer);
+    const kw = n.kind === "command" ? "#e0a64e" : (KIND[n.kind]?.color || "#7a8699");
+    const isException = (n.tags || []).includes("exception-event") || (n.tags || []).includes("fault-injected");
+    const accent = isException ? "#e05252" : kw;
+    const rect = el("rect", { x: -NW/2, y: -NH/2, width: NW, height: NH, rx: 8, fill: "#161d28", stroke: selected === n.id ? accent : "#2a3444", "stroke-width": selected === n.id ? 2 : 1 }, g);
+    const dot = el("circle", { cx: -NW/2 + 12, cy: 0, r: 4, fill: accent }, g);
+    const label = n.label.length > 24 ? n.label.slice(0, 23) + "…" : n.label;
+    const t1 = el("text", { x: -NW/2 + 24, y: -3, class: "nlabel" }, g); t1.textContent = label;
+    const sub = (n.tags || [])[0] || n.kind;
+    const t2 = el("text", { x: -NW/2 + 24, y: 12, class: "nsub" }, g); t2.textContent = sub;
+    g.style.cursor = "pointer";
+    g.addEventListener("click", ev => { ev.stopPropagation(); if (pathMode) pickPath(n.id); else showNode(n.id); });
+  }
+  document.getElementById("fsel").textContent = selected ? (nodeById.get(selected)?.label || selected) : "—";
+}
+
+/* ---------- detail panel ---------- */
+function evidenceHtml(evList) {
+  return (evList || []).map(e => `<div class="evitem"><b>${esc(e.file)}</b> · ${esc(e.lines)}${e.note ? `<span class="n">${esc(e.note)}</span>` : ""}</div>`).join("");
+}
+function showNode(id) {
+  selected = id; selectedEdge = null;
+  const n = nodeById.get(id); if (!n) return;
+  const d = document.getElementById("detail"); d.classList.add("open");
+  const kc = KIND[n.kind]?.color || "#7a8699";
+  const conns = adj.get(id) || [];
+  const outMap = new Map(); for (const c of conns) { const other = c._rev ? c.from : c.to; if (!outMap.has(other)) outMap.set(other, []); outMap.get(other).push(c); }
+  const connsHtml = [...outMap.entries()].map(([other, es]) => {
+    const o = nodeById.get(other);
+    const kinds = [...new Set(es.map(e => e.kind))].join("/");
+    const gate = es.find(e => e.gate || e.label?.includes("["));
+    return `<div class="connitem" data-target="${esc(other)}"><span class="cg" style="color:${KIND[o?.kind]?.color || "#777"}">●</span><span class="cl">${esc(o ? o.label : other)}</span><span class="ck">${esc(kinds)}</span>${gate && gate.requiresDissent ? '<span class="ck" style="color:var(--rose)">dissent</span>' : ""}</div>`;
+  }).join("");
+  d.innerHTML = `
+    <div class="dhead"><div class="dkind" style="color:${kc}">${esc(n.kind)}${(n.tags||[]).includes("promoted") ? " · promoted state" : ""}${(n.tags||[]).includes("fault-injected") ? " · fault-injected" : ""}</div>
+    <div class="dtitle">${esc(n.label)}</div></div>
+    <div class="ddesc">${esc(n.description)}</div>
+    <div class="tags">${(n.tags||[]).map(t => `<span class="tag">${esc(t)}</span>`).join("")}${n.phase && n.phase !== "n/a" ? `<span class="tag">${esc(n.phase)}</span>` : ""}</div>
+    <div class="dsec"><h4>Evidence</h4>${evidenceHtml(n.evidence)}</div>
+    <div class="dsec"><h4>Connections (${outMap.size})</h4>${connsHtml || '<div class="note">None in this view.</div>'}</div>`;
+  d.querySelectorAll(".connitem").forEach(ci => ci.addEventListener("click", () => showNode(ci.dataset.target)));
+  render();
+}
+function showEdge(e) {
+  selected = null; selectedEdge = e._i;
+  const d = document.getElementById("detail"); d.classList.add("open");
+  const a = nodeById.get(e.from), b = nodeById.get(e.to);
+  d.innerHTML = `
+    <div class="dhead"><div class="dkind" style="color:var(--amber)">edge · ${esc(e.kind)} · gate ${esc(gateOf(e))}${e.requiresDissent ? " · requires dissent" : ""}</div>
+    <div class="dtitle">${esc(a?.label || e.from)} → ${esc(b?.label || e.to)}</div></div>
+    <div class="ddesc">${esc(e.label || "(unlabeled)")}</div>
+    <div class="dsec"><h4>Evidence</h4>${evidenceHtml(e.evidence)}</div>
+    <div class="dsec"><h4>Endpoints</h4>
+      <div class="connitem" data-target="${esc(e.from)}"><span class="cl">↰ ${esc(a?.label || e.from)}</span></div>
+      <div class="connitem" data-target="${esc(e.to)}"><span class="cl">↳ ${esc(b?.label || e.to)}</span></div></div>`;
+  d.querySelectorAll(".connitem").forEach(ci => ci.addEventListener("click", () => showNode(ci.dataset.target)));
+  render();
+}
+svg.addEventListener("click", () => { if (!pathMode) { selected = null; selectedEdge = null; document.getElementById("detail").classList.remove("open"); render(); } });
+
+/* ---------- search ---------- */
+const searchBox = document.getElementById("search"), srBox = document.getElementById("searchResults");
+searchBox.addEventListener("input", () => {
+  const q = searchBox.value.toLowerCase().trim();
+  if (!q) { srBox.style.display = "none"; return; }
+  const hits = ATLAS.nodes.filter(n => (n.label + " " + n.id + " " + (n.tags||[]).join(" ")).toLowerCase().includes(q)).slice(0, 8);
+  srBox.innerHTML = hits.map(n => `<div class="sritem" data-id="${esc(n.id)}"><div class="l">${esc(n.label)}</div><div class="k">${esc(n.kind)} · ${esc(n.id)}</div></div>`).join("") || '<div class="sritem"><div class="k">no matches</div></div>';
+  srBox.style.display = "block";
+  srBox.querySelectorAll(".sritem[data-id]").forEach(si => si.addEventListener("click", () => { gotoNode(si.dataset.id); }));
+});
+searchBox.addEventListener("keydown", ev => {
+  if (ev.key === "Enter") { const first = srBox.querySelector(".sritem[data-id]"); if (first) gotoNode(first.dataset.id); }
+  if (ev.key === "Escape") { searchBox.value = ""; srBox.style.display = "none"; clearAll(); }
+});
+document.addEventListener("keydown", ev => {
+  if (ev.key === "/" && document.activeElement !== searchBox) { ev.preventDefault(); searchBox.focus(); }
+  if (ev.key === "Escape") { clearAll(); }
+});
+function gotoNode(id) {
+  srBox.style.display = "none"; searchBox.value = "";
+  const n = nodeById.get(id); if (!n) return;
+  if (disabledKinds.has(n.kind)) disabledKinds.delete(n.kind);
+  // switch to a view containing the node
+  const v = ATLAS.views.find(vw => vw.id !== "full" && vw.nodeIds.includes(id));
+  if (curView === "full" || !viewNodeSet(ATLAS.views.find(x => x.id === curView)).has(id)) curView = v ? v.id : "full";
+  syncTabs(); showNode(id);
+  const vdef = ATLAS.views.find(x => x.id === curView);
+  const pos = curView === "full" ? layoutFull() : layoutView(vdef);
+  const p = pos.get(id); if (p) { tf.x = svg.clientWidth/2 - p.x * tf.k; tf.y = svg.clientHeight/2 - p.y * tf.k; applyTransform(); }
+}
+
+/* ---------- path finder ---------- */
+const pathBtn = document.getElementById("pathBtn"), pathHint = document.getElementById("pathHint");
+pathBtn.addEventListener("click", () => { pathMode = !pathMode; pathPicks = []; pathNodes = null; pathEdges = null; pathBtn.textContent = "Path mode: " + (pathMode ? "on" : "off"); pathBtn.classList.toggle("active", pathMode); pathHint.style.display = "none"; render(); });
+function pickPath(id) {
+  pathPicks.push(id);
+  if (pathPicks.length === 2) {
+    const [a, b] = pathPicks;
+    const res = bfs(a, b);
+    if (res) { pathNodes = res.nodes; pathEdges = res.edges; pathHint.textContent = `path: ${res.nodes.length} nodes, ${res.edges.length} hops — Esc to clear`; }
+    else pathHint.textContent = "no path found between those nodes";
+    pathHint.style.display = "block"; pathPicks = []; render();
+  } else { pathHint.textContent = "path: pick second node…"; pathHint.style.display = "block"; }
+}
+function bfs(a, b) {
+  const prev = new Map([[a, null]]); const q = [a];
+  while (q.length) { const cur = q.shift(); if (cur === b) break; for (const e of (adj.get(cur) || [])) { const other = e._rev ? e.from : e.to; if (!prev.has(other)) { prev.set(other, { via: e._i, from: cur }); q.push(other); } } }
+  if (!prev.has(b)) return null;
+  const nodes = [b], edges = new Set(); let cur = b;
+  while (cur !== a) { const p = prev.get(cur); edges.add(p.via); nodes.push(p.from); cur = p.from; }
+  return { nodes: new Set(nodes.reverse()), edges };
+}
+
+/* ---------- lenses / filters ---------- */
+function renderSidebar() {
+  const kl = document.getElementById("kindList"); kl.innerHTML = "";
+  const counts = {}; ATLAS.nodes.forEach(n => counts[n.kind] = (counts[n.kind] || 0) + 1);
+  for (const k of Object.keys(KIND)) {
+    const item = document.createElement("div"); item.className = "kitem" + (disabledKinds.has(k) ? " off" : "");
+    item.innerHTML = `<span class="kdot" style="background:${KIND[k].color}"></span><span class="klabel">${esc(KIND[k].label)}</span><span class="kcount">${counts[k] || 0}</span>`;
+    item.addEventListener("click", () => { disabledKinds.has(k) ? disabledKinds.delete(k) : disabledKinds.add(k); renderSidebar(); render(); });
+    kl.appendChild(item);
+  }
+  const sl = document.getElementById("scenList"); sl.innerHTML = "";
+  for (const s of ATLAS.scenarios) {
+    const b = document.createElement("button"); b.className = "scenbtn" + (scenarioLens === s.id ? " active" : "");
+    b.textContent = `${s.id} · ${s.label.split("(")[0].trim()}`;
+    b.title = s.summary;
+    b.addEventListener("click", () => { scenarioLens = scenarioLens === s.id ? null : s.id; pathNodes = null; pathEdges = null; renderSidebar(); render(); });
+    sl.appendChild(b);
+  }
+}
+function clearAll() { selected = null; selectedEdge = null; pathNodes = null; pathEdges = null; pathPicks = []; pathHint.style.display = "none"; document.getElementById("detail").classList.remove("open"); render(); }
+
+/* ---------- tabs ---------- */
+const tabsEl = document.getElementById("tabs");
+function syncTabs() { tabsEl.querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.view === curView)); }
+for (const v of ATLAS.views) {
+  const b = document.createElement("button"); b.textContent = v.title.replace(/ · .*/, ""); b.dataset.view = v.id; b.title = v.title + " — " + v.focus;
+  b.addEventListener("click", () => { curView = v.id; clearAll(); syncTabs(); document.getElementById("vt1").textContent = v.title; document.getElementById("vt2").textContent = v.focus; fit(currentPositions); });
+  tabsEl.appendChild(b);
+}
+
+/* ---------- footer / modal ---------- */
+document.getElementById("fn").textContent = ATLAS.nodes.length;
+document.getElementById("fe").textContent = ATLAS.edges.length;
+document.getElementById("ft").textContent = ATLAS.meta.transitionCount ?? "—";
+document.getElementById("fs").textContent = ATLAS.scenarios.length;
+document.getElementById("fd").textContent = (ATLAS.meta.discrepancies || []).length;
+document.getElementById("genStamp").textContent = "· " + (ATLAS.meta.generated || "");
+document.getElementById("discrepancies").addEventListener("click", () => {
+  document.getElementById("discList").innerHTML = (ATLAS.meta.discrepancies || []).map(d => `<div class="disc"><div class="top">${esc(d.topic)}</div><div class="row"><b>docs say:</b> ${esc(d.docs_say)}</div><div class="row"><b>code shows:</b> ${esc(d.code_shows)}</div></div>`).join("") || '<div class="note">None recorded.</div>';
+  document.getElementById("srcList").innerHTML = (ATLAS.meta.sources || []).map(s => `<div>${esc(s)}</div>`).join("");
+  document.getElementById("modal").classList.add("open");
+});
+document.getElementById("modal").addEventListener("click", ev => { if (ev.target.id === "modal") ev.target.classList.remove("open"); });
+
+/* ---------- boot ---------- */
+renderSidebar();
+const v0 = ATLAS.views[0];
+document.getElementById("vt1").textContent = v0.title;
+document.getElementById("vt2").textContent = v0.focus;
+syncTabs();
+render();
+setTimeout(() => fit(currentPositions), 30);
+</script>
+</body>
+</html>

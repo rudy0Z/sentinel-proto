@@ -2,6 +2,7 @@ import {
   BASELINE_NOTES,
   INCIDENT,
   SYSTEM_HEALTH,
+  WEATHER,
   getZoneById,
   getZoneLabel,
 } from "../../mockData";
@@ -114,6 +115,8 @@ export function IntelPanel({ state, onClearSelection }: IntelPanelProps) {
       ) : (
         <DefaultObservation state={state} avgConfidence={avgConfidence} sources={sources} agents={observationAgents} />
       )}
+
+      <WeatherStrip />
     </PanelCard>
   );
 }
@@ -177,7 +180,7 @@ function DefaultObservation({
       </Section>
 
       <Section label="Agent Relay">
-        <AgentRelayStrip agents={agents} />
+        <AgentRelayStrip agents={agents} limit={2} />
       </Section>
 
       {state.scene === "baseline" ? (
@@ -258,9 +261,39 @@ function ZoneInspector({
       </Section>
 
       <Section label="Agent Relay">
-        <AgentRelayStrip agents={agents} />
+        <AgentRelayStrip agents={agents} limit={1} />
       </Section>
     </>
+  );
+}
+
+function WeatherStrip() {
+  return (
+    <div
+      aria-label="Weather observations"
+      style={{
+        marginTop: space.md,
+        padding: `${space.sm}px ${space.md}px`,
+        borderRadius: radius.tile,
+        border: `1px solid ${border.soft}`,
+        background: surface.inset,
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: space.xs }}>
+        <span style={{ fontFamily: font.mono, fontSize: typeScale.caption, letterSpacing: tracking.telemetry, textTransform: "uppercase", color: T.textMuted }}>
+          Weather · RAWS
+        </span>
+        <span style={{ fontFamily: font.mono, fontSize: typeScale.caption, color: T.textMuted }}>{WEATHER.observedAt}</span>
+      </div>
+      <MetricGrid
+        items={[
+          { label: "Wind", value: `${WEATHER.windBearing}° · ${WEATHER.windSpeedKts} kts G${WEATHER.windGustKts}`, signalTone: WEATHER.windGustKts > 20 ? "caution" : "info" },
+          { label: "Temp / RH", value: `${WEATHER.tempF}°F · ${WEATHER.rh}%`, signalTone: WEATHER.rh < 25 ? "caution" : "safe" },
+          { label: "Fuel model", value: WEATHER.fuelModel, signalTone: "neutral" },
+          { label: "Haines", value: `${WEATHER.haines}`, signalTone: WEATHER.haines >= 5 ? "caution" : "safe" },
+        ]}
+      />
+    </div>
   );
 }
 
@@ -298,6 +331,17 @@ function DroneInspector({ drone, agents }: { drone: DroneRosterEntry; agents: Re
             { label: "Status", value: drone.status, signalTone: drone.status === "signal-degraded" ? "caution" : "safe" },
             { label: "Zone", value: getZoneLabel(drone.zoneId), signalTone: "neutral" },
             { label: "ETA", value: drone.eta ?? "Live", signalTone: "info" },
+          ]}
+        />
+      </Section>
+
+      <Section label="Telemetry">
+        <MetricGrid
+          items={[
+            { label: "Ground speed", value: `${drone.groundSpeedMps.toFixed(1)} m/s`, signalTone: "info" },
+            { label: "Altitude", value: `${drone.altitudeM} m AGL`, signalTone: "neutral" },
+            { label: "Heading", value: `${drone.headingDeg}°`, signalTone: "neutral" },
+            { label: "Position", value: `${drone.lat.toFixed(4)}, ${drone.lon.toFixed(4)}`, signalTone: "neutral" },
           ]}
         />
       </Section>

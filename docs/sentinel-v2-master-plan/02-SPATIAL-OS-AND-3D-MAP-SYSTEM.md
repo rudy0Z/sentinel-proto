@@ -119,9 +119,9 @@ Rather than a simple CSS dark-mode toggle, Sentinel implements an authentic **Lo
 
 ---
 
-## 6. Touch-First Drone Garage Allotment (Drag & Drop)
+## 6. Drone Garage Allotment — Drag as Staging (Desktop-First)
 
-Modern emergency operations centers utilize large touch tables (55"–85") and field command tablets. Designing drone dispatch as a **touch-first spatial gesture** provides immense candidate differentiation.
+Modern emergency operations centers utilize large touch tables (55"–85") and field command tablets. Designing drone dispatch as a **staging gesture** is the differentiator: the drop *proposes* an assignment, TALON confirms, and every gated action keeps its human gate (drag-as-staging, never drag-as-execution). Touch surfaces stay supported via unified PointerEvents, but the acceptance target is the 1920×1080 desktop instrument.
 
 ### 6.1 Interaction Flow:
 ```

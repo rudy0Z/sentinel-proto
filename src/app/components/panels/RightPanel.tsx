@@ -1,4 +1,5 @@
-import { getZoneLabel } from "../../mockData";
+import { getZoneLabel, getZoneOperationalStates, PROJECTION_GENERATED_AT_S } from "../../mockData";
+import { ForecastCone } from "../kit/viz";
 import { useState } from "react";
 import { getOperationalException } from "../../domain/exceptions";
 import { getAgentTasks, getAuthorityPacket, getEvidenceSources, getSignalHistory, getTalonInteractionModel } from "../../domain/talon";
@@ -42,6 +43,7 @@ interface PriorityPanelProps {
   onSelectZone?: (zoneId: string) => void;
   spatialHover?: SelectedEntity;
   onSpatialHoverChange?: (target: SelectedEntity) => void;
+  incidentElapsed?: number;
 }
 
 interface GroundTeamsPanelProps {
@@ -148,6 +150,7 @@ export function PriorityPanel({
   onSelectZone,
   spatialHover,
   onSpatialHoverChange,
+  incidentElapsed,
 }: PriorityPanelProps) {
   if (state.workflowPhase === "operations") {
     return (
@@ -156,6 +159,7 @@ export function PriorityPanel({
         onSelectZone={onSelectZone}
         spatialHover={spatialHover}
         onSpatialHoverChange={onSpatialHoverChange}
+        incidentElapsed={incidentElapsed}
       />
     );
   }
@@ -256,12 +260,15 @@ function OperationsPriorityPanel({
   onSelectZone,
   spatialHover,
   onSpatialHoverChange,
+  incidentElapsed,
 }: {
   state: ShellState;
   onSelectZone?: (zoneId: string) => void;
   spatialHover?: SelectedEntity;
   onSpatialHoverChange?: (target: SelectedEntity) => void;
+  incidentElapsed?: number;
 }) {
+  const projectionAgeMin = Math.max(0, Math.round(((incidentElapsed ?? PROJECTION_GENERATED_AT_S) - PROJECTION_GENERATED_AT_S) / 60));
   const [priorityFilter, setPriorityFilter] = useState("all");
   const cleared = state.rescueProgress.cleared;
   const total = state.rescueProgress.total;
@@ -333,6 +340,25 @@ function OperationsPriorityPanel({
       </Section>
 
       <Section label="Plan Comparison" defaultOpen={false} summary={state.planVariant === "alternate" ? "Alternate plan active" : "Recommended plan active"}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: space.sm }}>
+          <span style={{ fontFamily: font.mono, fontSize: typeScale.caption, letterSpacing: "0.06em", textTransform: "uppercase", color: T.textMuted }}>
+            Spread projection
+          </span>
+          <span style={{ fontFamily: font.mono, fontSize: typeScale.caption, color: projectionAgeMin >= 10 ? T.amber : T.textMuted }}>
+            age {projectionAgeMin}m{projectionAgeMin >= 10 ? " · recompute recommended" : ""}
+          </span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: space.md }}>
+          <ForecastCone
+            history={[8, 12, 17, 24, 33]}
+            forecast={[44, 57, 72]}
+            lower={[38, 47, 57]}
+            upper={[52, 69, 89]}
+            tone={T.fire}
+            width={280}
+            height={72}
+          />
+        </div>
         <ContainmentPlanComparison activeVariant={state.planVariant} />
       </Section>
 
@@ -409,6 +435,25 @@ export function GroundTeamsPanel({
       badgeLabel={`${state.groundTeams.length} units`}
       badgeColor={hasDistressed ? T.red : deployedActive.length > 0 ? T.amber : T.teal}
     >
+      <Section label="Zone evacuation">
+        <div style={{ display: "grid", gap: space.sm }}>
+          {Object.entries(getZoneOperationalStates(state.scene))
+            .filter(([, zone]) => zone.evac)
+            .map(([zoneId, zone]) => (
+              <div key={zoneId} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: space.md }}>
+                <div style={{ display: "grid" }}>
+                  <span style={{ fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.semibold, color: T.textPrimary }}>
+                    {getZoneLabel(zoneId)}
+                  </span>
+                  <span style={{ fontFamily: font.mono, fontSize: typeScale.caption, color: T.textMuted }}>
+                    {zone.timeToImpact ? `time to impact · ${zone.timeToImpact}` : `state · ${zone.state}`}
+                  </span>
+                </div>
+                <StatusPill label={zone.evac ?? ""} color={zone.evac === "GO" ? T.red : zone.evac === "WATCH" ? T.amber : T.teal} />
+              </div>
+            ))}
+        </div>
+      </Section>
       <PanelHeroMetric
         eyebrow="Ground coordination"
         title={hasDistressed ? `${vitalsAbnormal.length} unit distress signal` : deployedActive.length > 0 ? `${deployedActive.length} deployed active` : "Field teams nominal"}

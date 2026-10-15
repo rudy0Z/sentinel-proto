@@ -1,4 +1,7 @@
 # SENTINEL V2 — MASTER SPECIFICATION
+
+> **Status:** historical — superseded by docs/sentinel-flagship-quality-upgrade.md (canonical build authority). Known-false claims: see README.md in this folder.
+
 ### The complete prototype blueprint: states, sequences, TALON-AI behavior, scenarios, data, backend
 
 **Status:** planning spec for the next build phase · **Date:** 2026-09-09

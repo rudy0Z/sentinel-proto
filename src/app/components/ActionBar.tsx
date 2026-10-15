@@ -449,7 +449,7 @@ export function ActionBar({
             </div>
           ) : null}
 
-          <Liquid.Item radius={999}>
+          <Liquid.Item radius={14}>
           <TalonSession
             variant="floating"
             conversation={state.talonConversation}
@@ -478,8 +478,12 @@ export function ActionBar({
           </Liquid.Item>
         </div>
 
-        {/* Right bloom — the primary command, plus the danger menu when present */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", gap: space.sm, minWidth: 0 }}>
+        {/* Right bloom — the primary command, plus the danger menu when present.
+            data-staged marks the live staged recommendation for verification flows. */}
+        <div
+          data-staged={rightAction?.status === "recommended" ? "true" : undefined}
+          style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", gap: space.sm, minWidth: 0 }}
+        >
           {rightAction ? (
             <Liquid.Item
               x={plateIn ? 0 : -72}

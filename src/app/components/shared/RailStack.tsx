@@ -230,7 +230,13 @@ export function RailStack({ views, defaultViewId, ariaLabel }: { views: RailView
           minHeight: 0,
           overflowY: "auto",
           overflowX: "hidden",
-          paddingBottom: space.xs,
+          /*
+           * Bottom padding is part of the clip contract (§3 C1): the last row
+           * must never sit flush against the rail's bottom edge where the fade
+           * can swallow it. One full space step of runway keeps the final item
+           * readable at 1080p and 768p heights alike.
+           */
+          paddingBottom: space.xl,
         }}
       >
         <div
@@ -238,6 +244,7 @@ export function RailStack({ views, defaultViewId, ariaLabel }: { views: RailView
             ...floatingSurface,
             overflow: "hidden",
             width: "100%",
+            paddingBottom: space.md,
           }}
         >
           <RailChromeContext.Provider value={{ chromeless: true }}>

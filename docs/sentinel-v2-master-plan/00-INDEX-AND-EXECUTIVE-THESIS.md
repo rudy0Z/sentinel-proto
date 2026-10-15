@@ -65,7 +65,7 @@ This portfolio prototype is designed to prove that the candidate operates in the
 │ • Cognitive Mode Shift: Intelligence vs. Ops     │ • Runtime Surface-Truth Validator (no drift)  │
 │ • Deep Uncertainty UX: Conflicting sensor data,  │ • High-Performance WebGL 3D Engine (12 calls) │
 │   operator dissents, and graceful degradation    │ • Automated AI Eval Harness (measuring hallucination│
-│ • Touch-First Control Center ergonomics          │   rates, refusal quality, and injection risk) │
+│ • Desktop-led Control Center ergonomics          │   rates, refusal quality, and injection risk) │
 └──────────────────────────────────────────────────┴───────────────────────────────────────────────┘
 ```
 
@@ -91,7 +91,7 @@ If the LLM hallucinates, experiences prompt injection, or goes completely rogue,
 - Full 8-stage operational lifecycle across 23 discrete routes.
 - Real LLM API integration with structured function calling.
 - Multi-scenario SQLite database engine powering 6 distinct operational scenarios.
-- 3D WebGL topography with projected operational overlays, diegetic IR night sensor mode, and touch-first drone drag-and-drop.
+- 3D WebGL topography with projected operational overlays, diegetic IR night sensor mode, and drag-as-staging drone allotment.
 - Rigorous AI evaluation harness measuring factual attribution and refusal correctness.
 - Complete visual UI craft polish (eliminating text clipping, layout jitter, and off-grid spacing).
 

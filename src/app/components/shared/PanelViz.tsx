@@ -10,6 +10,7 @@ import {
   space,
   surface,
   tint,
+  tracking,
   typeScale,
   typeWeight,
 } from "../../tokens";
@@ -135,10 +136,11 @@ export function PanelHeroMetric({
             <div
               style={{
                 fontFamily: font.mono,
+                fontVariantNumeric: "tabular-nums",
                 fontSize: typeScale.heading,
                 fontWeight: typeWeight.heavy,
                 color,
-                lineHeight: 1,
+                lineHeight: 1.25,
               }}
             >
               {metric}
@@ -269,6 +271,8 @@ export function MetricTile({
           fontSize: typeScale.body,
           fontWeight: typeWeight.bold,
           color: signalTone === "neutral" ? T.textPrimary : color,
+          /* tnum: ETA/count readouts must not reflow as digits tick (vault 06 §3.2) */
+          fontVariantNumeric: "tabular-nums",
           marginTop: space.xs,
           lineHeight: 1.3,
           overflow: "hidden",
@@ -436,10 +440,19 @@ export function CapabilityMatrix({
   );
 }
 
-export function AgentRelayStrip({ agents, limit = 3 }: { agents: TalonAgentTask[]; limit?: number }) {
-  const activeAgents = agents
-    .filter((agent) => agent.status === "running" || agent.status === "blocked" || agent.status === "failed" || agent.status === "complete")
-    .slice(0, limit);
+/*
+ * Agent Relay — a known rail-bottom clipper (§3 C1): busy scenes carry more
+ * relay entries than the panel can hold. The strip clamps to `limit` visible
+ * rows and reports the remainder as a "+n more" disclosure so the count is
+ * never silently swallowed by the panel edge. Full per-agent state stays in
+ * the TALON copilot rail; this strip is a relay, not the ledger.
+ */
+export function AgentRelayStrip({ agents, limit = 2 }: { agents: TalonAgentTask[]; limit?: number }) {
+  const relayAgents = agents.filter(
+    (agent) => agent.status === "running" || agent.status === "blocked" || agent.status === "failed" || agent.status === "complete",
+  );
+  const activeAgents = relayAgents.slice(0, limit);
+  const hiddenCount = Math.max(0, relayAgents.length - activeAgents.length);
 
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
@@ -499,6 +512,21 @@ export function AgentRelayStrip({ agents, limit = 3 }: { agents: TalonAgentTask[
           </div>
         );
       })}
+      {hiddenCount > 0 ? (
+        <div
+          style={{
+            fontFamily: font.mono,
+            fontSize: typeScale.eyebrow,
+            color: T.textMuted,
+            letterSpacing: tracking.telemetry,
+            textTransform: "uppercase",
+            padding: `${space.sm}px 0 ${space.xs}px`,
+            borderTop: `1px solid ${border.soft}`,
+          }}
+        >
+          +{hiddenCount} more agent{hiddenCount === 1 ? "" : "s"}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -18,3 +18,40 @@ vite-dev.log
 
 # World bake scratch (dem.npz is the Python-side copy; dem.json is canonical for TS)
 dem.npz
+*.tif
+side-by-side.png
+stage0_shaded_relief.png
+
+# ── Baked-image backups ──────────────────────────────────────────────────────
+# render-world.mjs keeps a .bak of the previous 2D basemap so a bad bake can be
+# reverted. It is a build artefact, never a source input — committing it doubled
+# the weight of src/assets for no benefit.
+src/assets/*.bak.png
+src/assets/*.bak.jpg
+
+# ── Verification captures: keep gate evidence, drop iteration debris ─────────
+# verification-artifacts/routes/ and bake-diff-*.png ARE the committed evidence
+# the gates produce (AGENTS.md), so they stay tracked. Everything below is
+# scratch from past working sessions — regenerable, and the source of ~120 MB of
+# repo weight.
+verification-artifacts/audit-captures/
+verification-artifacts/command-bar/
+verification-artifacts/phaseb/
+verification-artifacts/clip/
+verification-artifacts/audit-v2/
+verification-artifacts/explore-debug.png
+verification-artifacts/explore-3d*.png
+verification-artifacts/test-*.png
+
+# AI/agent working directories (local scratch, never part of the product)
+.openclaw/
+.phase-h-scratch/
+.zcode/
+package.json.bak
+static-server.log
+
+# Runtime gateway state. server/db.ts creates it on startup
+# (CREATE TABLE IF NOT EXISTS, path overridable via SENTINEL_DB_PATH), so it
+# carries no source — it is session/decsion/event history from local runs.
+server/*.db
+server/*.db-journal

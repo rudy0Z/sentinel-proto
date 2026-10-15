@@ -170,6 +170,26 @@ export const TALON_VOICE_RESPONSES: Partial<Record<SceneId, { title: string; bod
     body: "Primary feeds are down. I cannot run evidence fusion, spread modeling, or route guidance without infrastructure. Last confirmed state: Rescue Nominal, INC-2024-0847, 03:52:14 UTC. Switch to manual radio on Channel 7 and contact Station 12. I'll preserve audit context until reconnection.",
     tone: T.red,
   },
+  "verify-source-conflict": {
+    title: "Two sources disagree — I need your read",
+    body: "Satellite IR shows a heat bloom; the agricultural database shows permit #8841 active one parcel east. I cannot fuse them into a single confidence score, so I have paused verification rather than average the conflict away. Tell me which source to re-task, or confirm the burn with the vineyard manager and I will clear it.",
+    tone: T.amber,
+  },
+  "contain-awaiting-teams": {
+    title: "Packet sent — waiting on ground teams",
+    body: "AUD-90-0847 is delivered and logged with a hash receipt. Staging is now a ground problem, not an intelligence one: run-card teams are en route to the three designated muster points. I will hold the containment picture as-is and recompute the moment crews report staged. No field assets move on my authority.",
+    tone: T.cyan,
+  },
+  "rescue-partial-evac": {
+    title: "Route A is compromised — partial evacuation",
+    body: "Smoke has cut Route A between markers 6 and 9. Structures 1 through 12 cleared on it; the remaining 35 need Route B. I have staged the Route B shift with acoustic guidance, but moving civilians onto a new corridor is your authorization, not mine. Say the word and coverage resumes.",
+    tone: T.red,
+  },
+  "handoff-pending": {
+    title: "Shift change open — authority is ambiguous",
+    body: "You have initiated a formal handover. Until the incoming shift lead enters the PIN, no operator holds authority: gates stay locked and I take no staged actions. The outgoing lead's decisions remain attached to the incident record. Transfer closes the ambiguity; nothing executes in between.",
+    tone: T.amber,
+  },
 };
 
 export function getVoiceResponseForScene(scene: SceneId) {

@@ -16,6 +16,7 @@ import {
   tracking,
   typeScale as typeTokens,
   radius,
+  space,
 } from "../tokens";
 
 const FRAME = {
@@ -39,7 +40,6 @@ const colorTokens = [
   { name: "red", value: T.red, usage: "Containment, danger, abort, and blocked authority." },
   { name: "fire", value: T.fire, usage: "Rescue, evacuation, and high-consequence actions." },
   { name: "teal", value: T.teal, usage: "Monitoring, safe states, and completed actions." },
-  { name: "yellow", value: T.cyan, usage: "Ground-team guidance and field coordination." },
   { name: "textPrimary", value: T.textPrimary, usage: "Headlines, active labels, and selected values." },
   { name: "textSecondary", value: T.textSecondary, usage: "Body copy, descriptions, and helper text." },
   { name: "textMuted", value: T.textMuted, usage: "Telemetry labels, timestamps, and quiet metadata." },
@@ -52,7 +52,7 @@ const typeScale = [
   { label: "Body copy", spec: "IBM Plex Sans 400 / 12", sample: "Recommendations explain why the system is surfacing this action." },
   { label: "Action label", spec: "IBM Plex Sans 600 / 12", sample: "Authorize containment" },
   { label: "Telemetry label", spec: "JetBrains Mono 10 / uppercase", sample: "03:49:18 UTC" },
-  { label: "Metric value", spec: "JetBrains Mono 11", sample: "91%  98%  ETA 00:43" },
+  { label: "Metric value", spec: "IBM Plex Sans 700 / 32 · tnum numerals", sample: "91%" },
 ];
 
 const operationalSemantics = [
@@ -163,11 +163,11 @@ export default function DesignSystemPage() {
         >
           Back to App
         </button>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: space.sm }}>
           <span style={{ fontSize: 14, fontWeight: 700 }}>
             FlytBase <span style={{ color: T.cyan }}>Sentinel</span>
           </span>
-          <span style={{ ...badgeStyle, color: T.cyan, borderColor: "rgba(0,200,255,0.28)" }}>
+          <span style={{ ...badgeStyle, color: T.cyan, borderColor: "rgba(28,184,230,0.28)" }}>
             Design System 2.0
           </span>
         </div>
@@ -181,7 +181,7 @@ export default function DesignSystemPage() {
           <div style={{ ...badgeStyle, display: "inline-flex", color: T.amber, borderColor: "rgba(245,166,35,0.24)", marginBottom: 12 }}>
             Synced to current operator shell
           </div>
-          <h1 style={{ margin: 0, fontSize: typeTokens.metric, lineHeight: 1.1, letterSpacing: "-0.03em" }}>
+          <h1 style={{ margin: 0, fontSize: typeTokens.metric, lineHeight: 1.1, letterSpacing: tracking.displayTight }}>
             Design System 2.0
           </h1>
           <p style={{ margin: "14px 0 0", maxWidth: 840, fontSize: 14, lineHeight: 1.65, color: T.textSecondary }}>
@@ -260,7 +260,7 @@ export default function DesignSystemPage() {
           <div style={grid2Style}>
             {actionPhases.map((phase) => (
               <Card key={phase.phase}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: space.sm, marginBottom: 10 }}>
                   <span style={{ width: 10, height: 10, borderRadius: "50%", background: phase.tone, display: "inline-block" }} />
                   <div style={{ fontSize: 15, fontWeight: 700 }}>{phase.phase}</div>
                 </div>
@@ -394,7 +394,7 @@ function SurfaceCard({ title, description, style }: { title: string; description
           marginBottom: 12,
           padding: 10,
           borderRadius: radius.overlay,
-          background: `${T.bgMap} repeating-linear-gradient(135deg, rgba(0,200,255,0.16) 0 2px, transparent 2px 10px)`,
+          background: `${T.bgMap} repeating-linear-gradient(135deg, rgba(28,184,230,0.16) 0 2px, transparent 2px 10px)`,
         }}
       >
         <div style={{ ...style, height: "100%" }} />
@@ -493,8 +493,8 @@ function PreviewTileRow({ color, secondary = false }: { color: string; secondary
 
 const topButtonStyle: CSSProperties = {
   borderRadius: 10,
-  border: "1px solid rgba(0,200,255,0.24)",
-  background: "rgba(0,200,255,0.1)",
+  border: "1px solid rgba(28,184,230,0.24)",
+  background: "rgba(28,184,230,0.1)",
   color: T.cyan,
   padding: "8px 12px",
   fontFamily: font.sans,

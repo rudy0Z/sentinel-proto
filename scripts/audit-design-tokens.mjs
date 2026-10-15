@@ -44,6 +44,22 @@ const files = walk(ROOT).filter((f) => !FILE_ALLOW.some((re) => re.test(f.replac
 const violations = [];
 const warnings = [];
 
+/*
+ * The retired instrument cyan (#00c8ff family) is a HARD FAILURE wherever it
+ * survives — it drifts from tokens.ts and was the "two sources of truth" bug
+ * of the 2025 craft pass. Scans src/app and src/styles (theme.css alias layer).
+ */
+for (const dir of ["src/app", "src/styles"]) {
+  for (const f of walk(dir).filter((f) => !FILE_ALLOW.some((re) => re.test(f.replace(/\\/g, "/"))))) {
+    const rel = f.replace(/\\/g, "/");
+    fs.readFileSync(f, "utf8").split("\n").forEach((line, i) => {
+      if (/rgba\(0,\s*200,\s*255|#00c8ff/i.test(line)) {
+        violations.push({ file: rel, line: i + 1, rule: "retired-neon-cyan", detail: line.trim() });
+      }
+    });
+  }
+}
+
 /** tracking token values — a raw letterSpacing equal to one of these is drift, not novelty.
  *  The "telemetry ± 0.02" band is treated as a permitted micro-tune so dense chips and
  *  small eyebrow labels don't each get a one-off token; the audit flags the truly novel

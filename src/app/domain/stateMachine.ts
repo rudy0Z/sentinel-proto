@@ -31,7 +31,14 @@ export type SystemEvent =
   | "operator.close-degraded"
   | "operator.voice-override"
   | "operator.stand-down-complete"
-  | "operator.resolve-dissent";
+  | "operator.resolve-dissent"
+  | "operator.clear-source-conflict"
+  | "operator.authorities-notified"
+  | "operator.authorize-route-b"
+  | "operator.initiate-shift-change"
+  | "timer.source-discrepancy"
+  | "timer.run-card-staged"
+  | "timer.route-a-blocked";
 
 export type TransitionEvent = QuickActionId | SystemEvent;
 
@@ -54,6 +61,25 @@ export interface TransitionContext {
  * gate can never be dropped by wiring a scene move around the command surface.
  */
 export type TransitionGate = "none" | "confirm" | "human-approval";
+
+/*
+ * The set of operator commands that require a human gate before they can fire
+ * (vs commands that can be staged and executed as part of supervised work).
+ * Home is the transition table itself, so the gate catalog and the table it
+ * protects cannot drift — the shell and the TALON surface both consume this
+ * one set. (Moved here from talon.ts, which re-exports for compatibility.)
+ */
+export const GATED_ACTIONS: ReadonlySet<QuickActionId> = new Set([
+  "confirm-incident",
+  "notify-authorities",
+  "authorize-containment",
+  "emergency-evacuate",
+]);
+
+/** Quick helper: is the staged operator command a gate-able one? */
+export function isGatedAction(action: { id: QuickActionId } | undefined): boolean {
+  return Boolean(action && GATED_ACTIONS.has(action.id));
+}
 
 export interface SceneTransition {
   from: SceneId | "*";
@@ -330,6 +356,75 @@ export const TRANSITIONS: SceneTransition[] = [
     effects: { resetIncident: true },
   },
 
+  /* ── Promoted states (vault 03 §2) ────────────────────────────────────
+     Four states the single-script prototype never needed: a live source
+     discrepancy during verification, the wait between notifying authorities
+     and teams actually staging, a partial evacuation, and a formal shift
+     handover. Each one is reachable, and each one has a real way out. */
+  {
+    from: "verify-active",
+    event: "timer.source-discrepancy",
+    to: "verify-source-conflict",
+    gate: "none",
+    reason: "Satellite and agricultural-burn records disagree on the heat source; verification pauses until a human reconciles them.",
+  },
+  {
+    from: "verify-source-conflict",
+    event: "operator.clear-source-conflict",
+    to: "verify-active",
+    gate: "none",
+    reason: "Operator reconciles the sources (permit on file, sensor re-tasked); verification resumes where it paused.",
+  },
+  {
+    /* Alternate acknowledgement path — the operator notified authorities off-console
+     * (radio/phone/paper) and now marks the system. This sets the SAME flag the
+     * gated `notify-authorities` edge guards, so it must never be gate-free:
+     * `gate: "none"` here was a human-gate bypass on the 90-second promise's
+     * critical moment (audit 2026-09 §P0-2). It is a human-approval gate too. */
+    from: "authority-notification-ready",
+    event: "operator.authorities-notified",
+    to: "contain-awaiting-teams",
+    gate: "human-approval",
+    guard: (context) => !context.authoritiesNotified,
+    reason: "Packet sent by human hand; the console now waits on ground teams staging, not on TALON.",
+    effects: { authoritiesNotified: true },
+  },
+  {
+    from: "contain-awaiting-teams",
+    event: "timer.run-card-staged",
+    to: "contain-recommended",
+    gate: "confirm",
+    reason: "Run-card teams report staged; TALON recomputes the staging picture against confirmed crew positions.",
+  },
+  {
+    from: "rescue-nominal",
+    event: "timer.route-a-blocked",
+    to: "rescue-partial-evac",
+    gate: "none",
+    reason: "Smoke cuts Route A mid-egress; the console shows partial evacuation honestly rather than as a failure state.",
+  },
+  {
+    from: "rescue-partial-evac",
+    event: "operator.authorize-route-b",
+    to: "rescue-nominal",
+    gate: "confirm",
+    reason: "Operator shifts the remaining civilians to Route B; coverage resumes on the promoted corridor.",
+  },
+  {
+    from: "rescue-nominal",
+    event: "operator.initiate-shift-change",
+    to: "handoff-pending",
+    gate: "confirm",
+    reason: "Shift change opens a formal transfer; authority is ambiguous until the incoming lead takes it.",
+  },
+  {
+    from: "handoff-pending",
+    event: "operator.acknowledge-handoff",
+    to: "rescue-nominal",
+    gate: "human-approval",
+    reason: "Incoming shift lead takes authority with the PIN; the outgoing lead's record stays attached to the packet.",
+  },
+
   /* ── Universal exits ────────────────────────────────────────────────── */
   {
     from: "*",
@@ -435,6 +530,14 @@ const ALL_SCENES: SceneId[] = [
   "satellite-feed-loss",
   "infrastructure-total-loss",
   "network-degraded",
+  /*
+   * Promoted states (vault 03's "planned" set — implemented in code since the
+   * atlas pass). Listed here so auditMachine covers all 20 scenes, not 16.
+   */
+  "verify-source-conflict",
+  "contain-awaiting-teams",
+  "rescue-partial-evac",
+  "handoff-pending",
 ];
 
 export function auditMachine(): MachineAudit {

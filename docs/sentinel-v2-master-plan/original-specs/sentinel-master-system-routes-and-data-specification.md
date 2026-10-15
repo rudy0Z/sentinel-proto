@@ -1,6 +1,8 @@
 # FlytBase Sentinel V2: Master System, Route Topology & Multi-Scenario Data Specification
 
-> **Document Status**: Approved Master Blueprint  
+> **Status:** historical — superseded by docs/sentinel-flagship-quality-upgrade.md (canonical build authority). Known-false claims: see README.md in this folder.
+
+> **Document Status**: Historical (quarantined) — see the status header above and the folder README.
 > **Target Audience**: AI Product Design Directors, Enterprise Autonomous Systems Engineers, Senior AI System Evaluators  
 > **Scope**: End-to-End Operational Lifecycle, Real-World WUI Data Grounding, Multi-Scenario Mock Databases, LLM Agentic Backend Integration, and UI Surface Telemetry Mapping.
 
@@ -26,7 +28,7 @@ This prototype is engineered to demonstrate two rare, intersecting senior capabi
 > **We do not use AI to automate emergency judgment. We use AI to compress the time required to reach a defensible first judgment from 15 minutes to under 90 seconds, followed by supervisory overwatch.**
 
 In an emergency initial attack, automated systems that pretend to "solve" a fire autonomously are dangerous science fiction. Sentinel splits the lifecycle:
-- **Phase 1: Intelligence Convergence (0–90 Seconds)**: Accelerating sensor triangulation, drone verification, and evidence synthesis to deliver a cryptographic, auditable **Authority Notification Packet**.
+- **Phase 1: Intelligence Convergence (0–90 Seconds)**: Accelerating sensor triangulation, drone verification, and evidence synthesis to deliver a hash-chained, auditable **mutual-aid notification draft** (TALON prepares; the operator sends).
 - **Phase 2: Tactical Operations (Post-90s Execution)**: Dynamic multi-agent coordination, corridor defense, evacuation route clearing, and exception handling under continuous human oversight.
 
 ```
@@ -40,7 +42,7 @@ In an emergency initial attack, automated systems that pretend to "solve" a fire
 │ • Thermal Anomaly Triangulation        │ • Dispatch: Ground Team Corridor Ingress (Route A/B)  │
 │ • Tactical Drone Scout Dispatch        │ • Evacuation: Civilian Structure Clearance Tracking   │
 │ • Multi-Source Conflict Resolution     │ • Dynamic Reroute: Wind Shifts & Flare-ups            │
-│ • Cryptographic Authority Packet       │ • Exception Handling: Signal/Battery/Sensor Degradation│
+│ • Mutual-Aid Notification Draft        │ • Exception Handling: Signal/Battery/Sensor Degradation│
 │ • HARD HUMAN GATE: Incident Escalation │ • Closeout: Blackline Containment & Forensic Audit    │
 └────────────────────────────────────────┴───────────────────────────────────────────────────────┘
 ```
@@ -149,8 +151,8 @@ stateDiagram-v2
 * **Routes**: `/scene-authority-notification-ready`, `/core-authority`
 * **Operational Mode**: `escalation` | **Workflow Phase**: `intelligence` (Final 15 seconds of the 90s countdown)
 * **Event**: Operator checks box: *"Confirm agricultural burn permit checked & invalid (burn exceeds permit perimeter)"*.
-* **TALON Action**: Instantly compiles **Authority Notification Packet AUD-90-0847**.
-* **HITL Policy (Class 3 Hard Gate)**: Sending notification to Regional Fire Dispatch (CAL FIRE Northern Command) triggers statutory emergency powers. Requires **2-second continuous hold** on the command plinth.
+* **TALON Action**: Instantly compiles the **mutual-aid notification draft AUD-90-0847** with a hash-chained receipt.
+* **HITL Policy (Class 3 Hard Gate)**: The notification to Regional Fire Dispatch (CAL FIRE Northern Command) is a mutual-aid notification draft — TALON prepares it and never sends; the operator does. No legal-instrument authority is claimed. Requires **2-second continuous hold** on the command plinth.
 
 #### Stage 4: Containment Staging & Plan Pitch
 * **Routes**: `/scene-contain-recommended`, `/scene-contain-alternate`, `/scene-contain-degraded`
@@ -408,7 +410,7 @@ interface AuthorityPacket {
   generatedAtUtc: string;
   sentAtUtc?: string;
   authorizingOperatorId: string;
-  cryptographicSignature: string; // SHA-256 hash of all packet payload
+  receiptHash: string;           // hash-chained event receipt (node:crypto, implemented in S3)
   incidentSeverityGrade: "Grade-1-Initial" | "Grade-2-Substantial" | "Grade-3-Catastrophic";
   evidenceBundle: {
     activeSourceCount: number;
@@ -417,7 +419,7 @@ interface AuthorityPacket {
     thermalPeakF: number;
     estimatedROS_Mpm: number;
   };
-  statutoryJurisdictionNotified: "CAL_FIRE_NORTH_OPS" | "USFS_REGION_5" | "COUNTY_OES";
+  mutualAidAgencyNotified: "CAL_FIRE_NORTH_OPS" | "USFS_REGION_5" | "COUNTY_OES";
 }
 
 interface OperatorDissentRecord {
@@ -472,8 +474,8 @@ To demonstrate rigorous AI safety, every action TALON can take is governed by th
 | Class | Name | Actions Included | Authorization Requirement |
 |---|---|---|---|
 | **Class 1** | **Autonomous Telemetry Synthesis** | Sensor fusion, thermal contour generation, dead-reckoning trajectory recalculation, camera gimbal tracking. | **100% Autonomous**. Runs continuously without operator interruption. |
-| **Class 2** | **Supervised Tactical Adjustments** | Drone patrol orbit adjustment, Scout-03 intercept dispatch for dead battery, pre-staging emergency evacuation alerts. | **One-Click Affirmation / Automatic Timeout**. TALON stages the action; operator can click `Confirm` or veto. |
-| **Class 3** | **Irreversible High-Consequence Acts** | Statutory Authority Notification, Evacuation Corridor Closure, Suppression Chemical Drops, Calling Black Sky Fallback. | **Strict 2-Second Hold + Multi-Factor Operator Gate**. TALON is strictly forbidden from executing autonomously under any circumstance. |
+| **Class 2** | **Supervised Tactical Adjustments** | Drone patrol orbit adjustment, Scout-03 intercept dispatch for dead battery, pre-staging emergency evacuation alerts. | **Staged action; operator confirms or vetoes.** A staged action expires back to watch; expiry is logged; expiry is never execution. Silence at a staged gate leaves state unchanged. |
+| **Class 3** | **Irreversible High-Consequence Acts** | Mutual-Aid Notification (operator sends; TALON never does), Evacuation Corridor Closure, Suppression Chemical Drops, Calling Black Sky Fallback. | **Strict 2-Second Hold + Multi-Factor Operator Gate**. TALON is strictly forbidden from executing autonomously under any circumstance. |
 
 ### 5.2 Structured Tool / Function Calling Schema
 
@@ -527,14 +529,14 @@ export const talonToolDeclarations = [
   },
   {
     name: "generate_authority_packet",
-    description: "Compiles all corroborating sensor streams, acreage measurements, and VAR data into cryptographic packet AUD-90-0847.",
+    description: "Compiles all corroborating sensor streams, acreage measurements, and VAR data into a hash-chained mutual-aid notification draft (AUD-90-0847). Draft only — TALON never sends it.",
     parameters: {
       type: "object",
       properties: {
         incidentSeverity: { type: "string", enum: ["Grade-1", "Grade-2", "Grade-3"] },
-        statutoryAgency: { type: "string", enum: ["CAL_FIRE_NORTH", "USFS_REGION_5", "COUNTY_DISPATCH"] }
+        mutualAidAgency: { type: "string", enum: ["CAL_FIRE_NORTH", "USFS_REGION_5", "COUNTY_DISPATCH"] }
       },
-      required: ["incidentSeverity", "statutoryAgency"]
+      required: ["incidentSeverity", "mutualAidAgency"]
     }
   }
 ];

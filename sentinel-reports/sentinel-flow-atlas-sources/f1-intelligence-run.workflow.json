@@ -1,0 +1,235 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "F1 — The 90-second intelligence run",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "guided-run",
+        "label": "Guided 90-second run",
+        "focus": [
+          "entry",
+          "alert",
+          "scout",
+          "review",
+          "packet",
+          "staging",
+          "rescue"
+        ],
+        "note": "Simulation timers make the seller story repeatable; the promise ends at a human gate."
+      },
+      {
+        "id": "human-gates",
+        "label": "Human authorization gates",
+        "focus": [
+          "review",
+          "packet",
+          "staging",
+          "rescue"
+        ],
+        "note": "TALON prepares; only the operator confirms, notifies, and authorizes."
+      },
+      {
+        "id": "contested-branch",
+        "label": "Operator overrules TALON",
+        "focus": [
+          "review",
+          "contested",
+          "appeal"
+        ],
+        "note": "Dissent is captured with a reason; TALON may appeal to a second authority."
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "journey",
+      "label": "Intelligence journey"
+    },
+    {
+      "id": "authority",
+      "label": "Authority packet"
+    },
+    {
+      "id": "operations",
+      "label": "Operations"
+    },
+    {
+      "id": "execution",
+      "label": "Supervised execution"
+    },
+    {
+      "id": "dissent",
+      "label": "Dissent path",
+      "variant": "exception"
+    }
+  ],
+  "mainPath": [
+    "entry",
+    "alert",
+    "scout",
+    "review",
+    "packet",
+    "staging"
+  ],
+  "nodes": [
+    {
+      "id": "entry",
+      "lane": "journey",
+      "col": 0,
+      "type": "frontend",
+      "label": "Quiet Watch",
+      "sublabel": "entry · brief · SEN-01",
+      "width": 112,
+      "tag": "SEN-90 → 01"
+    },
+    {
+      "id": "alert",
+      "lane": "journey",
+      "col": 2,
+      "type": "messagebus",
+      "label": "Anomaly Alert",
+      "sublabel": "timer / surface-alert",
+      "width": 106,
+      "tag": "SEN-02"
+    },
+    {
+      "id": "scout",
+      "lane": "journey",
+      "col": 3,
+      "type": "backend",
+      "label": "Scout En Route",
+      "sublabel": "dispatch [confirm]",
+      "width": 96,
+      "tag": "SEN-03"
+    },
+    {
+      "id": "review",
+      "lane": "journey",
+      "col": 4,
+      "type": "security",
+      "label": "Operator Review",
+      "sublabel": "78% · limits disclosed",
+      "width": 104,
+      "tag": "SEN-04"
+    },
+    {
+      "id": "packet",
+      "lane": "authority",
+      "col": 4,
+      "type": "security",
+      "label": "Authority Packet",
+      "sublabel": "human-approval",
+      "width": 112,
+      "tag": "SEN-05"
+    },
+    {
+      "id": "staging",
+      "lane": "operations",
+      "col": 4,
+      "type": "backend",
+      "label": "Plan Staging",
+      "sublabel": "human-approval",
+      "width": 112,
+      "tag": "SEN-06"
+    },
+    {
+      "id": "rescue",
+      "lane": "execution",
+      "col": 4,
+      "width": 104,
+      "type": "frontend",
+      "label": "Active Rescue",
+      "sublabel": "authorize [hold]",
+      "tag": "SEN-09"
+    },
+    {
+      "id": "contested",
+      "lane": "dissent",
+      "col": 3,
+      "type": "security",
+      "label": "Contested Watch",
+      "sublabel": "monitor-only + dissent",
+      "width": 104,
+      "tag": "SEN-11"
+    },
+    {
+      "id": "appeal",
+      "lane": "dissent",
+      "col": 4,
+      "type": "backend",
+      "label": "TALON Appeals",
+      "sublabel": "second authority",
+      "width": 100,
+      "tag": "SEN-12"
+    }
+  ],
+  "edges": [
+    {
+      "from": "entry",
+      "to": "alert",
+      "label": "timer: alert"
+    },
+    {
+      "from": "alert",
+      "to": "scout",
+      "label": "dispatch-scout [confirm]"
+    },
+    {
+      "from": "scout",
+      "to": "review",
+      "label": "timer: investigation complete"
+    },
+    {
+      "from": "review",
+      "to": "packet",
+      "label": "confirm-incident [human-approval]",
+      "variant": "emphasis"
+    },
+    {
+      "from": "review",
+      "to": "contested",
+      "label": "monitor-only [confirm] + dissent",
+      "variant": "dashed"
+    },
+    {
+      "from": "contested",
+      "to": "appeal",
+      "label": "raised bar crossed",
+      "variant": "dashed"
+    },
+    {
+      "from": "packet",
+      "to": "staging",
+      "label": "notify-authorities [human-approval]",
+      "variant": "emphasis"
+    },
+    {
+      "from": "staging",
+      "to": "rescue",
+      "label": "authorize [hold]",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "The 90-second promise ends at a human gate",
+      "items": [
+        "TALON assembles evidence and prepares the packet",
+        "Only the operator confirms, notifies, and authorizes",
+        "Guided timers make the run repeatable for evaluators"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Dissent is never silent",
+      "items": [
+        "Overruling TALON lands in contested watch, not baseline",
+        "The re-raise bar rises with the stated reason",
+        "TALON may appeal once, to a second authority"
+      ]
+    }
+  ]
+}

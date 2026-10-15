@@ -36,24 +36,15 @@ export interface AuthorityPacket {
 }
 
 /*
- * The set of operator commands that *do* need a human gate before they fire
- * (vs commands that can be staged and executed as part of supervised work).
- * One source of truth: deriveTalonSurface (voice tone) and
- * getTalonSessionRecommendation (session phase) both consume this set. M3
- * originally let each definition drift, which made the orb say "operator
- * review" while the conversation said "human-gate" on the same scene.
+ * The set of operator commands that *do* need a human gate before they fire.
+ * Home is now the transition table (stateMachine.ts) so the gate catalog and
+ * the table it protects cannot drift. Re-exported here because
+ * deriveTalonSurface (voice tone) and getTalonSessionRecommendation (session
+ * phase) — and their consumers — reach it through this module.
  */
-export const GATED_ACTIONS: ReadonlySet<QuickActionId> = new Set([
-  "confirm-incident",
-  "notify-authorities",
-  "authorize-containment",
-  "emergency-evacuate",
-]);
+import { GATED_ACTIONS } from "./stateMachine";
 
-/** Quick helper: is the staged operator command a gate-able one? */
-export function isGatedAction(action: { id: QuickActionId } | undefined): boolean {
-  return Boolean(action && GATED_ACTIONS.has(action.id));
-}
+export { GATED_ACTIONS, isGatedAction } from "./stateMachine";
 
 export const TALON_PROMPT_CHIPS: Array<{ id: TalonChipId; label: string }> = [
   { id: "why-now", label: "Why now?" },
@@ -346,6 +337,15 @@ const SIGNAL_PROFILES: Record<SceneId, SignalProfile> = {
   "satellite-feed-loss": { thermal: [32, 21], structures: [29, 31], confidence: [62, 40], live: false, entryProgress: 0.85 },
   "network-degraded": { thermal: [34, 27], structures: [30, 34], confidence: [66, 52], live: false, entryProgress: 0.85 },
   "infrastructure-total-loss": { thermal: [30, 22], structures: [18, 18], confidence: [40, 0], live: false, entryProgress: 0.9 },
+  /* Promoted states (vault 03 §2). verify-source-conflict sits mid-verification:
+     evidence keeps arriving but fusion confidence is discounted while sources
+     disagree. contain-awaiting-teams holds at the authority plateau. Partial
+     evacuation reads as containment working with structures clearing slower.
+     handoff-pending is a settled verification picture held under two operators. */
+  "verify-source-conflict": { thermal: [24, 40], structures: [20, 38], confidence: [58, 64], live: true, entryProgress: 0.5 },
+  "contain-awaiting-teams": { thermal: [40, 50], structures: [40, 46], confidence: [72, 76], live: false, entryProgress: 0.8 },
+  "rescue-partial-evac": { thermal: [50, 24], structures: [16, 26], confidence: [76, 72], live: true, entryProgress: 0.35 },
+  "handoff-pending": { thermal: [48, 30], structures: [18, 30], confidence: [78, 80], live: false, entryProgress: 0.7 },
 };
 
 const SERIES_POINTS = 6;

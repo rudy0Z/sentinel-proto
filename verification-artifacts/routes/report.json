@@ -11,7 +11,9 @@
       "horizontalOverflow": false,
       "reviewDockCount": 1,
       "droneMarkers": 10,
-      "modalCount": 0
+      "modalCount": 0,
+      "deckOverflowY": 0,
+      "deckOffscreenTiles": 0
     },
     "contractFailures": [],
     "accessibilityViolations": [],
@@ -29,7 +31,9 @@
       "horizontalOverflow": false,
       "reviewDockCount": 1,
       "droneMarkers": 10,
-      "modalCount": 0
+      "modalCount": 0,
+      "deckOverflowY": 0,
+      "deckOffscreenTiles": 0
     },
     "contractFailures": [],
     "accessibilityViolations": [],
@@ -47,7 +51,9 @@
       "horizontalOverflow": false,
       "reviewDockCount": 1,
       "droneMarkers": 10,
-      "modalCount": 0
+      "modalCount": 0,
+      "deckOverflowY": 0,
+      "deckOffscreenTiles": 0
     },
     "contractFailures": [],
     "accessibilityViolations": [],
@@ -65,7 +71,9 @@
       "horizontalOverflow": false,
       "reviewDockCount": 1,
       "droneMarkers": 10,
-      "modalCount": 0
+      "modalCount": 0,
+      "deckOverflowY": 0,
+      "deckOffscreenTiles": 0
     },
     "contractFailures": [],
     "accessibilityViolations": [],
@@ -83,7 +91,9 @@
       "horizontalOverflow": false,
       "reviewDockCount": 1,
       "droneMarkers": 10,
-      "modalCount": 0
+      "modalCount": 0,
+      "deckOverflowY": 0,
+      "deckOffscreenTiles": 0
     },
     "contractFailures": [],
     "accessibilityViolations": [],
@@ -101,7 +111,9 @@
       "horizontalOverflow": false,
       "reviewDockCount": 1,
       "droneMarkers": 13,
-      "modalCount": 0
+      "modalCount": 0,
+      "deckOverflowY": 0,
+      "deckOffscreenTiles": 0
     },
     "contractFailures": [],
     "accessibilityViolations": [],
@@ -119,7 +131,9 @@
       "horizontalOverflow": false,
       "reviewDockCount": 1,
       "droneMarkers": 13,
-      "modalCount": 0
+      "modalCount": 0,
+      "deckOverflowY": 0,
+      "deckOffscreenTiles": 0
     },
     "contractFailures": [],
     "accessibilityViolations": [],
@@ -137,7 +151,9 @@
       "horizontalOverflow": false,
       "reviewDockCount": 1,
       "droneMarkers": 13,
-      "modalCount": 0
+      "modalCount": 0,
+      "deckOverflowY": 0,
+      "deckOffscreenTiles": 0
     },
     "contractFailures": [],
     "accessibilityViolations": [],
@@ -155,7 +171,9 @@
       "horizontalOverflow": false,
       "reviewDockCount": 1,
       "droneMarkers": 13,
-      "modalCount": 0
+      "modalCount": 0,
+      "deckOverflowY": 0,
+      "deckOffscreenTiles": 0
     },
     "contractFailures": [],
     "accessibilityViolations": [],
@@ -173,7 +191,9 @@
       "horizontalOverflow": false,
       "reviewDockCount": 1,
       "droneMarkers": 13,
-      "modalCount": 0
+      "modalCount": 0,
+      "deckOverflowY": 0,
+      "deckOffscreenTiles": 0
     },
     "contractFailures": [],
     "accessibilityViolations": [],
@@ -191,7 +211,9 @@
       "horizontalOverflow": false,
       "reviewDockCount": 1,
       "droneMarkers": 10,
-      "modalCount": 0
+      "modalCount": 0,
+      "deckOverflowY": 0,
+      "deckOffscreenTiles": 0
     },
     "contractFailures": [],
     "accessibilityViolations": [],
@@ -209,7 +231,9 @@
       "horizontalOverflow": false,
       "reviewDockCount": 1,
       "droneMarkers": 10,
-      "modalCount": 0
+      "modalCount": 0,
+      "deckOverflowY": 0,
+      "deckOffscreenTiles": 0
     },
     "contractFailures": [],
     "accessibilityViolations": [],
@@ -227,7 +251,9 @@
       "horizontalOverflow": false,
       "reviewDockCount": 1,
       "droneMarkers": 13,
-      "modalCount": 0
+      "modalCount": 0,
+      "deckOverflowY": 0,
+      "deckOffscreenTiles": 0
     },
     "contractFailures": [],
     "accessibilityViolations": [],
@@ -245,7 +271,9 @@
       "horizontalOverflow": false,
       "reviewDockCount": 1,
       "droneMarkers": 13,
-      "modalCount": 0
+      "modalCount": 0,
+      "deckOverflowY": 0,
+      "deckOffscreenTiles": 0
     },
     "contractFailures": [],
     "accessibilityViolations": [],
@@ -263,7 +291,9 @@
       "horizontalOverflow": false,
       "reviewDockCount": 1,
       "droneMarkers": 13,
-      "modalCount": 0
+      "modalCount": 0,
+      "deckOverflowY": 0,
+      "deckOffscreenTiles": 0
     },
     "contractFailures": [],
     "accessibilityViolations": [],
@@ -281,7 +311,9 @@
       "horizontalOverflow": false,
       "reviewDockCount": 1,
       "droneMarkers": 13,
-      "modalCount": 0
+      "modalCount": 0,
+      "deckOverflowY": 0,
+      "deckOffscreenTiles": 0
     },
     "contractFailures": [],
     "accessibilityViolations": [],
@@ -300,7 +332,9 @@
       "horizontalOverflow": false,
       "reviewDockCount": 1,
       "droneMarkers": 10,
-      "modalCount": 0
+      "modalCount": 0,
+      "deckOverflowY": 0,
+      "deckOffscreenTiles": 0
     },
     "contractFailures": [],
     "accessibilityViolations": [],
@@ -319,7 +353,9 @@
       "horizontalOverflow": false,
       "reviewDockCount": 1,
       "droneMarkers": 10,
-      "modalCount": 0
+      "modalCount": 0,
+      "deckOverflowY": 0,
+      "deckOffscreenTiles": 0
     },
     "contractFailures": [],
     "accessibilityViolations": [],
@@ -338,7 +374,9 @@
       "horizontalOverflow": false,
       "reviewDockCount": 1,
       "droneMarkers": 10,
-      "modalCount": 0
+      "modalCount": 0,
+      "deckOverflowY": 0,
+      "deckOffscreenTiles": 0
     },
     "contractFailures": [],
     "accessibilityViolations": [],
@@ -357,7 +395,9 @@
       "horizontalOverflow": false,
       "reviewDockCount": 1,
       "droneMarkers": 13,
-      "modalCount": 0
+      "modalCount": 0,
+      "deckOverflowY": 0,
+      "deckOffscreenTiles": 0
     },
     "contractFailures": [],
     "accessibilityViolations": [],
@@ -376,7 +416,9 @@
       "horizontalOverflow": false,
       "reviewDockCount": 1,
       "droneMarkers": 13,
-      "modalCount": 0
+      "modalCount": 0,
+      "deckOverflowY": 0,
+      "deckOffscreenTiles": 0
     },
     "contractFailures": [],
     "accessibilityViolations": [],
@@ -396,7 +438,9 @@
       "horizontalOverflow": false,
       "reviewDockCount": 1,
       "droneMarkers": 13,
-      "modalCount": 0
+      "modalCount": 0,
+      "deckOverflowY": 0,
+      "deckOffscreenTiles": 0
     },
     "contractFailures": [],
     "accessibilityViolations": [],
@@ -415,7 +459,9 @@
       "horizontalOverflow": false,
       "reviewDockCount": 0,
       "droneMarkers": 10,
-      "modalCount": 0
+      "modalCount": 0,
+      "deckOverflowY": 0,
+      "deckOffscreenTiles": 0
     },
     "contractFailures": [],
     "accessibilityViolations": [],

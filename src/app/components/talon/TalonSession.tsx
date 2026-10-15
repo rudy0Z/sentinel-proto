@@ -230,6 +230,11 @@ export function TalonSession({
     if (!expanded && variant !== "modal") return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        /* Window-CAPTURE: this outranks every bubble-phase handler, including the
+         * ActionModal's own Escape. When a command modal is open, the modal owns
+         * Escape for its lifetime. Without this guard an expanded session behind
+         * a modal swallows the key and the operator cannot dismiss the dialog. */
+        if (document.querySelector('[role="dialog"]')) return;
         event.preventDefault();
         event.stopPropagation();
         if (isBusy) {

@@ -2,11 +2,11 @@
 
 /*
  * Focus-visible ring — only appears when navigating via keyboard.
- * Uses the system cyan accent (#00C8FF) at 60% opacity to stay
+ * Uses the system cyan accent (see tokens.ts T.cyan) at 60% opacity to stay
  * consistent with the Sentinel design language.
  */
 :focus-visible {
-  outline: 2px solid rgba(0, 200, 255, 0.6);
+  outline: 2px solid rgba(28, 184, 230, 0.6);
   outline-offset: 2px;
 }
 
@@ -19,7 +19,7 @@
 button:focus-visible,
 [role="button"]:focus-visible,
 [tabindex="0"]:focus-visible {
-  outline: 2px solid rgba(0, 200, 255, 0.6);
+  outline: 2px solid rgba(28, 184, 230, 0.6);
   outline-offset: 2px;
   transition: outline-offset 120ms ease;
 }

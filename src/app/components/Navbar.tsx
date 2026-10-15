@@ -3,6 +3,7 @@ import { FOCUSED_INCIDENT_QUEUE, INCIDENT, getIncidentQueueItem } from "../mockD
 import { WORKFLOW_META, ShellState, T, border, font, motion, radius, space, surface, tint, tracking, typeScale, typeStyle, typeWeight } from "../tokens";
 import { OperationalIcon } from "./OperationalIcon";
 import { PopoverSurface, usePopoverDismissal } from "./shared/PopoverSurface";
+import { ScenarioSelectorControl } from "./shell/ScenarioSwitcher";
 
 interface NavbarProps {
   state: ShellState;
@@ -13,6 +14,9 @@ interface NavbarProps {
   timelineOpen?: boolean;
   timelineTriggerRef?: RefObject<HTMLButtonElement>;
   coreMode?: boolean;
+  selectedScenarioId?: string;
+  onSelectScenario?: (id: string) => void;
+  onOpenDebrief?: () => void;
 }
 
 export function Navbar({
@@ -24,6 +28,9 @@ export function Navbar({
   timelineOpen,
   timelineTriggerRef,
   coreMode = false,
+  selectedScenarioId,
+  onSelectScenario,
+  onOpenDebrief,
 }: NavbarProps) {
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window === "undefined" ? 1440 : window.innerWidth,
@@ -45,7 +52,17 @@ export function Navbar({
       {!narrow ? <VerticalDivider /> : null}
 
       <IncidentStatusBlock state={state} compact={compact} />
-      {!coreMode && !narrow ? <IncidentQueueControl state={state} /> : null}
+      {!coreMode && !narrow ? (
+        <div style={{ display: "flex", alignItems: "center", gap: space.sm, flexShrink: 0 }}>
+          <IncidentQueueControl state={state} />
+          {onSelectScenario ? (
+            <ScenarioSelectorControl
+              selectedId={selectedScenarioId ?? "S-01"}
+              onSelect={onSelectScenario}
+            />
+          ) : null}
+        </div>
+      ) : null}
 
       <div style={{ flex: "1 1 auto", minWidth: 12 }} />
 
@@ -69,7 +86,10 @@ export function Navbar({
 
       {!coreMode ? <VerticalDivider /> : null}
 
-      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flexShrink: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: space.sm, minWidth: 0, flexShrink: 0 }}>
+        {!coreMode && !compact && onOpenDebrief && (
+          <DebriefButton state={state} onOpenDebrief={onOpenDebrief} />
+        )}
         {!coreMode && !compact && onShiftHandover && (
           <HandoverButton state={state} onShiftHandover={onShiftHandover} />
         )}
@@ -387,6 +407,42 @@ function VerticalDivider() {
   return <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.08)", flexShrink: 0 }} aria-hidden="true" />;
 }
 
+function DebriefButton({ state, onOpenDebrief }: { state: ShellState; onOpenDebrief: () => void }) {
+  const isActive = state.scene !== "baseline";
+  const btnColor = isActive ? T.teal : T.textSecondary;
+  const bgAlpha = isActive ? "rgba(45,212,160,0.12)" : "rgba(255,255,255,0.04)";
+  const borderColor = isActive ? "rgba(45,212,160,0.3)" : "rgba(255,255,255,0.08)";
+  return (
+    <button
+      type="button"
+      onClick={onOpenDebrief}
+      title="Open ICS-209 Incident Debrief & Authority Packet"
+      aria-label="Open incident debrief"
+      data-action="open-debrief-button"
+      style={{
+        background: bgAlpha,
+        border: `1px solid ${borderColor}`,
+        borderRadius: radius.control,
+        padding: "6px 9px",
+        fontFamily: font.sans,
+        fontSize: typeScale.label,
+        fontWeight: typeWeight.semibold,
+        color: btnColor,
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        transition: `background ${motion.fast}, border-color ${motion.fast}, color ${motion.fast}`,
+        flexShrink: 0,
+        height: 30,
+      }}
+    >
+      <OperationalIcon actionId="confirm-incident" color={btnColor} size={13} />
+      Debrief (ICS-209)
+    </button>
+  );
+}
+
 function HandoverButton({ state, onShiftHandover }: { state: ShellState; onShiftHandover: () => void }) {
   const isActive = state.scene !== "baseline";
   const btnColor = isActive ? T.amber : T.textSecondary;
@@ -431,7 +487,7 @@ function OperatorClock({
 }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-      <span style={{ fontFamily: font.mono, fontSize: typeScale.title, fontWeight: typeWeight.bold, color: T.textPrimary, letterSpacing: "0.04em" }}>{timeString} UTC</span>
+      <span style={{ fontFamily: font.mono, fontSize: typeScale.title, fontWeight: typeWeight.bold, color: T.textPrimary, letterSpacing: "0.04em", fontFeatureSettings: '"tnum"' }}>{timeString} UTC</span>
       {!hideOperator ? <span
         style={{
           display: "inline-flex",
@@ -441,8 +497,8 @@ function OperatorClock({
           fontSize: typeScale.label,
           color: T.cyan,
           padding: "3px 8px",
-          background: "rgba(0,200,255,0.1)",
-          border: "1px solid rgba(0,200,255,0.2)",
+          background: "rgba(28,184,230,0.1)",
+          border: "1px solid rgba(28,184,230,0.2)",
           borderRadius: radius.control,
         }}
         title="Operator on authority"

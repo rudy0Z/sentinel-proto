@@ -9,7 +9,9 @@ import {
 } from "react";
 import mapBackdrop from "../../assets/sentinel-map-overhaul.png";
 import mapPreIncident from "../../assets/map-preincident.png";
-import { ANOMALY, SPREAD_RINGS } from "../mockData";
+import { ANOMALY } from "../mockData";
+import { FIRE, activeFront, burnScarPolygon, burnedAcres } from "./fire/fireModel";
+import { localToUv } from "./world/world";
 import { RouteArrowDefs, RouteLine } from "../components/RouteLine";
 import {
   SelectedEntity,
@@ -25,7 +27,7 @@ import {
   typeWeight,
   space,
 } from "../tokens";
-import { MAP_DISPLAY, fromPixel, fromScreen, toPixel, toScreen } from "./frame";
+import { MAP_DISPLAY, MAP_NATIVE, clamp01, fromPixel, fromScreen, toPixel, toScreen } from "./frame";
 import {
   ZONE_MODELS,
   applyZoneMargin,
@@ -38,13 +40,66 @@ import { createTransit, transitPoint, type TransitState } from "./agents";
 import { getNamedRoute, routeToSvgPath } from "./routes";
 import { ZonePolygons, ZoneEnvelope, RoadDebugLayer, AnomalyMarker } from "./render/ZoneLayer";
 import { DroneMarker, TeamMarker, agentStatusColor } from "./render/AgentMarkers";
-import { MapLabel, toneFromColor } from "./render/MapLabel";
+import { MapLabel, MapLabelSvg, toneFromColor } from "./render/MapLabel";
 import type { AgentKind, MapPoint, ZoneModel } from "./types";
 
 /** Shell may pass optional route authority before it is promoted onto ShellState. */
 export type SpatialMapState = ShellState & {
   selectedEvacuationRouteId?: string | null;
 };
+
+/**
+ * Normalized 2D viewport: which part of the frame the operator is looking at.
+ *
+ * `u`/`v` are the CENTRE in MapFrame normalized space, `zoom` is 1 = the whole
+ * frame. This is the unit 3D hands back on exit, so a sector inspected in
+ * EXPLORE is the sector the operator lands on in 2D — spatial context must not
+ * be lost by leaving the 3D view.
+ */
+export interface MapView {
+  u: number;
+  v: number;
+  zoom: number;
+}
+
+export const FULL_FRAME_VIEW: MapView = { u: 0.5, v: 0.5, zoom: 1 };
+
+/**
+ * Project a fire polygon (world-local metres) to an SVG `points` string.
+ *
+ * Goes through the SAME coordinate law as every other spatial layer —
+ * local metres → MapFrame u/v → the shared slice transform — so the fire
+ * cannot drift out of register with the basemap the way an independently
+ * authored overlay would.
+ */
+function fireAttr(poly: Array<[number, number]>): string {
+  return poly
+    .map(([x, y]) => {
+      const s = toScreen(localToUv(x, y));
+      return `${s.x.toFixed(1)},${s.y.toFixed(1)}`;
+    })
+    .join(" ");
+}
+
+/** Zoom is bounded: below ~1 the frame edges enter the shell gaps. */
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 6;
+
+/**
+ * Resolve a MapView into the viewBox-space window the map is drawn through.
+ * Zoom about the frame centre keeps the maths symmetric and means `zoom: 1`
+ * is exactly the untransformed full-frame layout — no special case.
+ */
+function viewWindow(view: MapView): { cx: number; cy: number; w: number; h: number } {
+  const w = MAP_DISPLAY.width / view.zoom;
+  const h = MAP_DISPLAY.height / view.zoom;
+  return {
+    cx: clamp01(view.u) * MAP_DISPLAY.width,
+    cy: clamp01(view.v) * MAP_DISPLAY.height,
+    w,
+    h,
+  };
+}
 
 export interface SpatialMapCanvasProps {
   state: SpatialMapState;
@@ -56,6 +111,13 @@ export interface SpatialMapCanvasProps {
   onUpdateState?: (updater: (draft: ShellState) => void) => void;
   coreMode?: boolean;
   showRoadDebug?: boolean;
+  /**
+   * Sector to show on mount / when the shell re-seeds it (3D exit). Changes to
+   * the object identity are treated as an external hand-off and applied.
+   */
+  initialView?: MapView | null;
+  /** Fired when the operator pans or zooms, so 3D can pick the sector up. */
+  onViewChange?: (view: MapView) => void;
 }
 
 const INVESTIGATION_SCENES = new Set<ShellState["scene"]>([
@@ -178,6 +240,8 @@ export function SpatialMapCanvas({
   onUpdateState,
   coreMode = false,
   showRoadDebug = false,
+  initialView,
+  onViewChange,
 }: SpatialMapCanvasProps) {
   const reducedMotion = usePrefersReducedMotion();
   const [failedMap, setFailedMap] = useState<Record<string, boolean>>({});
@@ -195,6 +259,104 @@ export function SpatialMapCanvas({
   const suppressClickRef = useRef<string | null>(null);
   const suppressClickTimerRef = useRef<number | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
+
+  /* ── 2D viewport (pan / zoom) ──────────────────────────────────────────────
+   * One transform drives BOTH the backdrop and the overlay SVG, so the photo
+   * and everything drawn on it stay locked together. It is applied as a CSS
+   * transform rather than by rewriting the viewBox because the viewBox is also
+   * the pointer-mapping law (see pointerToNative) — keeping it fixed means only
+   * ONE inverse has to be maintained.
+   */
+  const [view, setView] = useState<MapView>(initialView ?? FULL_FRAME_VIEW);
+  const onViewChangeRef = useRef(onViewChange);
+  onViewChangeRef.current = onViewChange;
+
+  // An external hand-off (3D exit, deep-link) replaces the local view.
+  useEffect(() => {
+    if (!initialView) return;
+    setView(initialView);
+  }, [initialView]);
+
+  const applyView = useCallback((next: MapView) => {
+    const clamped: MapView = {
+      u: clamp01(next.u),
+      v: clamp01(next.v),
+      zoom: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, next.zoom)),
+    };
+    setView(clamped);
+    onViewChangeRef.current?.(clamped);
+  }, []);
+
+  const win = viewWindow(view);
+  // Zoom about the frame centre: content scales, the window stays put.
+  const viewTransform = `translate(${MAP_DISPLAY.width / 2}px, ${MAP_DISPLAY.height / 2}px) scale(${view.zoom}) translate(${-MAP_DISPLAY.width / 2}px, ${-MAP_DISPLAY.height / 2}px)`;
+
+  /* ── Pan / zoom input ──────────────────────────────────────────────────────
+   * Wheel zooms toward the cursor. Drag pans, but ONLY when the gesture starts
+   * on the map background: entity markers install their own pointerdown and
+   * capture, and a map pan must never steal an asset drag-assign.
+   */
+  const panRef = useRef<{ x: number; y: number; u: number; v: number; id: number } | null>(null);
+
+  const handleWheel = useCallback((event: React.WheelEvent<SVGSVGElement>) => {
+    if (reducedMotion) return;
+    const svg = svgRef.current;
+    if (!svg) return;
+    const native = pointerToNative(event.clientX, event.clientY);
+    if (!native) return;
+    const from = { ...view };
+    const nextZoom = from.zoom * (event.deltaY < 0 ? 1.14 : 1 / 1.14);
+    const zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, nextZoom));
+    // Keep the map point under the cursor pinned while the scale changes.
+    const anchorU = native.x / MAP_NATIVE.width;
+    const anchorV = native.y / MAP_NATIVE.height;
+    const k = from.zoom / zoom;
+    applyView({
+      u: anchorU + (from.u - anchorU) * k,
+      v: anchorV + (from.v - anchorV) * k,
+      zoom,
+    });
+  }, [view, applyView, reducedMotion]);
+
+  const handleMapPanStart = useCallback((event: ReactPointerEvent<SVGSVGElement>) => {
+    // Only background gestures pan; anything with its own handler owns the press.
+    if (event.button !== 0) return;
+    if (event.target !== event.currentTarget) return;
+    if (view.zoom <= MIN_ZOOM) return;
+    panRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+      u: view.u,
+      v: view.v,
+      id: event.pointerId,
+    };
+  }, [view.u, view.v, view.zoom]);
+
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const onMove = (e: PointerEvent) => {
+      const pan = panRef.current;
+      if (!pan || e.pointerId !== pan.id) return;
+      const rect = svg.getBoundingClientRect();
+      const svgScale = Math.max(rect.width / MAP_DISPLAY.width, rect.height / MAP_DISPLAY.height);
+      // Drag right → content moves right → centre moves left in normalized space.
+      const du = (e.clientX - pan.x) / svgScale / MAP_DISPLAY.width / view.zoom;
+      const dv = (e.clientY - pan.y) / svgScale / MAP_DISPLAY.height / view.zoom;
+      applyView({ u: pan.u - du, v: pan.v - dv, zoom: view.zoom });
+    };
+    const onUp = (e: PointerEvent) => {
+      if (panRef.current && e.pointerId === panRef.current.id) panRef.current = null;
+    };
+    svg.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      svg.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+  }, [applyView, view.zoom]);
 
   const showContain = state.mode === "contain";
   const showRescue = state.mode === "rescue";
@@ -389,12 +551,24 @@ export function SpatialMapCanvas({
         }
       : null;
 
+  /* The 2D basemap is baked TOP-DOWN (scripts/render-world-entry `?mode=topo`):
+   * orthographic, fog off, exposure lifted so it survives being shown as a
+   * backdrop. That bake is required for correctness, not looks — every overlay
+   * here (zones, fire, routes, markers) is projected TOP-DOWN through the same
+   * MapFrame law, so an oblique backdrop makes them miss the ground: zone
+   * labels sit in the sky above the ridge they name. A top-down overlay layer
+   * can only register with a top-down basemap.
+   *
+   * Because the bake now carries its own grade, these filters do PHASE
+   * DISTINCTION only, never exposure. Applying an oblique-era brightness(0.66)
+   * on top of it multiplied the whole frame into near-black.
+   */
   const mapFilter =
     showContain || showRescue
-      ? "saturate(0.92) brightness(0.78)"
+      ? "saturate(1) brightness(1)"
       : isPreVerify
-        ? "saturate(0.58) brightness(0.54) hue-rotate(180deg)"
-        : "saturate(0.86) brightness(0.66)";
+        ? "saturate(0.55) brightness(0.62) hue-rotate(180deg)"
+        : "saturate(1) brightness(1)";
 
   const adjustZoneMargin = (delta: number) => {
     if (!onUpdateState || !activeZoneId) return;
@@ -419,6 +593,11 @@ export function SpatialMapCanvas({
    * centered, overflow cropped. The old stretch assumption silently displaced
    * every pointer → map conversion whenever the container aspect differed from
    * 1.6 — drag-to-snap landed in the wrong field.
+   *
+   * Then the ONE inverse of the pan/zoom transform. Everything downstream of
+   * this function already works in map content space (drag-assign, hover,
+   * select), so undoing the view here keeps all of it correct at any zoom
+   * without threading a viewport through a dozen call sites.
    */
   const pointerToNative = (clientX: number, clientY: number): { x: number; y: number } | null => {
     const svg = svgRef.current;
@@ -428,9 +607,15 @@ export function SpatialMapCanvas({
     const svgScale = Math.max(rect.width / MAP_DISPLAY.width, rect.height / MAP_DISPLAY.height);
     const svgOffX = (rect.width - MAP_DISPLAY.width * svgScale) / 2;
     const svgOffY = (rect.height - MAP_DISPLAY.height * svgScale) / 2;
+    const screenX = (clientX - rect.left - svgOffX) / svgScale;
+    const screenY = (clientY - rect.top - svgOffY) / svgScale;
+    // Invert: content = centre + (screen - centre) / zoom.
+    const z = view.zoom;
+    const cX = MAP_DISPLAY.width / 2;
+    const cY = MAP_DISPLAY.height / 2;
     const screen = {
-      x: (clientX - rect.left - svgOffX) / svgScale,
-      y: (clientY - rect.top - svgOffY) / svgScale,
+      x: cX + (screenX - cX) / z,
+      y: cY + (screenY - cY) / z,
     };
     const pixel = toPixel(fromScreen(screen));
     return { x: pixel.x, y: pixel.y };
@@ -630,6 +815,7 @@ export function SpatialMapCanvas({
           style={{ position: "absolute", inset: 0 }}
           aria-hidden="true"
         >
+          <g style={{ transform: viewTransform, transformOrigin: "0 0" }}>
           <image
             href={activeMapSrc}
             x={0}
@@ -640,6 +826,7 @@ export function SpatialMapCanvas({
             style={{ filter: mapFilter }}
             onError={() => setFailedMap((f) => ({ ...f, [activeMapSrc]: true }))}
           />
+          </g>
         </svg>
       ) : (
         <div style={{ position: "absolute", inset: 0, background: T.bgMap }} />
@@ -686,24 +873,100 @@ export function SpatialMapCanvas({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerCancel}
+        onWheel={handleWheel}
+        onPointerDown={handleMapPanStart}
       >
+        <g style={{ transform: viewTransform, transformOrigin: "0 0" }}>
         <RouteArrowDefs />
 
         {showFireSpreadBoundary && !isPreVerify && (
-          <g pointerEvents="none" opacity={0.55}>
-            {SPREAD_RINGS.map((ring) => {
-              const c = toScreen(fromPixel(ANOMALY.x, ANOMALY.y));
+          /* The fire is drawn from the SAME model the 3D scene consumes
+           * (map/fire/fireModel) — burn scar, time-stamped isochrones, and a
+           * head-fire axis with direction chevrons. The three concentric
+           * spread circles it replaces could not say where the fire HAS BEEN,
+           * only how far it might spread; an isochrone carries the clock and
+           * the axis carries direction, which is the actual question an
+           * operator asks of a fire map. Projected through localToUv → the
+           * shared slice law, so it cannot drift out of register. */
+          <g
+            pointerEvents="none"
+            role="img"
+            aria-label={`Fire progression. ${FIRE.isochrones.length} time-stamped perimeters from ignition to ${activeFront(FIRE).label}. ${burnedAcres()} acres inside the newest perimeter. Head fire advancing along the ridge.`}
+            data-testid="fire-progression"
+          >
+            <title>
+              Burn scar and progression isochrones. Behaviour metrics are real
+              NWCG definitions with authored values, not model output.
+            </title>
+
+            <polygon
+              points={fireAttr(burnScarPolygon(FIRE, 0.94))}
+              fill="#2A1710"
+              fillOpacity={0.6}
+              stroke="none"
+            />
+            <polygon
+              points={fireAttr(burnScarPolygon(FIRE, 0.55))}
+              fill="#120E0C"
+              fillOpacity={0.78}
+              stroke="none"
+            />
+
+            {FIRE.isochrones.map((iso) => {
+              const newest = iso.tMinutes === activeFront(FIRE).tMinutes;
+              const anchor = toScreen(localToUv(iso.polygon[0][0], iso.polygon[0][1]));
               return (
-                <circle
-                  key={ring.label}
-                  cx={c.x}
-                  cy={c.y}
-                  r={ring.radius * (MAP_DISPLAY.width / NATIVE_WIDTH)}
+                <g key={iso.label}>
+                  <polygon
+                    points={fireAttr(iso.polygon)}
+                    fill="none"
+                    stroke={iso.tone}
+                    strokeWidth={newest ? 2 : 1.1}
+                    strokeDasharray={newest ? undefined : "6 5"}
+                    opacity={newest ? 0.95 : 0.5}
+                  />
+                  <MapLabelSvg
+                    x={anchor.x}
+                    y={anchor.y}
+                    label={`${iso.label} · ${iso.clock}`}
+                    color={iso.tone}
+                  />
+                </g>
+              );
+            })}
+
+            <polygon
+              points={fireAttr(activeFront(FIRE).polygon)}
+              fill="none"
+              stroke="#FFD9A0"
+              strokeWidth={3}
+              opacity={0.9}
+            />
+            <polyline
+              points={fireAttr(FIRE.headAxis)}
+              fill="none"
+              stroke="#FFB066"
+              strokeWidth={1.4}
+              strokeDasharray="7 5"
+              opacity={0.9}
+            />
+            {FIRE.headAxis.slice(1).map(([hx, hy], i) => {
+              const [ax, ay] = FIRE.headAxis[i];
+              const a = toScreen(localToUv(ax, ay));
+              const b = toScreen(localToUv(hx, hy));
+              const dx = b.x - a.x;
+              const dy = b.y - a.y;
+              const back = 0.34;
+              const wing = 0.22;
+              return (
+                <path
+                  key={`chev-${i}`}
+                  d={`M ${a.x - dx * back + dy * wing} ${a.y - dy * back - dx * wing} L ${b.x} ${b.y} L ${a.x - dx * back - dy * wing} ${a.y - dy * back + dx * wing}`}
                   fill="none"
-                  stroke={ring.color}
-                  strokeWidth={1}
-                  strokeDasharray={ring.dash}
-                  opacity={0.7}
+                  stroke="#FFB066"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  opacity={0.9}
                 />
               );
             })}
@@ -910,6 +1173,7 @@ export function SpatialMapCanvas({
               </g>
             );
           })}
+        </g>
       </svg>
 
       <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>

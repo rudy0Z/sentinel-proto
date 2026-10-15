@@ -1,7 +1,10 @@
 import { useState, useRef, useCallback } from "react";
-import { DISABLED_OPACITY, GI, TILE_H, TILE_W, T, border, font, material, radius, surface, tracking, typeScale } from "../tokens";
+import { border, DISABLED_OPACITY, font, GI, material, radius, space, surface, T, TILE_H, TILE_W, tracking, typeScale } from "../tokens";
 import { StatusPill } from "../components/shared/StatusPill";
 import { TinyMetric } from "../components/shared/TinyMetric";
+import { CommandTile, EvidenceChip, GlassToggle, KitStyles, PanelGlass, SectionEyebrow, StatusPill as GlassStatusPill, TierDot } from "../components/kit/core";
+import { ArcGauge, BarcodeHistogram, ForecastCone, HairlineBar, HeatCells, Numeral, Sparkline, Ticker } from "../components/kit/viz";
+import { TranscriptBars } from "../components/kit/feedback";
 
 export default function ComponentsPage() {
   return (
@@ -205,7 +208,7 @@ export default function ComponentsPage() {
               <div>
                 <SubLabel>4. Notify Authorities</SubLabel>
                 <InlineModal title="Notify Emergency Authorities" subtitle="Transmit incident report to fire management and emergency dispatch." accentColor={T.cyan} confirmLabel="Send Notification" icon="📡">
-                  <div style={{ background: "rgba(0,200,255,0.07)", border: `1px solid ${T.cyan}22`, borderRadius: 12, padding: "12px 14px" }}>
+                  <div style={{ background: "rgba(28,184,230,0.07)", border: `1px solid ${T.cyan}22`, borderRadius: 12, padding: "12px 14px" }}>
                     {["Current incident scope and active protection zones", "Projected fire spread path and affected structures", "Active drone assets and assignments", "Ground team status and staging positions"].map((l) => (
                       <div key={l} style={{ fontFamily: font.sans, fontSize: 12, color: T.textSecondary, lineHeight: 1.8, display: "flex", gap: 8 }}>
                         <span style={{ color: T.cyan, flexShrink: 0 }}>✓</span> {l}
@@ -260,7 +263,7 @@ export default function ComponentsPage() {
 
             <div>
               <SubLabel>Severity — maps to risk level of a zone or priority card</SubLabel>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
+              <div style={{ display: "flex", gap: space.sm, flexWrap: "wrap", marginBottom: 6 }}>
                 <StatusPill label="SAFE"    color={T.teal}  />
                 <StatusPill label="INFO"    color={T.cyan}  />
                 <StatusPill label="CAUTION" color={T.amber} />
@@ -273,7 +276,7 @@ export default function ComponentsPage() {
 
             <div>
               <SubLabel>Operational Mode — shown in the navbar and mode indicator</SubLabel>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
+              <div style={{ display: "flex", gap: space.sm, flexWrap: "wrap", marginBottom: 6 }}>
                 <StatusPill label="SCAN"    color={T.teal}  />
                 <StatusPill label="VERIFY"  color={T.amber} />
                 <StatusPill label="CONTAIN" color={T.red}   />
@@ -286,7 +289,7 @@ export default function ComponentsPage() {
 
             <div>
               <SubLabel>Drone Status — shown on each drone card in the fleet panel</SubLabel>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
+              <div style={{ display: "flex", gap: space.sm, flexWrap: "wrap", marginBottom: 6 }}>
                 <StatusPill label="AVAILABLE"       color={T.teal}          />
                 <StatusPill label="EN-ROUTE"        color={T.cyan}          />
                 <StatusPill label="ASSIGNED"        color={T.cyan}          />
@@ -300,7 +303,7 @@ export default function ComponentsPage() {
 
             <div>
               <SubLabel>Ground Team Availability — shown on each team card</SubLabel>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
+              <div style={{ display: "flex", gap: space.sm, flexWrap: "wrap", marginBottom: 6 }}>
                 <StatusPill label="AVAILABLE" color={T.teal}  />
                 <StatusPill label="STAGED"    color={T.amber} />
                 <StatusPill label="DEPLOYED"  color={T.red}   />
@@ -312,7 +315,7 @@ export default function ComponentsPage() {
 
             <div>
               <SubLabel>Action / Priority Status — used in priority risk cards and action tile sub-labels</SubLabel>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
+              <div style={{ display: "flex", gap: space.sm, flexWrap: "wrap", marginBottom: 6 }}>
                 <StatusPill label="PENDING"     color={T.textSecondary} />
                 <StatusPill label="RECOMMENDED" color={T.amber}         />
                 <StatusPill label="IN-PROGRESS" color={T.cyan}          />
@@ -458,6 +461,73 @@ export default function ComponentsPage() {
           <div style={{ fontFamily: font.mono, fontSize: 10, color: T.textMuted, letterSpacing: tracking.telemetry }}>
             FlytBase Sentinel · Component Library 2.0 · Live UI reference · Dev-facing documentation
           </div>
+        </div>
+      </div>
+      {/* ── Redesign 2026 · Obsidian-glass kit (docs/redesign-2026/04 §2) ────
+          Token-only primitives mined from the local component vault and
+          re-tokenized. Consumed live by shell v2 (?layout=v2). */}
+      <KitStyles />
+      <div style={{ marginTop: 56 }}>
+        <div style={{ fontFamily: font.sans, fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Redesign 2026 — Obsidian Glass Kit</div>
+        <div style={{ fontFamily: font.sans, fontSize: 12, color: T.textMuted, marginBottom: 16 }}>
+          Token-only primitives; every color/blur/radius/shadow comes from tokens.ts. Consumed by shell v2 via <span style={{ fontFamily: font.mono }}>?layout=v2</span>.
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
+          <PanelGlass variant="panel" style={{ display: "grid", gap: 12, alignContent: "start" }}>
+            <SectionEyebrow label="Status & tiers" lip="live lip" tier="T2" />
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <GlassStatusPill label="active" tone="info" />
+              <GlassStatusPill label="stale" tone="caution" />
+              <GlassStatusPill label="failed" tone="danger" />
+              <GlassStatusPill label="clear" tone="safe" />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <TierDot tier="T1" /><TierDot tier="T2" /><TierDot tier="T3" /><TierDot tier="T4" />
+              <span style={{ fontSize: 10, fontFamily: font.mono, color: T.textMuted }}>T1 takeover · T2 banner · T3 badge · T4 log</span>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <EvidenceChip kind="thermal" status="active" confidence={91} title="IR core" />
+              <EvidenceChip kind="satellite-ir" status="failed" />
+              <EvidenceChip kind="burn-history" status="stale" confidence={40} />
+              <EvidenceChip kind="lidar" status="missing" />
+            </div>
+          </PanelGlass>
+          <PanelGlass variant="panel" style={{ display: "grid", gap: 12, alignContent: "start" }}>
+            <SectionEyebrow label="Meters" lip="viz ramps" tier="T3" />
+            <HairlineBar label="Battery" value={84} tone={T.teal} />
+            <HairlineBar label="Signal" value={62} tone={T.cyan} />
+            <HairlineBar label="Fuel" value={35} tone={T.amber} />
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 16 }}>
+              <ArcGauge value={78} caption="fused" tone={T.cyan} width={150} />
+              <div style={{ display: "grid", gap: 12 }}>
+                <Sparkline series={[3, 4, 6, 9, 14, 22, 30]} tone={T.fire} />
+                <BarcodeHistogram series={[4, 7, 3, 9, 6, 10, 5, 8]} tone={T.cyan} />
+              </div>
+            </div>
+          </PanelGlass>
+          <PanelGlass variant="panel" style={{ display: "grid", gap: 12, alignContent: "start" }}>
+            <SectionEyebrow label="Projection & heat" tier="T3" />
+            <ForecastCone history={[10, 14, 18, 24, 30]} forecast={[38, 47, 57]} lower={[33, 40, 47]} upper={[43, 55, 68]} tone={T.amber} />
+            <HeatCells cells={["thermal", "satellite-ir", "drone-visual", "lidar", "wind", "fuel", "terrain", "burn-history", "structure-road"].map((kind, i) => ({ label: kind, level: [1, 0, 0.8, 0.4, 0.9, 0.6, 1, 0.2, 0.7][i] }))} />
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <Numeral value={91} suffix="%" style={{ fontSize: typeScale.display, fontWeight: 700 }} />
+              <TranscriptBars active bars={16} height={18} />
+            </div>
+          </PanelGlass>
+          <PanelGlass variant="panel" style={{ display: "grid", gap: 12, alignContent: "start" }}>
+            <SectionEyebrow label="Commands & toggles" tier="T1" />
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <CommandTile label="Authorize containment" tone="danger" classChip="C3" staged expiresAt={Date.now() + 40000} />
+              <CommandTile label="Dispatch Lidar-02" tone="info" classChip="C2" onClick={() => {}} />
+            </div>
+            <KitToggleDemo />
+            <Ticker
+              entries={[
+                { id: "t1", text: "Receipt AUD-114 · G1 closed · hash verified", tone: T.teal },
+                { id: "t2", text: "Staged command expired unactioned — nothing executed", tone: T.amber },
+              ]}
+            />
+          </PanelGlass>
         </div>
       </div>
     </div>
@@ -644,7 +714,7 @@ function InlineModal({ title, subtitle, accentColor, confirmLabel, icon, childre
       <div style={{ height: 1, background: "rgba(255,255,255,0.07)", margin: "0 22px" }} />
 
       {/* Footer */}
-      <div style={{ padding: "14px 22px 20px", display: "flex", gap: 10, justifyContent: "flex-end" }}>
+      <div style={{ padding: "14px 22px 20px", display: "flex", gap: space.sm, justifyContent: "flex-end" }}>
         <button type="button" style={{ padding: "9px 18px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.05)", color: T.textSecondary, fontFamily: font.sans, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
           Cancel
         </button>
@@ -724,7 +794,7 @@ function AlertPopupDemo() {
       </div>
 
       {/* Actions */}
-      <div style={{ display: "flex", gap: 10 }}>
+      <div style={{ display: "flex", gap: space.md }}>
         <button type="button" style={{ flex: 1, padding: "9px 14px", borderRadius: 10, border: `1px solid ${T.amber}`, background: `${T.amber}20`, color: T.amber, fontFamily: font.sans, fontSize: 11, fontWeight: 700, cursor: "pointer", letterSpacing: "0.04em", textTransform: "uppercase" }}>
           Dispatch Scout-02
         </button>
@@ -746,7 +816,7 @@ function DemoPriorityCard({ severity, areaLabel, title, rationale, nextStep, sta
   const tone = severity === "danger" ? T.red : severity === "caution" ? T.amber : severity === "safe" ? T.teal : T.cyan;
   return (
     <div style={{ borderRadius: 16, border: `1px solid ${tone}33`, background: `${tone}0D`, padding: "12px 14px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: space.sm, marginBottom: 10 }}>
         <div>
         <div style={{ fontFamily: font.mono, fontSize: typeScale.metadata, color: tone, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 5 }}>{areaLabel}</div>
           <div style={{ fontFamily: font.sans, fontSize: 12, fontWeight: 600, color: T.textPrimary }}>{title}</div>
@@ -781,7 +851,7 @@ function DemoDroneCard({ name, capability, mission, zone, status, color, battery
 }) {
   return (
     <div style={{ borderRadius: radius.panel, border: `1px solid ${selected ? `${color}66` : GI.border}`, background: selected ? `${color}14` : GI.surface, padding: "10px 12px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: space.sm }}>
         <div>
           <div style={{ fontFamily: font.sans, fontSize: 11, fontWeight: 600, color: T.textPrimary }}>{name}</div>
           <div style={{ fontFamily: font.sans, fontSize: 10, color: T.textMuted, marginTop: 3 }}>{capability} · {mission} · {zone}</div>
@@ -797,6 +867,11 @@ function DemoDroneCard({ name, capability, mission, zone, status, color, battery
   );
 }
 
+function KitToggleDemo() {
+  const [on, setOn] = useState(true);
+  return <GlassToggle checked={on} onChange={setOn} label="Geofence layer" />;
+}
+
 function DemoTeamCard({ name, type, assignment, availability, color, readiness, eta, zone }: {
   name: string; type: string; assignment: string; availability: string; color: string; readiness: string; eta: string; zone: string;
 }) {
@@ -809,7 +884,7 @@ function DemoTeamCard({ name, type, assignment, availability, color, readiness, 
         </div>
         <StatusPill label={availability} color={color} />
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginTop: 9 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: space.md, marginTop: 9 }}>
         <TinyMetric label="Readiness" value={readiness} />
         <TinyMetric label="ETA" value={eta} />
         <TinyMetric label="Zone" value={zone} />

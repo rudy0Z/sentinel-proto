@@ -1,0 +1,81 @@
+This is the right question to ask before Phase 5, because Phase 5 is literally "TALON becomes the integrator" — `04-TALON-AI-AGENT-CONSTITUTION.md:69-99`, `08-PHASED-EXECUTION-ROADMAP.md:96-101`. Once `read_scene_state / read_evidence / propose_transition` exist, TALON stops being a panel and starts being the backend that feeds both rails. Layout should reflect that.
+
+First, what you have today:
+
+**1. Center-bottom TALON is not a chatbot. It's an authorization axis.**
+
+`SentinelShell.tsx:1106-1138` + `ActionBar.tsx:334-495`:
+
+* Orb fixed dead-center in a `1fr auto 1fr` grid. Never moves.
+* Vertical axis: voice rises bottom-to-top from behind orb. Ambient = one eyebrow (`postureLabel`) + one sentence (`postureLine`) from `deriveTalonSurface()` in `domain/talonSurface.ts:174-283`. Expanded = same surface at deeper depth (`TalonSession` floating variant).
+* Horizontal axis: actions bloom sideways — right = forward/primary pill, left = hold/monitor pill. Danger never blooms, lives in warning menu.
+* The pill *is* the output as much as the words. `Awaiting your authorization / Hold 2s to authorize / Blocked by source conflict` tells state at a glance.
+
+Why it was put there — `09-TALON-ORB-IDENTITY-AND-SURFACE-SPEC.md:13-42`:
+
+* Symmetry = neutrality. Left rail is observation, right rail is synthesis, center is where they meet and a human decides.
+* Gate geometry: blades physically close over core at a human gate. A right-docked chat bubble cannot *show* being stopped.
+* Map dominance: `PRODUCT.md:51` — one command picture `map + evidence + TALON + one dominant action` visible without scanning. Center-bottom keeps map full-frame.
+* Reach: on 1920x1080 headquarters canvas, bottom-center is the shortest thumb/pointer travel from either rail.
+
+**2. TALON's actual output is split in two places, and that's the real problem.**
+
+* Bottom: 1-2 sentences. e.g. `Source conflict — Thermal reads fire; Satellite IR reads controlled burn. TALON will not prepare packet until you reconcile.` + calibrator checkbox that unlocks the pill.
+* Right rail `TalonCopilotPanel.tsx:1639-1755`: `IntelligenceBrief` — Assessment text → Source freshness bars (5 rows) → Agent relay counts → Decision Gate with 32px packet confidence focal. Then collapsed `Evidence` (chart + chips) and `Workforce` (~1500px of agent cards, deliberately shut by default).
+
+So operator reads the *verdict* at bottom, but the *why* on the right. Connected by color/tone, not by proximity. Your instinct — "feels disconnected" — is correct.
+
+**3. Two rails today:**
+
+Left = facts you inspect (`Context Inspector / Assets / Ledger`). Right = what TALON thinks (`TALON / Priorities / Readiness / Exceptions`). Both `RailStack.tsx:22-114` single-focus tabs, same `material.rail`, transparent rail so map shows through.
+
+Strength: urgency reduces density — Intelligence shows evidence, Operations shows routes/exceptions. Weakness: TALON appears twice (orb + right tab) and neither owns the full conversation. No true chat history, no input field in rail, chips live in session overlay.
+
+### If TALON becomes the information bus, what layouts are possible?
+
+Constraint first: `00-INDEX:76-84` + golden rules are non-negotiable. TALON never controls app directly, staged expires to watch, gated actions need human hold. Any layout that makes "chat sends command" breaks the constitution. And desk-panel vs tablet changes everything:
+
+* Desk-embedded panel (low angle, arm's reach, glare): bottom-center wins. Hands rest at desk edge, 56px pills are touchable, center is equidistant. Right edge is far.
+* Handheld tablet (portrait, thumbs): bottom-center loses, right-dock loses. You need single-column + bottom sheet. Current 260-340px rails collapse badly here — that's why `DESIGN.md:171-176` pins 1920x1080 as acceptance, not tablet.
+
+Options I evaluated:
+
+**A. Your proposal: Right-docked TALON chat + actions, thin bottom strip**
+Right rail becomes full-height `TALON conversation`: transcript, chips (`Why now? / Confidence? / What's blocked?`), evidence inline, action buttons at bottom of chat. Left rail becomes unified Intel (inspector + priorities + fleet). Bottom reduces to 44px status + hold pill only.
+
+*Pro:* accessible, connected — question and answer and button live together. Familiar chat mental model, great for mouse/tablet-landscape. Fixes the split-brain.
+*Con:* loses gate geometry. Chat normalizes "TALON said → I clicked" as just another message. The aperture-closed-stillness cue dies in a scrolling list. Also puts authorization at far right — worst reach on desk-panel. And chat history invites hallucination trust; current brief format (Assessment → Evidence → Gate, max 90 words per `04 §6`) was designed to prevent that.
+
+**B. Keep center, make rails feed it (dynamic hub)**
+Rails stay, but become collapsible sources. TALON bottom becomes expandable: quiet = pill only, working = voice line, gated = voice + pills + evidence drawer rising. Right rail `Workforce` moves *into* the expanded session as DAG, not a separate tab.
+
+*Pro:* preserves symmetry + gate + map dominance. Smallest code change. Portfolio embed focal contract survives.
+*Con:* doesn't solve "I want to talk to TALON." Still no persistent conversation.
+
+**C. Classic C2: left inspect, center map, right TALON-ops full height**
+What Palantir/Anduril-style consoles do. Right rail owns recommendation + packet + hold button stacked vertically. Bottom bar deleted entirely.
+
+*Pro:* one vertical scan: see → understand → authorize, top to bottom. Best for fixed desk monitor.
+*Con:* map shrinks ~340px permanently. Authorization scrolls below fold — violates `DESIGN.md:335` one dominant command rule. Touch target moves to mid-right, awkward on desk.
+
+**D. My recommendation: split TALON in two — voice stays center, conversation moves right**
+
+Keep `deriveTalonSurface()` orb + voice + bloomed pills at bottom-center exactly as-is. That's the authorization instrument, not chat.
+
+But promote right `TALON` tab from brief to true dynamic interface:
+
+1. Top: same `IntelligenceBrief` (it already works).
+2. Middle: real conversation thread — transcript, `TalonStream` replies, scene chips from `domain/talon.ts:68-90`, not hidden in overlay.
+3. Bottom (sticky): context action — mirrors whatever pill is bloomed at center. Click either place, same `handleAction`. So chat and orb never disagree.
+
+Left rail simplifies to `Inspect / Assets / Ledger` only. `Priorities` moves out — Intelligence priorities already duplicate TALON recommendation, Operations priorities duplicate route state. Kill the duplication, keep rails from competing.
+
+Defense vs existing:
+
+* Existing defends map dominance and gate clarity, but concedes connectedness — you have to look bottom for what, right for why.
+* Full right-move defends connectedness, but concedes gate authority, desk reach, and the 8-state mark language that took `09` to justify.
+* Split defends both: center keeps `human authorization is structural` legible at 200ms glance (`09 §6`), right gains the chat+buttons accessibility you want, and backend Phase 5 maps cleanly — `TalonConverser` feeds right thread, `StateResolver` still gates center pills. No layout needs to know about LLM nondeterminism.
+
+If you want to prototype one thing: don't move the orb. Prototype right-rail conversation with sticky mirrored action. If that feels connected enough, you avoided a full layout rewrite and kept the gates green.
+
+Want me to spike that as a visual variant — right TALON thread + mirrored pill — behind a `?layout=split` flag so you can compare side-by-side without touching the default?

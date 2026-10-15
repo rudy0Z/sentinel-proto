@@ -5,6 +5,7 @@ export type PanelRail = "left" | "right";
 export type PanelContext = "baseline" | "intelligence" | "operations" | "exception";
 export type PanelSlotId =
   | "intel"
+  | "map"
   | "fleet"
   | "activity"
   | "investigation"

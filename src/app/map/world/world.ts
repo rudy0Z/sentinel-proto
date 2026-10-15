@@ -28,6 +28,8 @@ import landuseData from "./landuse.json";
 import vegetationData from "./vegetation.json";
 import frameData from "./frame.json";
 import demBinUrl from "./dem.bin?url";
+import imageryUrl from "./imagery.jpg?url";
+import imageryMeta from "./imagery.json";
 import type { MapPoint } from "../types";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -108,6 +110,17 @@ export interface FireScenario {
   originUv: MapPoint;
 }
 
+export interface WorldImagery {
+  /** URL of the baked orthophoto covering exactly the frame bbox. */
+  url: string;
+  source: string;
+  license: string;
+  attribution: string;
+  widthPx: number;
+  heightPx: number;
+  groundResolutionMPerPx: number;
+}
+
 export interface World {
   frame: WorldFrame;
   dem: DemGrid;
@@ -117,6 +130,8 @@ export interface World {
   landuse: WorldLanduse[];
   fire: FireScenario;
   stateOverlays: StateOverlays;
+  /** Real NAIP orthophoto (public domain). Absent only if the bake skipped it. */
+  imagery: WorldImagery | null;
 }
 
 // ── Sync data ────────────────────────────────────────────────────────────────
@@ -292,6 +307,15 @@ export async function loadWorld(): Promise<World> {
     landuse,
     fire,
     stateOverlays,
+    imagery: {
+      url: imageryUrl,
+      source: (imageryMeta as { source: string }).source,
+      license: (imageryMeta as { license: string }).license,
+      attribution: (imageryMeta as { attribution: string }).attribution,
+      widthPx: (imageryMeta as { widthPx: number }).widthPx,
+      heightPx: (imageryMeta as { heightPx: number }).heightPx,
+      groundResolutionMPerPx: (imageryMeta as { groundResolutionMPerPx: number }).groundResolutionMPerPx,
+    },
   };
   return cached;
 }

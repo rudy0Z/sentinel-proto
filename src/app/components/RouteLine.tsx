@@ -83,7 +83,10 @@ export function RouteLine({
   const pathRef = useRef<SVGPathElement>(null);
   const geo = usePathGeometry(pathRef, path);
   const dash = VARIANT_DASH[variant];
-  const flows = animate && emphasized && (variant === "egress" || variant === "ingress" || variant === "investigation");
+  /* Flow animates PROPOSED movement only (doc 13 Phase H): the scout
+     investigation path is a TALON proposal. Guided evacuation and responder
+     ingress are operator-committed movement — solid strokes, no flow. */
+  const flows = animate && emphasized && variant === "investigation";
   const breathes = animate && emphasized && variant === "reroute";
   const opacity = emphasized ? 1 : 0.35;
 

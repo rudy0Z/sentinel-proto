@@ -141,6 +141,34 @@ const SCENE_POSTURES: Partial<
     postureLine: "Command execution has moved to manual protocol.",
     tone: T.red,
   },
+  "verify-source-conflict": {
+    posture: "contested",
+    markState: "gated",
+    postureLabel: "Source conflict",
+    postureLine: "Satellite and burn records disagree — verification holds until you reconcile them.",
+    tone: T.amber,
+  },
+  "contain-awaiting-teams": {
+    posture: "working",
+    markState: "searching",
+    postureLabel: "Awaiting teams",
+    postureLine: "Packet delivered. Holding the staging picture until run-card crews report in.",
+    tone: T.cyan,
+  },
+  "rescue-partial-evac": {
+    posture: "alert",
+    markState: "gated",
+    postureLabel: "Partial evacuation",
+    postureLine: "Route A compromised mid-egress. Route B shift is staged — awaiting your authorization.",
+    tone: T.red,
+  },
+  "handoff-pending": {
+    posture: "gated",
+    markState: "gated",
+    postureLabel: "Handover open",
+    postureLine: "Authority is unassigned until the incoming lead confirms with the PIN.",
+    tone: T.amber,
+  },
 };
 
 export function deriveTalonSurface(

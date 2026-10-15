@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect, useRef } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode, RefObject } from "react";
 import { ActionBar, TalonMicButton } from "./ActionBar";
 import { ContestedWatchPanel, ReconciliationPanel, ReRaiseBriefPanel } from "./ContestedWatch";
@@ -21,18 +21,34 @@ import { PopoverSurface, usePopoverDismissal } from "./shared/PopoverSurface";
 import { ReviewDock } from "./shell/ReviewDock";
 import { EntryScreen, ScenarioBrief, ScenarioEndCard, SituationResolved } from "./shell/EntrySurfaces";
 import { InfrastructureLossTakeover } from "./shell/InfrastructureLossTakeover";
+import { Ics209DebriefModal } from "./shell/Ics209DebriefModal";
 import { createCommandAction } from "../domain/commands";
 import { createDissent, resolveDissent } from "../domain/disagreement";
 import { getOperationalException } from "../domain/exceptions";
 import { COMMAND_LABELS } from "../domain/microcopy";
 import {
   canTransition,
+  GATED_ACTIONS,
   resolveTransition,
   type SceneTransition,
   type TransitionContext,
   type TransitionEvent,
 } from "../domain/stateMachine";
-import { getAgentTasks, getTalonChipResponse, getTalonVoiceResponse } from "../domain/talon";
+import { demoteExpiredActions, readStagedTtlMs } from "../domain/staging";
+import { getAgentTasks, getSignalHistory, getTalonChipResponse, getTalonVoiceResponse } from "../domain/talon";
+import { deriveTalonSurface } from "../domain/talonSurface";
+import { arbitrate, type AttentionSignal } from "../domain/attention";
+import { INTENT_LABELS, seedIntentsForScene, validateIntent, type TalonIntent } from "../domain/intents";
+import { CommandDeck, DECK_BOTTOM_INSET } from "./shell2/CommandDeck";
+import { RailSystem } from "./rails/RailSystem";
+import { BottomNav } from "./rails/BottomNav";
+import type { PanelSlotId } from "../domain/panels";
+import { AlertAirspace } from "./shell2/AlertAirspace";
+import { AttentionSpine, type SpineView } from "./shell2/AttentionSpine";
+import { TalonMindConsole } from "./shell2/TalonMindConsole";
+import { KitStyles, type Tier } from "./kit/core";
+import { UndoToast, type ToastState } from "./kit/feedback";
+import { useScenarioSession } from "../session/useScenarioSession";
 import { createRecentActionVerification } from "../domain/verification";
 import {
   ANOMALY,
@@ -165,10 +181,21 @@ export function SentinelShell() {
     return params.get("embed") === "1" || params.get("core") === "1";
   });
   const [escalationDeepLink] = useState(() => readShellParams().get("escalation") === "1");
+  /* Chrome generations: v3 is the default (docs/redesign-2026/14 §3.2). v2 and
+   * legacy stay reachable at ?layout=v2 / ?layout=legacy as regression surfaces
+   * until the promotion cleanup retires them. */
+  const [chromeVersion] = useState<"legacy" | "v2" | "v3">(() => {
+    const l = readShellParams().get("layout");
+    return l === "legacy" ? "legacy" : l === "v2" ? "v2" : "v3";
+  });
+  const layoutV2 = chromeVersion === "v2";
+  const [liveMode] = useState(() => readShellParams().get("feed") === "live");
   const [state, setState] = useState<ShellState>(() =>
     createSceneState(escalationDeepLink ? "alert-command" : "baseline", 0),
   );
   const [reviewDockOpen, setReviewDockOpen] = useState(false);
+  /* v3 rails: TALON open_panel intents + the deck orb both land here. */
+  const [railOpenRequest, setRailOpenRequest] = useState<{ id: PanelSlotId; seq: number } | null>(null);
   const [activeModal, setActiveModal] = useState<QuickActionId | null>(null);
   const [burnPermitVerified, setBurnPermitVerified] = useState(false);
   const [isActionBarExpanded, setIsActionBarExpanded] = useState(false);
@@ -187,9 +214,22 @@ export function SentinelShell() {
   const [showEscalationOverlay, setShowEscalationOverlay] = useState(escalationDeepLink);
   const [escalationElapsed, setEscalationElapsed] = useState(0);
   const [timelineOpen, setTimelineOpen] = useState(false);
+  const [selectedScenarioId, setSelectedScenarioId] = useState<string>("S-01");
+  const [debriefOpen, setDebriefOpen] = useState(false);
   const [spatialHover, setSpatialHover] = useState<SelectedEntity>(null);
   /* 3D EXPLORE overlay — navigable spatial world, outside the critical flow. */
   const [explore3d, setExplore3d] = useState(false);
+  /*
+   * P2.1/P2.2 — one shared camera frame between the 2D ops map and the 3D
+   * explorer. The 2D canvas publishes its framing here continuously; opening
+   * 3D seeds the orbit from it, and exiting 3D seeds the 2D view from the
+   * orbit, so the two surfaces resume on the same ground.
+   */
+  const map2dViewRef = useRef<{ u: number; v: number; zoom: number }>({ u: 0.5, v: 0.5, zoom: 1 });
+  const [map2dView, setMap2dView] = useState<{ u: number; v: number; zoom: number } | null>(null);
+  const handleMap2dView = useCallback((view: { u: number; v: number; zoom: number }) => {
+    map2dViewRef.current = view;
+  }, []);
   /* Seconds spent in contested watch — drives evidence climbing toward the re-raise bar. */
   const [contestedElapsed, setContestedElapsed] = useState(0);
   /* Pending dissent-gated move, held until the operator states a reason. */
@@ -373,6 +413,55 @@ export function SentinelShell() {
       setState(createSceneState(scene, 0));
     }
   };
+
+  const handleSelectScenario = useCallback((id: string) => {
+    setSelectedScenarioId(id);
+    setExperienceMode("free");
+    switch (id) {
+      case "S-01":
+        setScene("verify-active");
+        break;
+      case "S-02":
+        setScene("monitoring-contested");
+        break;
+      case "S-03":
+        setScene("contain-alternate");
+        break;
+      case "S-04":
+        setScene("contain-degraded");
+        break;
+      case "S-05":
+        setScene("rescue-battery-critical");
+        break;
+      case "S-06":
+        setScene("talon-reraise");
+        break;
+      default:
+        setScene("baseline");
+        break;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (state.scene === "monitoring-contested" || state.scene === "verify-source-conflict") {
+      setSelectedScenarioId("S-02");
+    } else if (state.scene === "contain-alternate") {
+      setSelectedScenarioId("S-03");
+    } else if (state.scene === "contain-degraded" || state.scene === "network-degraded") {
+      setSelectedScenarioId("S-04");
+    } else if (state.scene === "rescue-battery-critical" || state.scene === "rescue-signal-degraded") {
+      setSelectedScenarioId("S-05");
+    } else if (state.scene === "talon-reraise") {
+      setSelectedScenarioId("S-06");
+    } else if (
+      state.scene === "baseline" ||
+      state.scene === "verify-active" ||
+      state.scene === "contain-recommended" ||
+      state.scene === "alert-command"
+    ) {
+      setSelectedScenarioId("S-01");
+    }
+  }, [state.scene]);
 
   /*
    * Evidence keeps building while a watch is contested — that is the whole
@@ -712,6 +801,176 @@ export function SentinelShell() {
     }));
   };
 
+  /*
+   * Staged recommendations expire back to watch (constitution: expiry is
+   * logged; expiry is never execution). A staged gate-able command is a
+   * proposal, not a queued execution — after the TTL it dissolves, the expiry
+   * lands in the activity ledger, and the surface re-derives from state.
+   * `?stagedTtlMs=` shortens the window for verification flows.
+   */
+  const [stagedTtlMs] = useState(() => readStagedTtlMs(readShellParams()));
+  const stagedAction = state.quickActionStates.find(
+    (action) => action.status === "recommended" && GATED_ACTIONS.has(action.id),
+  );
+  const activeModalRef = useRef<QuickActionId | null>(null);
+  useEffect(() => {
+    activeModalRef.current = activeModal;
+  }, [activeModal]);
+  useEffect(() => {
+    if (!stagedAction || stagedTtlMs === 0) return;
+    const expired = { id: stagedAction.id, label: stagedAction.label };
+    let timer: number | undefined;
+    const arm = () => {
+      timer = window.setTimeout(() => {
+        /* An open authorization modal means the operator is actively engaging
+           the gate — hold expiry until the modal resolves. */
+        if (activeModalRef.current !== null) {
+          arm();
+          return;
+        }
+        updateState((draft) => {
+          appendLog(
+            draft,
+            "System",
+            "Expiry",
+            `Staged "${expired.label}" expired unactioned — returned to watch. Nothing executed.`,
+            "info",
+          );
+          return {
+            ...draft,
+            expiredActions: [...(draft.expiredActions ?? []), expired.id],
+          };
+        });
+      }, stagedTtlMs);
+    };
+    arm();
+    return () => window.clearTimeout(timer);
+  }, [stagedAction?.id, stagedTtlMs]);
+
+  /*
+   * Shell v2 (docs/redesign-2026/03 P3): ?layout=v2 swaps the chrome — Command
+   * Deck, alert airspace, attention spines, TALON mind console — while the
+   * state engine, map, and modals stay exactly the same. ?feed=live connects
+   * the Phase-4 session gateway; scripted telemetry remains canonical.
+   */
+  const talonSurfaceV2 = deriveTalonSurface(state, { burnPermitVerified });
+  const stagedExpiresAt = useMemo(
+    () => (stagedAction && stagedTtlMs > 0 ? Date.now() + stagedTtlMs : null),
+    // stagedAt is keyed to the staged action id so the countdown never restarts on re-render
+    [stagedAction?.id, stagedTtlMs],
+  );
+  const panelTopV2 = space.lg;
+  const railBottomInsetV2 = DECK_BOTTOM_INSET;
+  const liveSession = useScenarioSession("A. Rao", 20260915, liveMode);
+  const scriptedSeries = getSignalHistory(state.scene);
+  const trackedDrone =
+    state.selectedEntity?.type === 'drone'
+      ? state.drones.find((d) => d.id === state.selectedEntity?.id)
+      : state.drones[0];
+
+  /* Attention arbitration — Rule of One + ISA-18.2 budget (domain/attention.ts). */
+  const attentionPopHistoryRef = useRef<number[]>([]);
+  const attentionSignals: AttentionSignal[] = [];
+  if (stagedAction) {
+    attentionSignals.push({
+      id: `gate-${stagedAction.id}`,
+      source: `Gate waiting — ${stagedAction.label}`,
+      kind: "gate",
+      requiresAction: true,
+      phase: state.mode,
+      raisedAt: 0,
+    });
+  }
+  if (state.operationalException) {
+    attentionSignals.push({
+      id: `exception-${state.scene}`,
+      source: "Degraded — fallback evidence active",
+      kind: "exception",
+      requiresAction: true,
+      phase: state.mode,
+      raisedAt: -1,
+    });
+  }
+  const attentionArbitration = arbitrate(attentionSignals, attentionPopHistoryRef.current, Date.now());
+  useEffect(() => {
+    if (attentionArbitration.pop) {
+      attentionPopHistoryRef.current = [...attentionPopHistoryRef.current, Date.now()];
+    }
+  }, [attentionArbitration.pop?.id]);
+
+  /* TALON UI-intents — proposals with undo receipts (domain/intents.ts). */
+  const [talonIntents, setTalonIntents] = useState<TalonIntent[]>([]);
+  const [toast, setToast] = useState<ToastState | null>(null);
+  useEffect(() => {
+    setTalonIntents(seedIntentsForScene(state.scene, Date.now()).filter((intent) => validateIntent(intent, state).ok));
+  }, [state.scene]);
+  const acceptIntent = (intent: TalonIntent) => {
+    const verdict = validateIntent(intent, state);
+    if (!verdict.ok) {
+      updateState((draft) => {
+        appendLog(draft, "System", "Intent", `TALON proposal rejected by the engine — ${verdict.reason}.`, "caution");
+        return draft;
+      });
+      setToast({ id: `${intent.id}-rejected`, text: `Proposal rejected — ${verdict.reason}`, ttlMs: 5000 });
+      return;
+    }
+    if (intent.kind === "focus_map_zone") {
+      setState((current) => ({ ...current, selectedZoneId: intent.target }));
+    }
+    /* open_panel is a PROPOSAL about information, never furniture: it asks the
+     * rail to open, it does not move the deck or touch any gate. */
+    if (intent.kind === "open_panel") {
+      setRailOpenRequest({ id: intent.target as PanelSlotId, seq: Date.now() });
+    }
+    updateState((draft) => {
+      appendLog(draft, "TALON", "Intent", `Operator accepted TALON proposal: ${INTENT_LABELS[intent.kind]} — ${intent.reason}`, "info");
+      return draft;
+    });
+    setTalonIntents((current) => current.filter((item) => item.id !== intent.id));
+    setToast({
+      id: intent.id,
+      text: `Accepted — ${INTENT_LABELS[intent.kind]}`,
+      ttlMs: 6000,
+      onUndo: () => {
+        if (intent.kind === "focus_map_zone") {
+          setState((current) => ({ ...current, selectedZoneId: null }));
+        }
+        updateState((draft) => {
+          appendLog(draft, "Operator", "Intent", `Undid acceptance of the ${INTENT_LABELS[intent.kind]} proposal.`, "info");
+          return draft;
+        });
+      },
+    });
+  };
+  const dismissIntent = (intent: TalonIntent) => {
+    updateState((draft) => {
+      appendLog(draft, "Operator", "Intent", `Dismissed TALON proposal: ${INTENT_LABELS[intent.kind]} — ${intent.reason}`, "info");
+      return draft;
+    });
+    setTalonIntents((current) => current.filter((item) => item.id !== intent.id));
+    setToast(null);
+  };
+
+  /* Spine lips/tiers — collapsed panels stay honest about their live state. */
+  const spineLip = (id: string): string | undefined => {
+    switch (id) {
+      case "inspect": return state.selectedEntity ? `${state.selectedEntity.type} selected` : "3 zones";
+      case "assets": return `${state.drones.filter((d) => d.battery < 30).length} low bat`;
+      case "ledger": return `${state.activityLog.length} events`;
+      case "talon": return talonSurfaceV2.postureLabel;
+      case "priorities": return `${state.activePriorities.length} open`;
+      case "readiness": return `${state.groundTeams.length} teams`;
+      case "exceptions": return state.operationalException ? "degraded" : "clear";
+      default: return undefined;
+    }
+  };
+  const spineTier = (id: string): Tier | undefined => {
+    if (id === "talon" && stagedAction) return "T1";
+    if (id === "exceptions" && state.operationalException) return "T2";
+    if (attentionArbitration.badges.some((badge) => badge.signal.id.includes(id))) return "T2";
+    return undefined;
+  };
+
   const operationalException = state.operationalException ?? getOperationalException(state.scene);
   const criticalFocusMode =
     state.scene === "rescue-battery-critical" ||
@@ -841,8 +1100,8 @@ export function SentinelShell() {
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
         @keyframes talonIdlePulse {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(0,200,255,0.0), 0 0 8px rgba(0,200,255,0.15); }
-          50% { box-shadow: 0 0 0 6px rgba(0,200,255,0.08), 0 0 16px rgba(0,200,255,0.3); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(28,184,230,0.0), 0 0 8px rgba(28,184,230,0.15); }
+  50% { box-shadow: 0 0 0 6px rgba(28,184,230,0.08), 0 0 16px rgba(28,184,230,0.3); }
         }
         @keyframes talonListeningPulse {
           0%, 100% { box-shadow: 0 0 0 0 rgba(229,83,60,0.0), 0 0 8px rgba(229,83,60,0.2); }
@@ -877,6 +1136,8 @@ export function SentinelShell() {
         <SpatialMapCanvas
           state={state}
           coreMode={focusMode}
+          initialView={map2dView ?? undefined}
+          onViewChange={handleMap2dView}
           onSelectEntity={handleSelectEntity}
           spatialHover={spatialHover}
           onSpatialHoverChange={setSpatialHover}
@@ -885,7 +1146,13 @@ export function SentinelShell() {
       </div>
 
       {explore3d && (
-        <Map3DExplorer onClose={() => setExplore3d(false)} />
+        <Map3DExplorer
+          initialView={map2dViewRef.current}
+          onClose={(view) => {
+            if (view) setMap2dView(view);
+            setExplore3d(false);
+          }}
+        />
       )}
 
       {!explore3d && (
@@ -894,8 +1161,11 @@ export function SentinelShell() {
           data-action="open-explore-3d"
           style={{
             position: "absolute",
-            left: 16,
-            bottom: 14,
+            /* v3 docks a 56px rail at left:16, so the button must start past
+             * it (16 + 56 + 8) or the rail paints over the first half of the
+             * label and it reads "RE · 3D". v2/legacy have no rail at x=16. */
+            left: chromeVersion === "v3" ? 16 + 56 + 8 : 16,
+            bottom: chromeVersion === "legacy" ? 14 : DECK_BOTTOM_INSET + 10,
             zIndex: layer.map + 2,
             padding: "7px 12px",
             borderRadius: 4,
@@ -923,6 +1193,7 @@ export function SentinelShell() {
         }}
       />
 
+      {chromeVersion === "legacy" && (
       <div
         style={{
           position: "absolute",
@@ -948,13 +1219,18 @@ export function SentinelShell() {
           timelineOpen={timelineOpen}
           timelineTriggerRef={timelineTriggerRef}
           coreMode={focusMode}
+          selectedScenarioId={selectedScenarioId}
+          onSelectScenario={handleSelectScenario}
+          onOpenDebrief={() => setDebriefOpen(true)}
         />
       </div>
+      )}
 
       {timelineOpen && (
         <TimelinePopover
           surfaceRef={timelinePopoverRef}
           entries={state.activityLog}
+          onOpenDebrief={() => setDebriefOpen(true)}
           onClose={() => {
             setTimelineOpen(false);
             window.requestAnimationFrame(() => timelineTriggerRef.current?.focus());
@@ -974,12 +1250,126 @@ export function SentinelShell() {
           open={reviewDockOpen}
           activeScene={state.scene}
           bottomOffset={reviewDockBottom + (state.scene === "verify-active" ? 56 : 0)}
-          rightOffset={adaptiveTalonRailWidth + SCREEN_INSET + 12}
+          /* v3 docks a 56px collapsed rail at right:16, so the SCENES dock must clear
+           * 16 + 56 + 8. The v2/legacy offset (a full 260–340px rail) pushed the
+           * dock left, underneath the open v3 panel. */
+          rightOffset={chromeVersion === "v3" ? 16 + 56 + 8 : adaptiveTalonRailWidth + SCREEN_INSET + 12}
           onToggle={() => setReviewDockOpen((current) => !current)}
           onJumpToScene={setScene}
         />
       )}
 
+      {chromeVersion === "v2" && (
+        <>
+          <AlertAirspace
+            pop={attentionArbitration.pop ? { text: attentionArbitration.pop.source, tier: attentionArbitration.popTier ?? "T2" } : null}
+            live={liveMode}
+            liveConnected={liveSession.connected}
+          />
+          <AttentionSpine
+            side="left"
+            inset={SCREEN_INSET}
+            views={leftViews.map((view) => ({ id: view.id, label: view.label, lip: spineLip(view.id), tier: spineTier(view.id), render: view.render }))}
+            top={panelTopV2}
+            bottom={railBottomInsetV2}
+          />
+          <AttentionSpine
+            side="right"
+            inset={SCREEN_INSET + 380 + space.md}
+            views={rightViews.filter((view) => view.id !== "talon").map((view) => ({ id: view.id, label: view.label, lip: spineLip(view.id), tier: spineTier(view.id), render: view.render }))}
+            top={panelTopV2}
+            bottom={railBottomInsetV2}
+          />
+          <TalonMindConsole
+            state={state}
+            surface={talonSurfaceV2}
+            conversation={state.talonConversation}
+            onConversationChange={handleTalonConversation}
+            intents={talonIntents}
+            onIntentAccept={acceptIntent}
+            onIntentDismiss={dismissIntent}
+            drones={state.drones}
+            evidenceConfidence={evidenceConfidence}
+            thermalF={liveSession.frame ? liveSession.frame.thermalF : (scriptedSeries.thermal[scriptedSeries.thermal.length - 1] ?? 0)}
+            windLabel={liveSession.frame ? `${Math.round(liveSession.frame.windSpeedKts)} kts` : INCIDENT.windVector}
+            structuresCleared={liveSession.frame ? liveSession.frame.structuresCleared : 0}
+            popTier={attentionArbitration.popTier}
+            liveFrame={liveSession.frame}
+            droneTelemetry={
+              trackedDrone
+                ? { name: trackedDrone.name, gs: trackedDrone.groundSpeedMps, alt: trackedDrone.altitudeM, hdg: trackedDrone.headingDeg, bat: trackedDrone.battery, link: trackedDrone.signal }
+                : null
+            }
+            onAction={handleAction}
+            top={panelTopV2}
+            bottom={railBottomInsetV2}
+          />
+          <CommandDeck
+            state={state}
+            surface={talonSurfaceV2}
+            onAction={handleAction}
+            timeString={formatTime(simTime)}
+            incidentElapsed={incidentElapsed}
+            live={liveMode}
+            liveConnected={liveSession.connected}
+            stagedExpiresAt={stagedExpiresAt}
+          />
+          <UndoToast toast={toast} onDismiss={() => setToast(null)} bottomOffset={railBottomInsetV2 + space.md} />
+        </>
+      )}
+
+      {chromeVersion === "v3" && (
+        <>
+          <AlertAirspace
+            pop={attentionArbitration.pop ? { text: attentionArbitration.pop.source, tier: attentionArbitration.popTier ?? "T2" } : null}
+            live={liveMode}
+            liveConnected={liveSession.connected}
+          />
+          <RailSystem
+            state={state}
+            focusMode={focusMode}
+            surface={talonSurfaceV2}
+            onConversationChange={handleTalonConversation}
+            intents={talonIntents}
+            onIntentAccept={acceptIntent}
+            onIntentDismiss={dismissIntent}
+            onAction={handleAction}
+            stagedExpiresAt={stagedExpiresAt}
+            onClearSelection={() =>
+              updateState((draft) => ({ ...draft, selectedEntity: null, selectedZoneId: null }))
+            }
+            onAcknowledgePriority={handleAcknowledgePriority}
+            onSelectDrone={(droneId) => handleSelectEntity({ type: "drone", id: droneId })}
+            onSelectTeam={(teamId) => handleSelectEntity({ type: "team", id: teamId })}
+            onSelectZone={(zoneId) => handleSelectEntity({ type: "zone", id: zoneId })}
+            spatialHover={spatialHover}
+            onSpatialHoverChange={setSpatialHover}
+            canToggleSurface={canToggleSurface}
+            onSurfaceModeChange={handleSurfaceModeChange}
+            onOpenExplore3d={() => setExplore3d(true)}
+            incidentElapsed={incidentElapsed}
+            investigationElapsed={investigationElapsed}
+            openRequest={railOpenRequest}
+            onOpenRequestHandled={() => setRailOpenRequest(null)}
+            suspended={activeModal !== null || explore3d}
+            renderers={{ investigation: () => <InvestigationStrip investigationElapsed={investigationElapsed} /> }}
+          />
+          <BottomNav
+            state={state}
+            surface={talonSurfaceV2}
+            onAction={handleAction}
+            timeString={formatTime(simTime)}
+            incidentElapsed={incidentElapsed}
+            live={liveMode}
+            liveConnected={liveSession.connected}
+            stagedExpiresAt={stagedExpiresAt}
+            onOpenSession={() => setRailOpenRequest({ id: "talon", seq: Date.now() })}
+          />
+          <UndoToast toast={toast} onDismiss={() => setToast(null)} bottomOffset={railBottomInsetV2 + space.md} />
+        </>
+      )}
+
+      {chromeVersion === "legacy" && (<>
       <div
         style={{
           position: "absolute",
@@ -1027,8 +1417,9 @@ export function SentinelShell() {
           ariaLabel="TALON synthesis rail"
         />
       </div>
+      </>)}
 
-      {showsActionBar ? (
+      {showsActionBar && chromeVersion === "legacy" ? (
         <div
           style={{
             position: "absolute",
@@ -1208,13 +1599,13 @@ export function SentinelShell() {
           Exception Queue and the blocked agents in TALON Workforce. The failure
           is therefore felt across the entire system, not shown in one frame.
       ────────────────────────────────────────────────────────────────────── */}
-      {!explore3d && (state.scene === "satellite-feed-loss" || state.scene === "network-degraded") && state.operationalException && (
+      {!explore3d && !layoutV2 && (state.scene === "satellite-feed-loss" || state.scene === "network-degraded") && state.operationalException && (
         <div
           style={{
             position: "absolute",
             top: PANEL_TOP,
             left: adaptiveRailWidth + SCREEN_INSET + 18,
-            right: adaptiveRailWidth + SCREEN_INSET + 18,
+            right: adaptiveTalonRailWidth + SCREEN_INSET + 18,
             zIndex: layer.alert,
           }}
         >
@@ -1298,10 +1689,21 @@ export function SentinelShell() {
             zIndex: layer.alert,
           }}
         >
-          <ReRaiseBriefPanel
-            dissent={state.dissent}
-            currentConfidence={evidenceConfidence}
+          {/* Occlusion scrim. material.overlay is 0.96 alpha, so bright map
+              labels (S-LZ GRID 4C, RELAY-03) ghost through the re-raise card as
+              4%-opacity smudges — text-on-text over a decision surface. DESIGN.md
+              §materials: authorization surfaces stay opaque so they never compete
+              with the map. The scrim is a backdrop only: no edge, no radius. */}
+          <div
+            aria-hidden="true"
+            style={{ position: "absolute", inset: `-${shellTokens.screenInset}px`, background: T.bgMap, pointerEvents: "none" }}
           />
+          <div style={{ position: "relative" }}>
+            <ReRaiseBriefPanel
+              dissent={state.dissent}
+              currentConfidence={evidenceConfidence}
+            />
+          </div>
         </div>
       )}
 
@@ -1404,6 +1806,7 @@ export function SentinelShell() {
       {state.scene === "verify-active" && (
         <VerifyLiveFeed
           railWidth={adaptiveRailWidth}
+          rightRailWidth={adaptiveTalonRailWidth}
           bottomInset={railBottomInset}
         />
       )}
@@ -1426,11 +1829,14 @@ export function SentinelShell() {
               case "shift-handover":
                 updateState((draft) => {
                   const next = { ...draft, activeOperator: "R. Sharma" };
-                  appendLog(next, "System", "Audit", "Operational Authority transferred from A. Rao to R. Sharma · Cryptographic Receipt: AUDIT-8842", "safe");
+                  appendLog(next, "System", "Audit", "Operational Authority transferred from A. Rao to R. Sharma · Session receipt AUDIT-8842 (prototype ledger)", "safe");
                   return next;
                 });
                 break;
               case "emergency-evacuate":
+                /* Actor is the OPERATOR, not TALON (audit 2026-09 §P0-4): a
+                 * human authorized this. Attributing it to TALON would put an
+                 * evacuation in the ledger with the wrong signer. */
                 updateState((draft) => {
                   const assignments = payload?.teamAssignments ?? [];
                   const activeRoute = payload?.route ?? "Route A";
@@ -1457,7 +1863,7 @@ export function SentinelShell() {
                      logMessage += `.`;
                   }
 
-                  appendLog(next, "TALON", "Evacuation", logMessage, "caution");
+                  appendLog(next, "Operator", "Evacuation", logMessage, "caution");
                   return next;
                 });
                 break;
@@ -1726,6 +2132,17 @@ export function SentinelShell() {
           }}
         />
       )}
+
+      {/* ── ICS-209 INCIDENT DEBRIEF MODAL ────────────────────────────────────
+          Auditable incident status summary, after-action timeline scrubber,
+          dissent ledger, and one-click JSON/PDF export.
+      ────────────────────────────────────────────────────────────────────── */}
+      <Ics209DebriefModal
+        open={debriefOpen}
+        onClose={() => setDebriefOpen(false)}
+        state={state}
+        incidentElapsed={incidentElapsed}
+      />
     </div>
   );
 }
@@ -1734,10 +2151,12 @@ function TimelinePopover({
   surfaceRef,
   entries,
   onClose,
+  onOpenDebrief,
 }: {
   surfaceRef: RefObject<HTMLDivElement>;
   entries: ActivityLogEntry[];
   onClose: () => void;
+  onOpenDebrief?: () => void;
 }) {
   const latest = entries[0];
 
@@ -1868,6 +2287,37 @@ function TimelinePopover({
           );
         })}
       </div>
+
+      {onOpenDebrief && (
+        <div style={{ padding: space.md, borderTop: `1px solid ${border.soft}` }}>
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onOpenDebrief();
+            }}
+            data-action="timeline-open-debrief"
+            style={{
+              width: "100%",
+              padding: "8px 12px",
+              borderRadius: radius.control,
+              border: `1px solid ${tint(T.teal, 0.3)}`,
+              background: tint(T.teal, 0.12),
+              color: T.teal,
+              fontFamily: font.sans,
+              fontSize: typeScale.label,
+              fontWeight: typeWeight.semibold,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: space.xs,
+            }}
+          >
+            Open Full ICS-209 Debrief Packet →
+          </button>
+        </div>
+      )}
     </PopoverSurface>
   );
 }
@@ -1914,7 +2364,7 @@ function CompactPanel({
           padding: "8px 16px",
           display: "flex",
           alignItems: "center",
-          gap: 10,
+          gap: space.sm,
           borderRadius: radius.panel,
           boxShadow: shadow.edgeOverlay,
         }}
@@ -2110,7 +2560,7 @@ function AlertPopup({ onDispatch, onDismiss }: { onDispatch: () => void; onDismi
       </div>
 
       {/* Actions */}
-      <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+      <div style={{ display: "flex", gap: space.md, marginTop: 16 }}>
         <PopupActionButton
           actionId="monitor-only"
           label="Dismiss · Notify local dept"
@@ -2232,7 +2682,7 @@ function InvestigationStrip({ investigationElapsed }: { investigationElapsed: nu
       role="status"
       aria-label="Lidar-02 investigation in progress"
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: space.sm }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontFamily: font.sans, fontSize: typeScale.body, fontWeight: typeWeight.semibold, color: T.textPrimary }}>
             Lidar-02 en route
@@ -2274,7 +2724,7 @@ function InvestigationStrip({ investigationElapsed }: { investigationElapsed: nu
           paddingTop: 10,
           display: "grid",
           gridTemplateColumns: "1fr auto",
-          gap: 10,
+          gap: space.md,
           alignItems: "center",
         }}
       >
@@ -2290,8 +2740,8 @@ function InvestigationStrip({ investigationElapsed }: { investigationElapsed: nu
           style={{
             padding: "5px 10px",
             borderRadius: radius.control,
-            background: investigationElapsed >= 10 ? "rgba(245,166,35,0.12)" : "rgba(0,200,255,0.08)",
-            border: `1px solid ${investigationElapsed >= 10 ? "rgba(245,166,35,0.3)" : "rgba(0,200,255,0.18)"}`,
+  background: investigationElapsed >= 10 ? "rgba(245,166,35,0.12)" : tint(T.cyan, 0.08),
+  border: `1px solid ${investigationElapsed >= 10 ? "rgba(245,166,35,0.3)" : tint(T.cyan, 0.18)}`,
             fontFamily: font.mono,
             fontSize: typeScale.label,
             color: investigationElapsed >= 10 ? T.amber : T.cyan,
@@ -2320,9 +2770,11 @@ function InvestigationStrip({ investigationElapsed }: { investigationElapsed: nu
  */
 function VerifyLiveFeed({
   railWidth,
+  rightRailWidth,
   bottomInset,
 }: {
   railWidth: number;
+  rightRailWidth: number;
   bottomInset: number;
 }) {
   const mapLoaded = true;
@@ -2333,7 +2785,7 @@ function VerifyLiveFeed({
         position: "absolute",
         top: PANEL_TOP,
         left: railWidth + SCREEN_INSET + 18,
-        right: railWidth + SCREEN_INSET + 18,
+        right: rightRailWidth + SCREEN_INSET + 18,
         bottom: bottomInset,
         zIndex: layer.centerSurface,
         borderRadius: radius.overlay,
@@ -2352,7 +2804,7 @@ function VerifyLiveFeed({
         style={{
           position: "absolute",
           inset: 0,
-          backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,200,255,0.018) 3px, rgba(0,200,255,0.018) 4px)",
+          backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(28,184,230,0.018) 3px, rgba(28,184,230,0.018) 4px)",
           pointerEvents: "none",
           zIndex: 2,
         }}
@@ -2401,7 +2853,15 @@ function VerifyLiveFeed({
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          gap: 10,
+          gap: space.sm,
+          /*
+           * Caption-collision fix (vault 06 §3.5): this cluster centers on the
+           * same region as the SVG fire polygon and its THERMAL_CORE label, so
+           * the cyan reticle text sat directly on the red core. Shifting the
+           * whole cluster 40px down parks it in the polygon's lower lobe,
+           * where the feed is visually quietest.
+           */
+          transform: "translateY(40px)",
           zIndex: 1,
         }}
       >
@@ -2510,7 +2970,10 @@ function stripDerived(state: ShellState): ShellDraft {
 
 function syncState(draft: ShellDraft, investigationElapsed: number): ShellState {
   const operationalException = getOperationalException(draft.scene);
-  const actionSurface = deriveQuickActions(draft, investigationElapsed);
+  const actionSurface = demoteExpiredActions(
+    deriveQuickActions(draft, investigationElapsed),
+    new Set(draft.expiredActions ?? []),
+  );
   const quickActionStates = [...actionSurface.primary, ...actionSurface.secondary];
   const activePriorities = derivePriorities(draft, quickActionStates);
   return {
@@ -3393,7 +3856,7 @@ function EscalationProtocolOverlay({
           padding: "12px 20px",
           display: "flex",
           alignItems: "center",
-          gap: 10,
+          gap: space.sm,
         }}>
           <div style={{
             fontFamily: font.sans, fontSize: typeScale.label, fontWeight: typeWeight.bold,
@@ -3521,7 +3984,7 @@ function EscalationProtocolOverlay({
 
           {/* Alarm indicator */}
           <div style={{
-            display: "flex", alignItems: "center", gap: 10,
+            display: "flex", alignItems: "center", gap: space.sm,
             padding: "8px 14px",
             borderRadius: radius.control,
             background: "rgba(229,83,60,0.06)",

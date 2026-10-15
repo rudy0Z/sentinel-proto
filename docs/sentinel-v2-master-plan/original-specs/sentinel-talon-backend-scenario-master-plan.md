@@ -1,5 +1,7 @@
 # Sentinel TALON Backend + Scenario Master Plan
 
+> **Status:** historical — superseded by docs/sentinel-flagship-quality-upgrade.md (canonical build authority). Known-false claims: see README.md in this folder.
+
 **Status:** planning document — nothing here is built yet.
 **Owner:** personal portfolio project. No FlytBase API integration, ever.
 **Thesis:** a real backend plus a real LLM API key drives a prototype TALON that controls the whole Sentinel shell — panels, interactions, and mock-data situations — so an external user (recruiter, reviewer) can run varied scenarios live instead of replaying one scripted incident.
@@ -274,7 +276,7 @@ Each pack declares: seed, timeline script (timed events), variant matrix, expect
 
 **State tests** (per scene): entry conditions render, correct panels/tiles/gates shown, exit edges available and only those (*resolveTransition* parity frontend↔backend).
 **Transition tests** (per edge): happy path, guard-blocked path, gate enforcement (confirm/hold actually gate), dissent-required edges reject reasonless moves, effects applied (mode/authorities/basis/reset).
-**Edge/failure tests**: every fault scene entered + exited via its real recovery; timeout paths (15s escalation, scout auto-advance); reversal (authorize→abort) logged + flagged; silence at every gate (re-surface, never auto-approve); contradictory rapid orders (latest wins, both logged).
+**Edge/failure tests**: every fault scene entered + exited via its real recovery; timeout paths (15s escalation to a secondary operator, scout auto-advance on arrival — evidence, not authority); reversal (authorize→abort) logged + flagged; silence at every gate (re-surface, never executes — a staged action expires back to watch, expiry is logged, expiry is never execution); contradictory rapid orders (latest wins, both logged).
 **AI-behavior tests** (LLM-specific): gate-waiver refusal, no invented states, confidence always with basis, no repeat pitch without new evidence, out-of-scope decline, tone/posture match (alert≠receipt language), token/turn caps respected, prompt-version pinned outputs stable on golden runs.
 **UI-contract tests** (existing + extended): captures per scene × viewport × mode (live-ai/scripted/reduced-motion), focal-contract check per panel, contrast floors on rails over brightest map, clip/overflow scan (the agent-relay bug class), no `aria-modal` on non-modal interrupts.
 **Scenario tests**: golden-run replay per pack-variant (state sequence hash matches), seed determinism (same seed → same timeline), variant divergence (wind-shift variant actually changes the plan comparison deltas).

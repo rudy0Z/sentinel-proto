@@ -1,6 +1,7 @@
 import type { SceneId } from "../../tokens";
 import { T, border, font, layer, material, radius, space, surface, tint, tracking, typeScale, typeWeight } from "../../tokens";
 import { REVIEW_SCENES } from "../../mockData";
+import { DebriefTimeline } from "./DebriefTimeline";
 
 export function ReviewDock({
   open,
@@ -112,6 +113,7 @@ export function ReviewDock({
           })}
         </div>
       ) : null}
+      {open ? <DebriefTimeline sceneLabel={String(activeScene)} /> : null}
     </div>
   );
 }

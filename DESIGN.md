@@ -105,7 +105,6 @@ Components bind to semantic roles from `tokens.ts`.
 - Amber: uncertainty, source conflict, pending human judgment.
 - Red: danger, destructive action, blocked life-safety condition.
 - Teal: verified, safe, complete, receipt written. The "done" colour — cyan never carries completion.
-- Yellow: ground-team / ingress-guidance routes, advisory exceptions, stale sources. Distinct from amber's decision-state role.
 - **Fire** (`#FF6B4A`) is the diegetic light source, not an operational accent. Fire (and the LiDAR sweep during active verification) are the ONLY elements permitted to emit light/bloom — this is the single earned exception to the no-glow rule. Everything else is edge-lit.
 
 Only one operational colour leads a component. State always includes text or an icon. Keep chrome neutral so the one accent lands (the Linear discipline).
