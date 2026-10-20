@@ -19,7 +19,7 @@ Deliberately sequenced so each answer constrains the next. Sections 1–2 are th
 | # | Section | State | Blocks |
 |---|---|---|---|
 | 0 | **North star** — what is the final solution? | 🟡 interview in progress | everything |
-| 1 | **Map & spatial model** | 🔴 OPEN — owner researching FireTracer | §2, §4, panels |
+| 1 | **Map & spatial model** | 🟢 ruled 2026-10-21 — see §1.1 | §2, §4, panels |
 | 2 | **Shell & layout** | 🟡 interview | §3, panels |
 | 3 | **TALON surface & conversation** | ⬜ queued | flows |
 | 4 | **Panels & data density** | ⬜ queued | §2, §3 |
@@ -48,8 +48,8 @@ Legend: 🟢 verified healthy 🟡 interview pending 🔴 blocked on owner resea
 
 ## §1 — Map & spatial model
 
-> **Status: 🔴 OPEN — blocked on owner research. DO NOT BUILD.**
-> Owner is researching FireTracer as the reference target (2026-10-19). No map work until ruled.
+> **Status: 🟢 RULED 2026-10-21. The build contract is §1.1 below — build from that.**
+> Architecture: one world model, three fidelities (2D world model / drone EO camera / drone IR camera) with a degradation ladder as a designed state. Day and night both supported; the scenario runs at night.
 
 **What the code does today — three renderers, none canonical:**
 
@@ -64,7 +64,124 @@ Legend: 🟢 verified healthy 🟡 interview pending 🔴 blocked on owner resea
 - Roads exist in the data (`roads.ts`, OSM) but are **not** a designed layer — the owner wants entry/escape routes generated on the map
 - `world.landuse` (10 KB) is baked, shipped, and never drawn
 
-**Owner ruling on Q1 (which renderer survives) and Q2 (hairline: future or experiment):** _(pending)_
+**Owner ruling on Q1 (which renderer survives) and Q2 (hairline: future or experiment):** see §1.1 below — both ruled.
+
+---
+
+## §1.1 — The map architecture: one world, three fidelities
+
+> **Status: 🟢 RULED 2026-10-21.** This is the build contract for the map.
+
+### The idea
+
+The current failure is not that the map looks wrong. It is that **the map has no model of what it is showing.** It is a PNG with overlays (2D), a photoreal world (3D), and a second photoreal world (`hairline/`) — three pictures of three different things, with no shared truth underneath. So nothing can be trusted to register, and nothing can degrade gracefully.
+
+The fix is a **single world model** with a **fidelity ladder** over one visual channel.
+
+| | Channel | Rendered as | Active when |
+|---|---|---|---|
+| **Tier 3** | **World model** | Top-down 2D, elevation-shaded, carrying every data layer | **Always on.** The substrate. Also the fallback. |
+| **Tier 1** | **Drone EO camera** | 3D world rendered from the drone's pose | Default. Operator sees the world from the air. |
+| **Tier 2** | **Drone IR camera** | The same 3D world, Ironbow false-colour | EO is degraded by smoke or darkness. |
+
+Three consequences that matter:
+
+1. **The 2D map is not a lesser map.** It is the world model — the always-available substrate that carries the data layers and the orientation. It never blanks.
+2. **The 3D is not a separate map.** It is the *camera view* of the same world. Switching between 2D and 3D is a **fidelity switch**, not a view switch.
+3. **Degradation is a designed state, not an error.** When smoke kills the camera, the operator drops to the world model and *keeps the world*. The operator never loses situational awareness because the feed died. **This is the product's differentiator and it is a design decision, not a rendering fallback.**
+
+### Day and night
+
+FireTrace is a day product. Sentinel is not: the scenario is a **night** initial attack.
+
+- The world model carries a **scene state** (sun elevation, ambient, visibility) and renders **day or night** from it. Not a theme swap — a lighting state.
+- The camera views follow the same scene state, so the EO feed is genuinely low-light and the IR feed is genuinely the reason you switch to it.
+- Both are authored states of the same world, not two worlds.
+
+### Build spec
+
+**M1 — World model & one coordinate law**
+- Keep `map/world/` (USGS 3DEP, OSM roads/buildings, ESA vegetation) — **re-bake the DEM to 3–5 m** (current 400×220 ≈ 15 m; too coarse for contours or tactical relief).
+- **One law:** local metres → world, in a single module. Every renderer consumes it. `frame.ts` becomes a thin projection over it. No renderer computes its own transform.
+- **One fire.** `fire/fireModel.ts` and `world.fire.band` are reconciled into a single model in the world model. The other is deleted, not preserved.
+- `world.landuse` is either drawn or dropped.
+
+**M2 — Scene state**
+`world/scene.ts`: sun/ambient/visibility → day or night grade, camera exposure, weather layer values. Authoritative for all tiers.
+
+**M3 — Tier 3: the 2D world model**
+- Top-down orthographic, **rendered from the data — no PNG basemap**. `src/assets/sentinel-map-overhaul.png` (3.4 MB) is deleted.
+- Renders: elevation-shaded relief, vegetation, roads, structures, water.
+- **Cartographic furniture (all missing today):** graticule with degree-minute labels · compass · live scale bar · terrain features labelled with elevation · attribution.
+- Carries every data layer (M5).
+
+**M4 — Tiers 1 & 2: the drone camera**
+- One three.js scene, camera pose = drone pose.
+- **Stylized relief diorama** (FireTrace-grade): faceted terrain, low-poly trees, flat-shaded, one strong key light. **This replaces the NAIP drape and the 6,000 tree instances** — which is what removes the white-box buildings and the ocean mosaic gap, rather than patching them.
+- **IR mode:** same scene, Ironbow false-colour, fire rendered as heat.
+- **Drone HUD over the view:** alt AGL · ground speed · heading · SPI/RNG/ELEV · battery · link · gimbal depression · EO|IR toggle.
+- Operator camera states: free orbit **and** drone-pose (gimbal), with a fly-to.
+
+**M5 — Data layers (composited over every tier)**
+- *Fire:* perimeter **with time-stamped nodes** (FireTrace's pattern — reads better than nested rings) · dNBR burn scar with severity gradient · modeled spread, labelled `modeled · Rothermel 1974` per `DECISIONS.md` §1.3/§1.6 · head axis · suppression lines (dozer/hand) · ignition point with timestamp · spot-fire detections with source drone and temperature.
+- *Values at risk:* structures with **triage status** (not "at risk" — a projection) · evacuation zones (warning / mandatory) · routes in three states (active egress / standby / compromised).
+- *Assets:* ground units with type and status · air ops.
+- *Environment:* wind vector · fuel moisture · ERC · flame length — **qualified "at fire front"**, per FireTrace.
+
+**M6 — Degradation ladder** *(the differentiator)*
+- Tier indicator always visible — the operator always knows which fidelity they have.
+- Smoke events step EO → IR → world model, and back.
+- The world model also serves **special data** that has no photographic representation.
+- Every transition is logged and visible. It is a state, not a glitch.
+
+**M7 — Time**
+Timeline scrubber drives world state: perimeter interpolates across the progression, drone breadcrumbs animate, event markers on the track.
+
+**M8 — Analytics deck**
+Three charts in one slot, subject switches with the tier: world model → **Fire Area / Rate of Spread / Elevation Profile** (terrain cross-section with burn-severity band) · camera → **Altitude / Max Temperature in View / Battery**. 60 s of history solid, projection dashed.
+
+**M9 — Interaction & selection**
+Select · hover-interrogate · pan/zoom · layer control with per-layer opacity · measure · fly-to from a list to the map. The map is interrogable, not just watched.
+
+**M10 — Provenance & uncertainty**
+Layer panel carries basis and "as of" per layer. Every metric states **measured / modeled / authored**. Uncertainty is an envelope, never a bare percentage. *(Implements `DECISIONS.md` §1.3 as a visual grammar, not a footnote.)*
+
+**M11 — Performance budget** *(numbers, decided before Sprint 1)*
+Draw calls · triangles · frame time · idle state. The existing 19/19 draws · 188K tris · 0 FPS idle is the baseline to beat, not to exceed. Stated as a number in this file so a sprint cannot silently blow it.
+
+**M12 — Gates**
+The 3D scene is covered by **no gate** today (`DECISIONS.md` §6.4). Add coverage: renders without console error, draw-call count within budget, tier switching works, degradation ladder steps, night grade applies.
+
+### Build order
+
+| Sprint | Delivers | Gate to pass before moving on |
+|---|---|---|
+| **S0** | M1 + M2 — world model, one coordinate law, one fire, scene state | typecheck; map 9/9 still green against the new law |
+| **S1** | M3 — Tier 3 2D world model replaces the PNG basemap | map gate; a scene screenshot reviewed against the FireTrace frame |
+| **S2** | M4 — Tier 1/2 camera + drone HUD | new 3D gate (§M12) |
+| **S3** | M5 + M10 — data layers and provenance | new 3D gate; token audit at or below baseline |
+| **S4** | M6 + M7 + M8 — degradation ladder, time, analytics deck | new 3D gate; flows green |
+| **S5** | M9 + M11 — interaction, budget | full suite green |
+
+### Definition of done — the map
+
+A reviewer opening the app must be able to:
+
+1. See a **real place** — USGS terrain, OSM roads and structures — not a stylised impression. *(S1)*
+2. See the **fire as a fire**: a perimeter with a history, a burn scar, a head axis, and an origin. *(S3)*
+3. **Interrogate** any element and get what it is, where it came from, and how fresh it is. *(S3, S5)*
+4. **Move through time** and watch the incident develop, with the charts tracking. *(S4)*
+5. See the world **from the drone**, in EO and in IR, with a real HUD. *(S2)*
+6. **Lose the camera feed** and still keep the world, in a lower fidelity, with a visible indication of what happened. *(S4)*
+7. Find **nothing on the map that contradicts anything else in the product**. *(S0 onward)*
+
+### Owner ruling
+
+> **Q1 — which renderer survives:** **rebuild the map module fresh, in this repo.** Keep `map/world/` (the real data) and the coordinate law; delete `map/hairline/`, `map/_archive/`, `components/ui/`, and the PNG basemap. The three-renderer state is retired. *Ruled 2026-10-21.*
+>
+> **Q2 — hairline:** **dead experiment.** 1,469 LOC, a parallel renderer, no UI link, no gate, and docs that contradict themselves three ways. It reuses the world *data* correctly, so nothing is lost by deleting the *render* code. *Ruled 2026-10-21.*
+>
+> **Architecture:** one world model, three fidelities (world model / EO camera / IR camera), with a **degradation ladder** as a designed state. The 2D map is the always-on substrate; the 3D is the camera view of the same world. Day and night are both supported; the scenario runs at night. *Ruled 2026-10-21.*
 
 ---
 

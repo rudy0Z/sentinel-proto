@@ -60,19 +60,25 @@
 
 **This is why the repo feels "unfinished": the most-polished surface is on the non-default path.** Do not mistake `TalonCopilotPanel` for the live TALON UI.
 
-## 4. Map architecture — **OPEN. Do not build.**
+## 4. Map architecture — **RULED 2026-10-21. Build from `SPEC.md` §1.1.**
 
-> ⚠️ **This section is deliberately undecided.** Three renderers coexist and the owner is researching the target direction (2026-10-19). **Any map work started now is likely wasted.**
+> The section is no longer open. The owner ruled on 2026-10-21 after studying the FireTrace reference. **The build contract is `SPEC.md` §1.1** — one world model, three fidelities, a degradation ladder, day and night.
 
 | # | Decision | Status | Date | Note |
 |---|---|---|---|---|
-| 4.1 | **Which map renderer survives** | **OPEN** | — | Owner researching FireTracer as the reference target, 2026-10-19. Blocked on that ruling |
-| 4.2 | Hairline rendition — replace the basemap, or abandoned experiment? | **OPEN** | — | Docs contradict themselves: `14-hairline-map-style-spec.md` says "Built 2026-10-07" (status `exploratory`); `AGENTS.md` said "ratified"; `15-session-record` said "not written". All three were true at different times |
-| 4.3 | Roads as a **first-class data layer**, generating entry and escape routes directly on the map | **OPEN — direction stated by owner, implementation pending 4.1** | 2026-10-19 | Owner requirement. Not yet implemented anywhere |
-| 4.4 | Default 2D basemap is a **3.5 MB PNG** (`src/assets/sentinel-map-overhaul.png`), not the baked world data | ACTIVE (fact) | — | Not a decision — a known defect. "Real-data diorama" claims describe the 3D map, not the map a visitor lands on |
-| 4.5 | Two live, **disagreeing fire geometries**: `map/fire/fireModel.ts` (`FIRE.isochrones`) and `map/world/world.ts:181-196` (`world.fire.band`), both drawn by `worldScene.ts` | ACTIVE (defect) | — | Correctness risk, not cosmetic. Resolve in Sprint 1 |
+| 4.1 | **One world model, three fidelities.** A single world (DEM, roads, structures, vegetation, fire, assets) behind one coordinate law, rendered at three fidelities: **Tier 3** the top-down 2D world model (always on, the substrate and the fallback), **Tier 1** the drone EO camera, **Tier 2** the drone IR camera. Switching is a *fidelity* switch, not a view switch. | **ACTIVE** | 2026-10-21 | Owner ruling. Replaces the three-renderer state. Full spec: `SPEC.md` §1.1 |
+| 4.2 | **Hairline is dead.** `map/hairline/` (1,469 LOC, parallel three.js renderer, URL-only, no gate, docs contradicting themselves three ways) is deleted. Its correct reuse of world *data* is preserved; the duplicated *render* code is not. | **ACTIVE** | 2026-10-21 | Owner ruling on Q2. Deletion is Sprint 0 alongside the `verify-map` `archive-present` check retirement |
+| 4.2b | **The degradation ladder is a designed state, not an error.** When smoke degrades the EO feed the operator steps EO → IR → world model, with the tier always visible and every transition logged. The operator never loses the world because the feed died. | **ACTIVE** | 2026-10-21 | The product's differentiator. This is a design decision, not a rendering fallback — it belongs in the case study |
+| 4.2c | **Day and night are both supported.** The world carries a scene state (sun/ambient/visibility); the scenario runs at **night**. FireTrace is a day product and is the reference for the *day* treatment only. | **ACTIVE** | 2026-10-21 | A lighting state, not a theme swap |
+| 4.2d | **The 2D basemap is rendered from the data, not from a PNG.** `src/assets/sentinel-map-overhaul.png` (3.4 MB) is deleted. The 2D surface renders elevation, vegetation, roads, and structures from the baked world. | **ACTIVE** | 2026-10-21 | Removes the still-image basemap that pixelates on zoom and cannot carry live state |
+| 4.2e | **Cartographic furniture is required** — graticule with degree-minute labels, compass, live scale bar, terrain features labelled with elevation, attribution. None of it exists today. | **ACTIVE** | 2026-10-21 | The map's authority comes from this, not from the terrain shader |
+| 4.3 | Roads as a **first-class data layer**, generating entry and escape routes directly on the map | **ACTIVE — pending 4.1 implementation** | 2026-10-19 | Owner requirement. Specified in `SPEC.md` §1.1 M5 as three states: active egress / standby / compromised |
+| 4.4 | Default 2D basemap is a **3.5 MB PNG** (`src/assets/sentinel-map-overhaul.png`), not the baked world data | **SUPERSEDED — being fixed** | 2026-10-21 | Was a recorded defect. 4.2d removes it |
+| 4.5 | Two live, **disagreeing fire geometries**: `map/fire/fireModel.ts` (`FIRE.isochrones`) and `map/world/world.ts:181-196` (`world.fire.band`), both drawn by `worldScene.ts` | **SUPERSEDED — being fixed** | 2026-10-21 | Correctness risk, not cosmetic. `SPEC.md` §1.1 M1 reconciles them into one model in the world |
 | 4.6 | World location: **Encinal Canyon, Malibu CA**, from USGS 3DEP relief + OSM buildings/roads | ACTIVE | — | Commits `a0ad5c1`, `58365d9`, `84f0e0f` |
-| 4.7 | Hairline reuses world **DATA** and never re-authors geography | ACTIVE | — | Verified: `hairlineScene.ts:16` imports from `world/world`. It does duplicate all **render** code (1,469 LOC parallel three.js) |
+| 4.7 | Hairline reuses world **DATA** and never re-authors geography | **SUPERSEDED** | 2026-10-21 | Was true and worth keeping as a principle; the module is deleted by 4.2. The principle survives: the world model is the only geography source |
+| 4.8 | **The 3D scene gets gate coverage.** It is covered by no gate today — only the button's existence is tested. | **ACTIVE — pending** | 2026-10-21 | `SPEC.md` §1.1 M12. Supersedes the 6.4 defect once landed |
+| 4.9 | **Performance budget is a number, stated before Sprint 1** — draw calls, triangles, frame time, idle state. Baseline to beat: 19/19 draws · 188K tris · 0 FPS idle. | **ACTIVE — pending** | 2026-10-21 | `SPEC.md` §1.1 M11. A sprint must not silently blow it |
 
 ## 5. Data model — ACTIVE
 
@@ -123,8 +129,8 @@ Ordered by how much work they block.
 
 | # | Question | Blocks | Owner ruling |
 |---|---|---|---|
-| Q1 | Which map renderer survives — rebuild fresh against a FireTracer reference, promote hairline, or keep the 2D canvas? | **Sprint 1 (entire)** | pending — researching |
-| Q2 | Is the hairline module the future of the map, or a dead experiment? | Sprint 1 | pending |
+| Q1 | Which map renderer survives — rebuild fresh against a FireTracer reference, promote hairline, or keep the 2D canvas? | **Sprint 0** | **RULED 2026-10-21 — rebuild the map module fresh, in-repo.** One world model, three fidelities. `SPEC.md` §1.1 |
+| Q2 | Is the hairline module the future of the map, or a dead experiment? | Sprint 0 | **RULED 2026-10-21 — dead experiment.** Delete the render code; keep its correct reuse of world data |
 | Q3 | Delete `v2` + `legacy` chrome, or keep both behind flags? | Sprint 2 (deferred to Sprint 4) | **keep both behind flags** (2026-10-19) |
 | Q4 | Which sections need genuine redesign vs. are fine once the duplicates are gone? | Sprint 4 | pending — the section interview |
 | Q5 | Are `docs/case-study-research/` + `docs/portfolio-case-study/` portfolio deliverables, or archive material? | archive hygiene | pending |
