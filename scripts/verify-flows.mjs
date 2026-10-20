@@ -210,8 +210,8 @@ try {
 
   await run("rail filters and map cross-highlighting", async (page) => {
     // Pins layout=legacy: this flow asserts the legacy rail's "Assets" tab and
-    // its searchbox affordance, which v3 replaced with the collapsed rail dots
-    // (Fleet / FLT). v3 rail behaviour is covered by the v2/v3 chrome flows.
+    // its searchbox affordance, which v3 replaced with the collapsed rail dot
+    // (Fleet). v3 rail behaviour is covered by the "layout v3:" flows below.
     await page.goto(`${baseUrl}#/?scene=contain-recommended&layout=legacy`, { waitUntil: "domcontentloaded" });
     await page.getByRole("tab", { name: /Assets/ }).click();
     const row = page.getByTestId("drone-row-scout-01");
@@ -359,6 +359,65 @@ try {
     await tab.waitFor({ timeout: 10000 });
     await tab.click();
     await page.locator('[data-spine-panel="open"]').waitFor({ timeout: 8000 });
+  });
+
+  /* ── shell v3 (the DEFAULT chrome): One-style rails + deck orb ───────────
+     v3 renders on every unpinned route, so these flows guard the default. */
+  await run("layout v3: rails, orb, and deck render on the default shell", async (page) => {
+    await page.goto(`${baseUrl}#/?scene=baseline`, { waitUntil: "domcontentloaded" });
+    await page.locator('[data-rail-tab="true"]').first().waitFor({ timeout: 10000 });
+    // Both rails are labelled tablists; one panel per side is closed by default.
+    await page.getByRole("tablist", { name: "Operator rail" }).waitFor();
+    await page.getByRole("tablist", { name: "TALON rail" }).waitFor();
+    if (await page.locator('[data-rail-panel="open"]').count()) {
+      throw new Error("A v3 rail panel was open on load — panels start collapsed.");
+    }
+    await page.locator('[data-deck="true"]').waitFor();
+    await page.getByRole("button", { name: "Open TALON session" }).waitFor();
+  });
+
+  await run("layout v3: rail tab opens its panel and the orb opens the session", async (page) => {
+    await page.goto(`${baseUrl}#/?scene=baseline`, { waitUntil: "domcontentloaded" });
+    const tab = page.locator('[data-rail-tab="true"][data-rail-side="left"]').first();
+    await tab.waitFor({ timeout: 10000 });
+    await tab.click();
+    await page.locator('[data-rail-panel="open"]').first().waitFor({ timeout: 8000 });
+    await page.keyboard.press("Escape");
+    await page.locator('[data-rail-panel="open"]').first().waitFor({ state: "hidden", timeout: 8000 });
+
+    // The orb opens TALON's own surface, not a foreign one.
+    await page.getByRole("button", { name: "Open TALON session" }).click();
+    const sessionPanel = page.locator('[data-rail-panel="open"]');
+    await sessionPanel.waitFor({ timeout: 8000 });
+    // The session thread renders as a live status region inside the panel.
+    await sessionPanel.getByRole("status").first().waitFor({ timeout: 8000 });
+  });
+
+  /* Constitution: the v3 DecisionCard in the session panel is an ENTRANCE to
+     the gate, never a second gate — the same hold-to-authorize path as the deck. */
+  await run("layout v3: decision card routes through the same hold-to-authorize gate", async (page) => {
+    await page.goto(`${baseUrl}#/?scene=authority-notification-ready&stagedTtlMs=0`, { waitUntil: "domcontentloaded" });
+    // Open the TALON session first: the DecisionCard lives inside that panel,
+    // and no panel is open on load.
+    await page.getByRole("button", { name: "Open TALON session" }).click();
+    const sessionPanel = page.locator('[data-rail-panel="open"]');
+    await sessionPanel.waitFor({ timeout: 8000 });
+    await page.locator('[data-decision-card="true"]').first().waitFor({ timeout: 8000 });
+
+    const send = sessionPanel.getByRole("button", { name: /Send Authority Packet/i }).first();
+    if ((await send.getAttribute("data-gated")) !== "true") {
+      throw new Error("v3 decision-card gate is not marked gated.");
+    }
+    await send.click();
+    await page.waitForTimeout(600);
+    if ((await page.getByRole("dialog").count()) !== 0) {
+      throw new Error("A plain click fired the v3 gated verb — hold-to-authorize was bypassed.");
+    }
+    await send.hover();
+    await page.mouse.down();
+    await page.waitForTimeout(2400);
+    await page.mouse.up();
+    await page.getByRole("dialog").waitFor();
   });
 } finally {
   await browser.close();

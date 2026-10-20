@@ -1,7 +1,7 @@
 # TEST PATH — Sentinel first-run walkthrough
 
 > **Status: canonical** · v3 shell · verified against `verify:routes` 23/23 and
-> `verify:flows` 22/22 on 2026-10-15.
+> `verify:flows` 25/25 on 2026-10-19 (was 22/22 on 2026-10-15 — three v3 flows were added).
 >
 > A prototype is only finished when a stranger can reach a designed state
 > without asking a question. This is that path. Every step is a URL you can open
@@ -134,7 +134,7 @@ npm run verify:machine     # 20 scenes / 39 edges, reachability
 npm run verify:attention   # arbiter contract
 npm run verify:signals     # telemetry ↔ number coherence
 npm run verify:routes      # 23 scene/view combos + axe + console
-npm run verify:flows       # 22 browser flows
+npm run verify:flows       # 25 browser flows
 npm run eval:talon         # 42 adversarial cases, zero silent breaches
 ```
 

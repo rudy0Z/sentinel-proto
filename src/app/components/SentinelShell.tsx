@@ -1364,6 +1364,8 @@ export function SentinelShell() {
             liveConnected={liveSession.connected}
             stagedExpiresAt={stagedExpiresAt}
             onOpenSession={() => setRailOpenRequest({ id: "talon", seq: Date.now() })}
+            selectedScenarioId={selectedScenarioId}
+            onSelectScenario={handleSelectScenario}
           />
           <UndoToast toast={toast} onDismiss={() => setToast(null)} bottomOffset={railBottomInsetV2 + space.md} />
         </>
@@ -1604,8 +1606,10 @@ export function SentinelShell() {
           style={{
             position: "absolute",
             top: PANEL_TOP,
-            left: adaptiveRailWidth + SCREEN_INSET + 18,
-            right: adaptiveTalonRailWidth + SCREEN_INSET + 18,
+            /* v3 docks collapsed 56px rails at left/right, so the banner clears
+             * 16 + 56 + 8 on both edges; v2/legacy keep the full-width insets. */
+            left: (chromeVersion === "v3" ? 56 : adaptiveRailWidth) + SCREEN_INSET + 18,
+            right: (chromeVersion === "v3" ? 56 : adaptiveTalonRailWidth) + SCREEN_INSET + 18,
             zIndex: layer.alert,
           }}
         >
@@ -1805,8 +1809,8 @@ export function SentinelShell() {
       ────────────────────────────────────────────────────────────────────── */}
       {state.scene === "verify-active" && (
         <VerifyLiveFeed
-          railWidth={adaptiveRailWidth}
-          rightRailWidth={adaptiveTalonRailWidth}
+          railWidth={chromeVersion === "v3" ? 56 + SCREEN_INSET + 8 : adaptiveRailWidth + SCREEN_INSET}
+          rightRailWidth={chromeVersion === "v3" ? 56 + SCREEN_INSET + 8 : adaptiveTalonRailWidth + SCREEN_INSET}
           bottomInset={railBottomInset}
         />
       )}

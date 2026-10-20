@@ -18,6 +18,7 @@ import { INCIDENT } from "../../mockData";
 import { T, border, font, materialGlass, motion, radius, space, tracking, typeStyle, typeWeight, layer } from "../../tokens";
 import { CommandTile, KitStyles, SectionEyebrow, StatusPill } from "../kit/core";
 import { TalonMark } from "../talon/TalonMark";
+import { ScenarioSelectorControl } from "../shell/ScenarioSwitcher";
 import "./rails.css";
 
 export const DECK_HEIGHT = 88;
@@ -37,6 +38,8 @@ export function BottomNav({
   liveConnected,
   stagedExpiresAt,
   onOpenSession,
+  selectedScenarioId,
+  onSelectScenario,
 }: {
   state: ShellState;
   surface: TalonSurface;
@@ -47,6 +50,8 @@ export function BottomNav({
   liveConnected: boolean;
   stagedExpiresAt: number | null;
   onOpenSession: () => void;
+  selectedScenarioId?: string;
+  onSelectScenario?: (id: string) => void;
 }) {
   const primary = state.actionSurface.primary
     .filter((a) => a.status === "available" || a.status === "recommended")
@@ -249,6 +254,12 @@ export function BottomNav({
             style={{ opacity: 0.85 }}
           />
         ))}
+        {onSelectScenario ? (
+          <ScenarioSelectorControl
+            selectedId={selectedScenarioId}
+            onSelect={onSelectScenario}
+          />
+        ) : null}
       </div>
     </div>
   );

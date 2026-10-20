@@ -1,6 +1,10 @@
 # 03 — Visual language + the container system
 
-> **status: SUPERSEDED — the warm direction below was REJECTED by the owner (2026-09-30): warm/cream/serif reads as the AI-slop uniform, and this file's "warm charcoal + amber + serif" variant inherits that verdict.** The replacement direction will be chosen from `docs/redesign-2026/10-visual-direction-exploration.md` (six directions; co-lead recommendation: **Night Optic chrome + Ember data language**) and rewritten here. Everything in §3 (the container system) and §4 (density law) survives the rejection — they are structure, not temperature. §2's specific values are dead.
+> **status: historical — REJECTED by the owner 2026-09-30. DO NOT BUILD FROM §1–§2.** The warm direction below reads as the AI-slop uniform, and this file's "warm charcoal + amber + serif" variant inherits that verdict. The replacement direction was chosen from `docs/redesign-2026/10-visual-direction-exploration.md` and now lives in `DECISIONS.md` §2 (obsidian-glass; cyan = TALON, amber = degraded, red = danger, teal = confirmed; fire-orange reserved for the fire layer).
+>
+> **This file is explicitly EXCLUDED from the `sentinel-core/00–07` authority band** — `AGENTS.md` authority order §5 carves it out. `sentinel-core/05` inherits this file's rejected "warm console" premise; treat its colour claims with suspicion.
+>
+> Everything in §3 (the container system) and §4 (density law) survives the rejection — they are structure, not temperature. §2's specific values are dead.
 
 > **The superseded world (kept for the record until the owner picks from `redesign-2026/10-visual-direction-exploration.md`):** "Warm Console over Vivid Terrain" — temperature, color, and type below are dead values. **The container system (§3) and the density law (§4) survive** — they are structure, not temperature.
 

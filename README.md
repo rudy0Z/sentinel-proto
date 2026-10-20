@@ -42,7 +42,7 @@ npm run dev                 # dev server → http://localhost:5173/embed/sentine
 npm run build && npm run preview -- --port 4190   # production preview
 ```
 
-Open the app and use the **SCENES** chip (or `?scene=<id>` deep links) to walk the flows. Add `?core=1` for the portfolio embed view (hides the review dock). `?layout=legacy` falls back to the pre-promotion shell; the default is shell v2.
+Open the app and use the **SCENES** chip (or `?scene=<id>` deep links) to walk the flows. Add `?core=1` for the portfolio embed view (hides the review dock). The default shell is **v3**; `?layout=v2` and `?layout=legacy` remain reachable as regression surfaces. See `DECISIONS.md` §3.
 
 ## Verification
 
@@ -50,7 +50,7 @@ The repo ships its own gates — keep them green:
 
 ```bash
 npm run verify:design   # typecheck + token audit + map checks
-npm run verify:flows    # 19 browser flows
+npm run verify:flows    # 25 browser flows
 npm run verify:routes   # 23 scene/view combos (a11y + console)
 npm run verify:machine  # state-machine integrity
 npm run verify:signals  # telemetry integrity
