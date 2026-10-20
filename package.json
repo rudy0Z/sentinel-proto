@@ -18,9 +18,10 @@
     "verify:attention": "npx --yes tsx scripts/verify-attention.ts",
     "eval:talon": "npx --yes tsx scripts/eval-talon.mjs",
     "render:world": "node scripts/render-world.mjs",
-    "verify:design": "npm run typecheck && npm run audit:tokens && npm run verify:map",
+    "verify:design": "npm run typecheck && npm run audit:tokens && npm run verify:map && npm run verify:fidelity",
     "check": "npm run verify:design && npm run verify:flows",
-    "server": "npx --yes tsx server/index.ts"
+    "server": "npx --yes tsx server/index.ts",
+    "verify:fidelity": "npx --yes tsx scripts/verify-fidelity.ts"
   },
   "dependencies": {
     "@fastify/websocket": "^11.3.0",

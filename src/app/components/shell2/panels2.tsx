@@ -5,7 +5,7 @@
  * live telemetry frames) so scripted and live modes render identically.
  */
 import { getSignalHistory } from "../../domain/talon";
-import { FIRE, burnedAcres } from "../../map/fire/fireModel";
+import { FIRE, burnedAcres } from "../../map/model/fire";
 import type { DroneRosterEntry, ShellState } from "../../tokens";
 import { INCIDENT } from "../../mockData";
 import { font, light, space, tracking, typeStyle, typeWeight, NUMERIC_TNUM, tint, T, border, surface } from "../../tokens";

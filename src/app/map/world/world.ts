@@ -26,21 +26,27 @@ import buildingsData from "./buildings.json";
 import roadsData from "./roads.json";
 import landuseData from "./landuse.json";
 import vegetationData from "./vegetation.json";
-import frameData from "./frame.json";
 import demBinUrl from "./dem.bin?url";
 import imageryUrl from "./imagery.jpg?url";
 import imageryMeta from "./imagery.json";
 import type { MapPoint } from "../types";
+// The coordinate and terrain law lives in one place (SPEC.md §1.1 M1).
+// Everything below delegates to it — there is no second transform.
+import {
+  W,
+  H,
+  frame,
+  normalized,
+  fromNormalized,
+  elevationAt,
+  type WorldFrame,
+} from "../model/space";
+import { ignitionNormalized } from "../model/fire";
+
+export type { WorldFrame } from "../model/space";
+export { W, H, frame };
 
 // ── Types ────────────────────────────────────────────────────────────────────
-
-export interface WorldFrame {
-  center: { lat: number; lon: number };
-  widthMeters: number;
-  heightMeters: number;
-  projection: string;
-  attribution: string[];
-}
 
 export interface DemGrid {
   cols: number;
@@ -104,11 +110,14 @@ export interface StateOverlays {
   wind: { originUv: MapPoint; directionUv: [number, number]; label: string };
 }
 
-export interface FireScenario {
-  band: Array<{ x: number; y: number; intensity: number }>;
-  smoke: Array<{ x: number; y: number; height: number; opacity: number }>;
-  originUv: MapPoint;
-}
+/**
+ * The fire is NOT in this file.
+ *
+ * It used to be: `world.fire.band` (a six-point crest of boxes) lived here
+ * while `fire/fireModel.ts` held a real progression, and `worldScene.ts`
+ * drew both — two disagreeing fires in one scene. The world model now owns
+ * exactly one fire, in `model/fire.ts`.
+ */
 
 export interface WorldImagery {
   /** URL of the baked orthophoto covering exactly the frame bbox. */
@@ -128,24 +137,16 @@ export interface World {
   buildings: WorldBuilding[];
   roads: WorldRoad[];
   landuse: WorldLanduse[];
-  fire: FireScenario;
+  /** The fire lives in `model/fire.ts`, not here — one fire, one owner. */
   stateOverlays: StateOverlays;
   /** Real NAIP orthophoto (public domain). Absent only if the bake skipped it. */
   imagery: WorldImagery | null;
 }
 
 // ── Sync data ────────────────────────────────────────────────────────────────
-
-export const frame: WorldFrame = {
-  center: frameData.center as WorldFrame["center"],
-  widthMeters: frameData.widthMeters,
-  heightMeters: frameData.heightMeters,
-  projection: frameData.projection,
-  attribution: frameData.attribution,
-};
-
-export const W = frame.widthMeters;
-export const H = frame.heightMeters;
+// The frame, its dimensions, and every coordinate conversion come from
+// `model/space.ts` — the single law. `world.ts` owns the DATA; `space.ts`
+// owns the MATH.
 
 const buildings: WorldBuilding[] = buildingsData as WorldBuilding[];
 const roads: WorldRoad[] = roadsData as WorldRoad[];
@@ -177,23 +178,12 @@ const vegetation: VegGrid = {
 };
 
 // ── Fire scenario (authored — NE massif crest, from the 6km DEM trace) ──────
-
-const fire: FireScenario = {
-  band: [
-    { x: 980, y: 980, intensity: 0.7 },
-    { x: 1090, y: 1180, intensity: 0.9 },
-    { x: 1165, y: 1031, intensity: 0.85 },
-    { x: 1075, y: 1330, intensity: 1.0 },
-    { x: 1090, y: 1480, intensity: 1.0 },
-    { x: 1150, y: 1600, intensity: 0.85 },
-  ],
-  smoke: [
-    { x: 1080, y: 1350, height: 260, opacity: 0.4 },
-    { x: 1120, y: 1520, height: 320, opacity: 0.32 },
-    { x: 1020, y: 1150, height: 200, opacity: 0.28 },
-  ],
-  originUv: { u: 0.68, v: 0.08 },
-};
+// The fire lives in `model/fire.ts` — the world model owns one fire and this
+// file no longer keeps a competing copy. See the note on `FireScenario`.
+//
+// (The smoke column moved with it: `model/scene.ts` carries smoke as a
+// property of the scene, because obscuration is what drives the fidelity
+// ladder, not a static world attribute.)
 
 // ── Operational overlays (authored, state-driven) ───────────────────────────
 
@@ -250,7 +240,7 @@ const stateOverlays: StateOverlays = {
       variant: "ingress",
     },
   ],
-  tfrZones: [{ id: "tfr-incident", center: fire.originUv, radiusUv: 0.24 }],
+  tfrZones: [{ id: "tfr-incident", center: ignitionNormalized(), radiusUv: 0.24 }],
   wind: {
     originUv: { u: 0.55, v: 0.12 },
     directionUv: [0.71, -0.71],
@@ -305,7 +295,6 @@ export async function loadWorld(): Promise<World> {
     buildings,
     roads,
     landuse,
-    fire,
     stateOverlays,
     imagery: {
       url: imageryUrl,
@@ -321,37 +310,24 @@ export async function loadWorld(): Promise<World> {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+// These are thin aliases over `model/space.ts`. They are kept because the
+// call sites read better in this vocabulary, and because deleting them would
+// churn a dozen files for no benefit — but they add no new behaviour, so
+// there is still exactly one implementation of the law.
 
 /** Local metres → MapFrame u/v (u: 0 west → 1 east; v: 0 north → 1 south). */
 export function localToUv(x: number, y: number): MapPoint {
-  return {
-    u: (x + W / 2) / W,
-    v: (H / 2 - y) / H,
-  };
+  return normalized(x, y);
 }
 
 /** MapFrame u/v → local metres. */
 export function uvToLocal(u: number, v: number): [number, number] {
-  return [u * W - W / 2, H / 2 - v * H];
+  return fromNormalized(u, v);
 }
 
 /** Bilinear DEM sample (needs loadWorld() first); returns metres AMSL. */
 export function sampleElevation(world: World, x: number, y: number): number {
-  const { dem } = world;
-  const colF = ((x + W / 2) / W) * (dem.cols - 1);
-  const rowF = ((H / 2 - y) / H) * (dem.rows - 1);
-  const c0 = Math.max(0, Math.min(dem.cols - 2, Math.floor(colF)));
-  const r0 = Math.max(0, Math.min(dem.rows - 2, Math.floor(rowF)));
-  const fx = colF - c0;
-  const fz = rowF - r0;
-  const g = dem.elevation;
-  const e00 = g[r0 * dem.cols + c0];
-  const e10 = g[r0 * dem.cols + c0 + 1];
-  const e01 = g[(r0 + 1) * dem.cols + c0];
-  const e11 = g[(r0 + 1) * dem.cols + c0 + 1];
-  const e0 = e00 * (1 - fx) + e10 * fx;
-  const e1 = e01 * (1 - fx) + e11 * fx;
-  return e0 * (1 - fz) + e1 * fz;
+  return elevationAt(world.dem, x, y);
 }
 
 /** Nearest vegetation class at local metres. */

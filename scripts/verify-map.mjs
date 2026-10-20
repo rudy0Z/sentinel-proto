@@ -32,12 +32,36 @@ check(
   "legacy components/MapCanvas import removed",
 );
 
+// The legacy map stack used to be pinned here: the check asserted that
+// src/app/map/_archive/ still EXISTED, which meant the dead 2,666-LOC copy
+// could never be deleted without failing the gate. That was backwards — a
+// gate should assert what must be true, not what must still be around.
+// Retired 2026-10-21 (DECISIONS.md §4.2, §7.3); the archive is deleted and
+// the check now asserts its ABSENCE, so it cannot creep back.
 check(
-  "archive-present",
-  fs.existsSync(path.join(root, "src/app/map/_archive/MapCanvas.tsx")) &&
-    fs.existsSync(path.join(root, "src/app/map/_archive/mapSvgPaths.ts")) &&
-    fs.existsSync(path.join(root, "src/app/map/_archive/MapBackground.tsx")),
-  "legacy map stack archived",
+  "legacy-map-archive-removed",
+  !fs.existsSync(path.join(root, "src/app/map/_archive")),
+  "dead legacy map stack is gone",
+);
+
+check(
+  "hairline-renderer-removed",
+  !fs.existsSync(path.join(root, "src/app/map/hairline")) &&
+    !fs.existsSync(path.join(root, "src/app/pages/HairlineMapPage.tsx")),
+  "parallel hairline renderer is gone (DECISIONS.md §4.2)",
+);
+
+check(
+  "one-fire-geometry",
+  fs.existsSync(path.join(root, "src/app/map/model/fire.ts")) &&
+    !/fire:\s*FireScenario/.test(fs.readFileSync(path.join(root, "src/app/map/world/world.ts"), "utf8")),
+  "the world model owns exactly one fire",
+);
+
+check(
+  "single-coordinate-law",
+  fs.existsSync(path.join(root, "src/app/map/model/space.ts")),
+  "one coordinate law module (SPEC.md §1.1 M1)",
 );
 
 check(

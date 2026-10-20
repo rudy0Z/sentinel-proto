@@ -13,7 +13,12 @@ import {
   type World,
 } from "../world/world";
 import { lwir } from "../../tokens";
-import { FIRE, activeFront, burnScarPolygon } from "../fire/fireModel";
+import { FIRE, activeFront, burnScarPolygon } from "../model/fire";
+import { SCENE } from "../model/scene";
+
+/** Smoke column height above the terrain, metres, and its base opacity. */
+const SMOKE_HEIGHT = 260;
+const SMOKE_OPACITY = 0.34;
 
 /** Day (baked basemap look) or LWIR (night thermal sensor). */
 export type SceneMode = "day" | "lwir";
@@ -451,84 +456,16 @@ export function buildWorldScene(scene: THREE.Scene, world: World): WorldScene {
     scene.add(inst);
   }
 
-  // ── Fire: 2 draw calls total (1 merged band + 1 merged glow) ────────────
+  /* ── Fire ───────────────────────────────────────────────────────────────────
+   * There is ONE fire now, and it lives in `model/fire.ts`.
+   *
+   * This block used to build a six-point crest of BOXES from `world.fire.band`
+   * while a second block below built a burn scar from `FIRE.isochrones` — so
+   * the 3D scene drew two disagreeing fires in the same place. The boxes are
+   * gone; the fire is drawn once, from the one model, and it reads as a
+   * continuous front rather than a sliver of crates on a ridge.
+   */
   const fireGroup = new THREE.Group();
-  const band = world.fire.band;
-  let bandMat: THREE.MeshBasicMaterial | null = null;
-  {
-    const verts: number[] = [];
-    const cols: number[] = [];
-    const glowVerts: number[] = [];
-    const glowCols: number[] = [];
-    const BOX_H = 10, BOX_W = 22;
-    for (let i = 0; i < band.length - 1; i++) {
-      const a = band[i], b = band[i + 1];
-      const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-      const mlx = (a.x + b.x) / 2, mly = (a.y + b.y) / 2;
-      const col = a.intensity > 0.85 ? PAL.fireHi : PAL.fire;
-      // oriented box corners in world-local metres (scene y = terrain + 22)
-      const ux = (b.x - a.x) / len, uy = (b.y - a.y) / len;
-      const px = -uy * (BOX_W / 2), py = ux * (BOX_W / 2);
-      const yLo = terrainY(mlx, mly) + 22 - BOX_H / 2;
-      const yHi = yLo + BOX_H;
-      const hl = len / 2;
-      // 8 corners: along ±hl, across ±p, up yLo/yHi
-      const c = [
-        [mlx - ux * hl + px, mly - uy * hl + py, yLo], [mlx - ux * hl - px, mly - uy * hl - py, yLo],
-        [mlx + ux * hl - px, mly + uy * hl - py, yLo], [mlx + ux * hl + px, mly + uy * hl + py, yLo],
-        [mlx - ux * hl + px, mly - uy * hl + py, yHi], [mlx - ux * hl - px, mly - uy * hl - py, yHi],
-        [mlx + ux * hl - px, mly + uy * hl - py, yHi], [mlx + ux * hl + px, mly + uy * hl + py, yHi],
-      ];
-      const faces = [
-        [0, 1, 2], [1, 3, 2], // bottom
-        [4, 6, 5], [5, 6, 7], // top
-        [0, 4, 1], [1, 4, 5], // side A
-        [2, 3, 6], [3, 7, 6], // side B
-        [0, 2, 4], [2, 6, 4], // end +
-        [1, 5, 3], [3, 5, 7], // end −
-      ];
-      for (const f of faces) {
-        for (const idx of f) {
-          verts.push(c[idx][0], c[idx][2], -c[idx][1]);
-          cols.push(col.r, col.g, col.b);
-        }
-      }
-
-      if (a.intensity > 0.6) {
-        // glow disc, fanned in world space just above the terrain;
-        // per-vertex alpha preserves the 0.26 × intensity falloff
-        const gy = terrainY(mlx, mly) + 2;
-        const r = 120 * a.intensity;
-        const alpha = 0.26 * a.intensity;
-        const n = 12;
-        for (let s = 0; s < n; s++) {
-          const a0 = (s / n) * Math.PI * 2, a1 = ((s + 1) / n) * Math.PI * 2;
-          glowVerts.push(mlx, gy, -mly);
-          glowVerts.push(mlx + Math.cos(a0) * r, gy, -(mly + Math.sin(a0) * r));
-          glowVerts.push(mlx + Math.cos(a1) * r, gy, -(mly + Math.sin(a1) * r));
-          for (let k = 0; k < 3; k++) glowCols.push(PAL.fire.r, PAL.fire.g, PAL.fire.b, alpha);
-        }
-      }
-    }
-    const bandGeom = track(new THREE.BufferGeometry());
-    bandGeom.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
-    bandGeom.setAttribute("color", new THREE.Float32BufferAttribute(cols, 3));
-    const bandMaterial = track(new THREE.MeshBasicMaterial({
-      color: 0xffffff, vertexColors: true,
-      // hand-wound faces: DoubleSide makes winding order irrelevant
-      side: THREE.DoubleSide,
-    }));
-    bandMat = bandMaterial;
-    fireGroup.add(new THREE.Mesh(bandGeom, bandMaterial));
-    const glowGeom = track(new THREE.BufferGeometry());
-    glowGeom.setAttribute("position", new THREE.Float32BufferAttribute(glowVerts, 3));
-    glowGeom.setAttribute("color", new THREE.Float32BufferAttribute(glowCols, 4));
-    const glowMat = track(new THREE.MeshBasicMaterial({
-      color: 0xffffff, vertexColors: true, transparent: true,
-      side: THREE.DoubleSide, depthWrite: false,
-    }));
-    fireGroup.add(new THREE.Mesh(glowGeom, glowMat));
-  }
 
   /* ── Fire as the hero: scar, isochrones, head axis ─────────────────────────
    * The old crest was a thin sliver of boxes. Fire now carries the scene:
@@ -610,7 +547,9 @@ export function buildWorldScene(scene: THREE.Scene, world: World): WorldScene {
     scar.renderOrder = 2;
     fireGroup.add(scar);
   }
-  const fireMid = band[Math.floor(band.length / 2)];
+  // The fire's own light. Positioned at the head of the fire, not at the
+  // midpoint of a legacy band — the head is where the light and the heat are.
+  const fireMid = FIRE.ignition;
   const fireLight = new THREE.PointLight(PAL.fire.getHex(), 4.0, 2600, 2);
   fireLight.position.copy(sceneVec(fireMid.x, fireMid.y, terrainY(fireMid.x, fireMid.y) + 160));
   scene.add(fireLight);
@@ -629,14 +568,17 @@ export function buildWorldScene(scene: THREE.Scene, world: World): WorldScene {
   const smokeTex = track(new THREE.CanvasTexture(smokeCanvas));
   smokeTex.colorSpace = THREE.SRGBColorSpace;
   const smokeMats: Array<{ mat: THREE.SpriteMaterial; dayOpacity: number }> = [];
-  for (const s of world.fire.smoke) {
+  // The smoke column is a property of the SCENE, not of the world data —
+  // obscuration is what drives the fidelity ladder (model/fidelity.ts), so it
+  // has to live where the ladder can read it.
+  for (const s of SCENE.smoke.columnAt) {
     const smokeMaterial = track(new THREE.SpriteMaterial({
-      map: smokeTex, transparent: true, opacity: s.opacity, depthWrite: false,
+      map: smokeTex, transparent: true, opacity: SMOKE_OPACITY, depthWrite: false,
     }));
-    smokeMats.push({ mat: smokeMaterial, dayOpacity: s.opacity });
+    smokeMats.push({ mat: smokeMaterial, dayOpacity: SMOKE_OPACITY });
     const sp = new THREE.Sprite(smokeMaterial);
     sp.scale.set(700, 560, 1);
-    sp.position.copy(sceneVec(s.x, s.y, terrainY(s.x, s.y) + s.height));
+    sp.position.copy(sceneVec(s.x, s.y, terrainY(s.x, s.y) + SMOKE_HEIGHT));
     scene.add(sp);
   }
 
@@ -676,7 +618,6 @@ export function buildWorldScene(scene: THREE.Scene, world: World): WorldScene {
     }
     // Night: the crest blooms hotter (white-hot core reads through the plume).
     fireLight.intensity = night ? 7.0 : 4.0;
-    bandMat?.color.set(night ? 0xffd9b0 : 0xffffff);
   };
 
   return {

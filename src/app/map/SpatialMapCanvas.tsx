@@ -10,7 +10,7 @@ import {
 import mapBackdrop from "../../assets/sentinel-map-overhaul.png";
 import mapPreIncident from "../../assets/map-preincident.png";
 import { ANOMALY } from "../mockData";
-import { FIRE, activeFront, burnScarPolygon, burnedAcres } from "./fire/fireModel";
+import { FIRE, activeFront, burnScarPolygon, burnedAcres } from "./model/fire";
 import { localToUv } from "./world/world";
 import { RouteArrowDefs, RouteLine } from "../components/RouteLine";
 import {
@@ -881,7 +881,7 @@ export function SpatialMapCanvas({
 
         {showFireSpreadBoundary && !isPreVerify && (
           /* The fire is drawn from the SAME model the 3D scene consumes
-           * (map/fire/fireModel) — burn scar, time-stamped isochrones, and a
+           * (map/model/fire) — burn scar, time-stamped isochrones, and a
            * head-fire axis with direction chevrons. The three concentric
            * spread circles it replaces could not say where the fire HAS BEEN,
            * only how far it might spread; an isochrone carries the clock and

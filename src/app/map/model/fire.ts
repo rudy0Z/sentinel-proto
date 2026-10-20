@@ -1,24 +1,36 @@
 /**
- * ─── Fire model — one authored fire, two renderers ───────────────────────────
+ * The fire — ONE model, in the world model.
  *
- * The 2D ops map and the 3D EXPLORE scene used to grow the fire independently
- * (a handful of boxes on the crest, plus three static circles on the flat map).
- * That is the same drift that put 2D SVG zones "in the sky" of an oblique bake.
+ * ── Why this file exists ────────────────────────────────────────────────────
+ * The map used to contain two fires. `world.fire.band` was a six-point crest
+ * of boxes drawn in the 3D scene; `fire/fireModel.ts` was a proper
+ * progression of isochrones. `worldScene.ts` drew BOTH, in the same scene, at
+ * the same place — so the "single source of truth" was two sources that
+ * disagreed, and the 3D view showed a thin crest of boxes *and* a burn scar.
  *
- * This module is the single source: an authored progression (isochrones), a
- * head-fire axis, a burn-severity field, and NWCG fire-behaviour metrics. Both
- * renderers project THIS data — 2D into map-local UV, 3D onto terrain in
- * metres. They cannot disagree because there is nothing to disagree about.
+ * That is reconciled here. The world model owns the fire; every renderer
+ * reads it. There is exactly one perimeter, one progression, and one
+ * ignition point.
  *
- * HONESTY (repo golden rule 1)
- *   The isochrone geometry is AUTHORED, not forecast by a model. The metrics
- *   are real NWCG fire-behaviour definitions (rate of spread in chains/hour,
- *   energy release component, fine dead fuel moisture, flame length) quoted
- *   from standard practice — they are NOT computed from a Rothermel run, and
- *   the UI never claims they are. The *shape* of the progression follows the
- *   real 3DEP terrain so the story is at least geographically honest: the fire
- *   runs the ridge and is checked by the saddle.
+ * ── Honesty ─────────────────────────────────────────────────────────────────
+ * The isochrone geometry is AUTHORED, not forecast. The metrics are real
+ * NWCG fire-behaviour definitions (rate of spread in chains/hour, energy
+ * release component, fine dead fuel moisture, flame length) with authored
+ * values — they are NOT computed from a Rothermel run.
+ *
+ * Per DECISIONS.md §1.3/§1.6 the *product* intent is that TALON computes
+ * spread from weather and on-scene data, and the model is built by AI
+ * engineers. This prototype ships a scripted stand-in. So every surface that
+ * renders these values must state the basis — and `metrics.basis` carries it
+ * so the UI cannot forget.
+ *
+ * The *shape* of the progression follows the real 3DEP terrain, so the story
+ * is at least geographically honest: the fire runs the north ridge and is
+ * checked by the crest.
  */
+
+import { normalized } from "./space";
+import type { MapPoint } from "../types";
 
 export interface Isochrone {
   /** Minutes since ignition. */
@@ -44,13 +56,14 @@ export interface FireMetrics {
   fuelMoisturePct: number;
   /** Flame length, feet. */
   flameLengthFt: number;
-  /** Acres currently involved. */
+  /** Acres currently involved. Derived — see burnedAcres(). */
   acres: number;
   /** How these numbers must be described in the UI. */
   basis: string;
 }
 
 export interface FireModel {
+  /** Ignition point, world-local metres. */
   ignition: { x: number; y: number };
   /** Oldest → newest. The last entry is the active front. */
   isochrones: Isochrone[];
@@ -139,6 +152,11 @@ export const FIRE: FireModel = {
 /** The active front: the newest isochrone. */
 export function activeFront(fire: FireModel = FIRE): Isochrone {
   return fire.isochrones[fire.isochrones.length - 1];
+}
+
+/** The ignition point in normalized MapFrame space. */
+export function ignitionNormalized(fire: FireModel = FIRE): MapPoint {
+  return normalized(fire.ignition.x, fire.ignition.y);
 }
 
 /** The fully-burned interior = the newest perimeter scaled slightly inward. */

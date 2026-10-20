@@ -29,7 +29,7 @@ import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeome
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { font, lwir, radius, surface, T, tracking, tint } from "../../tokens";
 import type { WorldScene } from "./worldScene";
-import { FIRE, activeFront } from "../fire/fireModel";
+import { FIRE, activeFront } from "../model/fire";
 import {
   CORRIDOR_TONE,
   DEFAULT_CORRIDOR_STATUS,
