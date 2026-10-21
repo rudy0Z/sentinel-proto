@@ -1,6 +1,7 @@
 # Final Layout Spec — Sentinel v3 shell (owner ruling 2026-10-11)
 
 > **Status:** canonical — supersedes `02-layout-research-and-direction.md` where they conflict (that doc stays exploratory). Vault `09` (mark law) is *relocated, not repealed* — see §5. Golden rules apply; the honesty boundary and gate law are untouched.
+> **Superseded points (2026-10-21, per `sentinel-core/06` and `redesign-2026/15`):** this doc remains canonical for its region table, card grammar, keyboard grammar, and generative-UI policy, but **two of its points are repealed** — (a) the centred-orb deletion: `sentinel-core/06` restored the TALON bay, so the deck carries the mark; (b) the 84px Hand: the built `DECK_HEIGHT` is 88px. Both are now single-sourced from `sentinel-core/06`. `verify:docs` checks the numbers and the orb ruling against the code.
 > **Inputs:** 57-frame FireTrace teardown · 21-frame Jarvis/Agently teardown · 16-frame One (getone.one) teardown · `sentinel-layout-thinking/00` (six voices) · `docs/portfolio-case-study/01-product-ux-business-decisions.md` (U1–U13, amended below).
 > **Reference:** 1920×1080 desk-embedded console is canonical. Tablet = recomposition (rails → bottom sheets), deferred, never averaged.
 

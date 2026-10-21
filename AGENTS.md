@@ -39,12 +39,15 @@ npm install
 npm run dev                 # dev server (vite, base /embed/sentinel/)
 npm run build               # production build → dist/
 npm run preview -- --port 4190   # serve dist for the browser gates
-npm run verify:design       # typecheck + audit:tokens + verify:map   (static, always runnable)
+npm run verify:design       # typecheck + audit:tokens + verify:map + verify:fidelity + verify:docs
 npm run verify:flows        # 25 browser flows (needs the server above)
 npm run verify:routes       # 23 scene/view combos + a11y + console (needs the server)
 npm run verify:machine      # state-machine integrity (static)
 npm run verify:signals      # telemetry signal integrity (static)
 npm run verify:attention     # attention-arbiter contract checks (static)
+npm run verify:fidelity      # degradation ladder + coordinate law (static)
+npm run verify:docs          # documentation contract: status headers, DESIGN.md
+                             # numbers vs tokens.ts, layout numbers vs code (static)
 npm run tokens:css          # regenerate src/styles/tokens.css from tokens.ts
 npm run check               # verify:design + verify:flows
 npm run server              # optional live-mode backend (Fastify + WS + SQLite) — see server/README.md

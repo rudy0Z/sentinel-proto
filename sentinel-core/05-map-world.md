@@ -1,8 +1,32 @@
 # 05 — The map & world
 
-> **status: canonical — map art direction + data pipeline.** The map is the co-protagonist: the overlay UI and the terrain must feel like one product. This file locks the map's art direction, its layer completion list, and the pipeline for authoring location data — "the map needs to somehow match the overall system."
+> **status: canonical — map data pipeline, layer completion list, and the
+> world-model contract. Its §1 art direction is REJECTED — see below.** The
+> map is the co-protagonist: the overlay UI and the terrain must feel like one
+> product. This file locks the map's layer completion list and the pipeline
+> for authoring location data — "the map needs to somehow match the overall
+> system."
+>
+> ⚠️ **§1 below is repealed.** The owner rejected the "vivid terrain under a
+> warm console" direction on 2026-09-30 (`DECISIONS.md` §2.4). A warm sun-angle
+> terrain grade is **not** the art direction. The current art direction and
+> the whole map architecture live in `SPEC.md` §1.1: one world model, three
+> fidelities, top-down 2D world model + drone EO camera + drone IR camera,
+> with a degradation ladder as a designed state. `sentinel-core/03` is
+> excluded from the authority band for the same reason (`DECISIONS.md` §2.5).
+> `verify:docs` fails if this file presents the rejected direction as
+> canonical again.
+>
+> **Still valid here, and not yet built:** the §2 layer completion list, the
+> §3 data pipeline, and the §4 world-model contract below.
 
-## 1. Art direction: vivid terrain under a warm console
+## 1. Art direction: vivid terrain under a warm console — REJECTED
+
+> **REJECTED 2026-09-30. Do not build from this section.** It survives only
+> so the reasoning is not lost. The TrackWise lesson it cites — *"darkness
+> isn't the problem, dead darkness is"* — is the useful half; the remedy it
+> proposed (a warm, saturated terrain) was the wrong one for a night
+> initial-attack console, and a warm map competes with the fire.
 
 The TrackWise lesson: darkness isn't the problem — **dead darkness** is. The map becomes the most saturated thing on screen:
 
@@ -11,6 +35,12 @@ The TrackWise lesson: darkness isn't the problem — **dead darkness** is. The m
 - **Overlays glow:** corridors and routes get the 2px-core + soft-glow treatment in state colors; spread rings get gradient dashes (vivid → transparent) instead of flat dashes.
 - **The 2D backdrop obeys the same grade:** one shared color-grade constant applied to both the bake and the 2D backdrop images so 2D and 3D are unmistakably the same world (they already share one coordinate law; now they share one *look*).
 - **Draw-call law unchanged:** ≤19 calls, on-demand render, idle = 0.
+
+> **What replaces it:** `SPEC.md` §1.1 M3 (the top-down world model, rendered
+> from data, with graticule, compass, scale bar, and elevation-annotated
+> place labels) and M4 (the stylised relief diorama for the camera views —
+> faceted terrain, low-poly vegetation, one strong key light). The draw-call
+> law stands: ≤19 calls, on-demand render, idle = 0.
 
 ## 2. Layer completion list (what the map still owes)
 

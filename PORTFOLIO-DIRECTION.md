@@ -1,7 +1,14 @@
 # PORTFOLIO-DIRECTION.md — Sentinel
 
+> **Status: canonical (portfolio scope & strategy).** Authority tier 4 in
+> `AGENTS.md` — below `PRODUCT.md` and the build-plan vault, above
+> `DESIGN.md`. Scope, audience, and what the case study must evidence.
+> Its note naming `docs/SENTINEL-V2-MASTER-SPEC.md` as product authority
+> predates the 2026-09-14 ruling and is stale — the vault `00–09` and now
+> `DECISIONS.md` hold that authority.
+>
 > **What this doc is:** the portfolio-level direction for this product, written into the repo so every future session (human or AI) knows what Sentinel *finally is*, what scope it serves, and what the portfolio case study needs from it.
-> **Status:** v1 — 2026-09-14. Product authority inside this repo remains `PRODUCT.md` (identity, users, principles) and `docs/SENTINEL-V2-MASTER-SPEC.md`. Strategy authority is `D:\Portfolio\POSITIONING.md`.
+> **Status:** v1 — 2026-09-14. Product authority inside this repo remains `PRODUCT.md` (identity, users, principles) and `docs/sentinel-v2-master-plan/00–09`.
 > **Reads with:** `D:\Portfolio\case-study-copy\sentinel-copy-v3.md` (the copy this repo must be able to back).
 
 ---

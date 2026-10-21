@@ -26,11 +26,11 @@
 
 **Slot laws:**
 1. **Truth cluster** — incident id, phase, T+ clock, UTC, LIVE-SIM badge, receipts dot (new: unread receipts pulse). Two rows, eyebrow type, never more.
-2. **TALON bay (center)** — the cradle (60px, posture ring, mark) + the **verdict line in display voice** (the brief's first sentence, 15–16px, serif/sans per the type decision) + the full brief on hover/expand + voice bars. This is the deck's soul; it gets ~45% width.
+2. **TALON bay (center)** — the cradle (64px, posture ring, mark) *(corrected 2026-10-21: the spec said 60px; the built cradle is 64px)* + the **verdict line in display voice** (the brief's first sentence, 15–16px, serif/sans per the type decision) + the full brief on hover/expand + voice bars. This is the deck's soul; it gets ~45% width.
 3. **Command slots (right)** — fixed slots like an ability bar: up to 2 C3/gated tiles + 2 C2 tiles, each with keybind badge (`G1`–`G4`, already in the keyboard map), **cooldown-style expiry ring** on staged tiles, disabled = dimmed with reason-on-hover, and a `⌘more` overflow for menu actions. Override + mic anchor the far right.
 4. **Quiet watch:** when nothing is staged, the right side shows the authored quiet-state ("Nothing is waiting on you") instead of void — the underfill failure never recurs.
 5. **Stability law:** geometry is invariant during a hold; the alert airspace never pushes the deck; pops overlay, never reflow.
-6. **Density law:** at 96px the deck carries ≥3 real data moments per zone; no dead thirds.
+6. **Density law:** at 88px the deck carries ≥3 real data moments per zone; no dead thirds. (Corrected 2026-10-21 — the deck was specced at 96px; the built `DECK_HEIGHT` is 88px. `verify:docs` now fails if 96px reappears here.)
 
 ## 3. Interaction spec
 

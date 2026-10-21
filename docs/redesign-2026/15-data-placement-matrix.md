@@ -11,7 +11,7 @@
 |---|---|---|
 | NOW / airspace | What needs me this second? | Top band, one arbitrated T1/T2, else empty |
 | WHERE / map | Where is it, where is it going? | Full-bleed center hero |
-| ACT / deck | What do I do right now? | Bottom 96px (core 06) |
+| ACT / deck | What do I do right now? | Bottom 88px (core 06; corrected 2026-10-21 — the built `DECK_HEIGHT` is 88px, not the 96px core 06 originally specified) |
 | WHAT / left spine | What is the ground truth? | Left, bottom-anchored tabs, grows up |
 | SO-WHAT / right | What does it mean, what does TALON think? | Right console, collapsible |
 

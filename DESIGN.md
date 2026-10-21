@@ -1,15 +1,30 @@
 # Sentinel Design System
 
+> **Status: canonical (design system — type, colour, space, radius, material).**
+> Authority tier 6 in `AGENTS.md`, paired with `src/app/tokens.ts`, which is
+> the executable half of this document. `npm run verify:docs` asserts the two
+> agree; the type scale, radius steps, and layout numbers below are checked
+> against the code, not trusted.
+>
+> **Scope note (2026-10-21):** this file governs the *system* — the type
+> scale, the colour roles, the spacing law, the materials. It does **not**
+> govern the *layout*. The layout is owned by
+> `docs/redesign-2026/14-final-layout-spec.md` (owner ruling 2026-10-11) and
+> the region table in `SPEC.md` §2. Where this file used to describe a
+> centre-orb command surface, that description was the superseded v2 chrome
+> and has been removed in favour of the current ruling.
+
 ## 1. Direction
 
 Sentinel is a desktop spatial-intelligence instrument. It should feel dense, calm, technical, and visibly governed by human authorization.
 
-The existing architecture is preserved:
+The current architecture (see `SPEC.md` §2 for the region table and
+`docs/redesign-2026/14-final-layout-spec.md` for the ruling):
 
-- One stabilized operational map.
-- One observation rail.
-- One TALON synthesis rail.
-- One persistent command surface.
+- One full-bleed map stage, with a thin truth strip above it.
+- One left spine — the operator pulls.
+- One right console — TALON lives here, always open.
+- One bottom hand — gates only, never navigation.
 - Intelligence and Operations density modes.
 
 The finish pass reduces decorative AI signals and increases clarity, consistency, and interaction reliability.
@@ -44,18 +59,38 @@ The mark is single-colour. Colour carries session state on the perimeter; geomet
 
 Under `prefers-reduced-motion` the mark keeps its *static state geometry* — a closed aperture still reads as gated — and stops all looping motion.
 
-### TALON command surface — two axes on a fixed centre
+### TALON command surface — the right console
 
-The command surface has **one still centre (the orb) and two axes**. Nothing floats detached; everything TALON needs is the orb extending on one of the two axes. There is no wrapping "dock" box — the orb is a lit object, not a chip inside a container.
+> **Superseded 2026-10-21.** This section previously described a command
+> surface built around **one orb fixed dead-centre in the bottom deck**, with
+> a voice panel rising from behind it and actions blooming sideways out of
+> it. That is the v2 chrome, and the owner ruling of 2026-10-11 deleted the
+> centred orb: *"The centered 60px orb object and the rising voice panel are
+> deleted. The mark becomes part of the act, not decoration beside it."*
+>
+> The rule below is the current one. The v2 description is kept in
+> `docs/archive/` for context only — never build from it.
 
-- **The orb is fixed dead-centre** (`1fr auto 1fr` frame) and never moves. It reads as a lit instrument, not a hole in the map: a radial-lit core, a full-strength state ring, and a dark keyline that separates it from map texture (a separation stroke, never a decorative glow).
-- **Vertical axis — TALON's voice.** When TALON speaks (watching posture, reasoning, a gate, a source conflict, or the full session), a panel **rises from behind the orb, bottom-to-top** (`talon-rise`, `transform-origin: bottom`), connected to the orb by a short stem. The ambient voice (`.talon-voice`) and the expanded session (`.talon-session__surface`) are **the same surface at two depths** — same position, same material — never two different cards.
-- **Horizontal axis — the operator's commands.** Actions **bloom sideways** out of the orb: forward commands right (`commandBloomRight`), decline/hold left (`commandBloomLeft`), each growing from the orb-side edge. Danger stays in its own menu, never a bloom. A gated forward command still shows (dimmed) on the right so the operator sees what clearing the gate unlocks.
-- **The calibrator is a confirm control inside the voice panel**, not a form checkbox in a detached card — the conflict and the control that clears it live in the same surface.
-- Critically damped throughout — no bounce, wobble, or droplet on an authorization surface. Commands are clickable from the first frame; motion never gates input.
-- A grounding gradient (backdrop only — no edge, no radius, never a material) seats the whole zone so it does not dissolve into live map texture.
-- Agent labels landing in the surface's footprint are suppressed (`COMMAND_DOCK_ZONE`); the marker and inspector still carry identity.
-- One material, one border, one radius across the voice panel, session, and action pills — the surface never nests a box inside a box.
+TALON has **a real home on the right**, not a centre-bottom instrument. The
+aperture mark survives as *ink on the control that gates*: a 28px sigil in the
+console header as ambient identity, and the same ring on the gate tile where
+the blades close as the hold arms.
+
+- **Ambient status, not an avatar.** The console header carries the sigil, a
+  posture label, and one posture line. No idle animation beyond the 4s
+  watching cadence. No pulse theatre.
+- **Composed thread.** One TALON turn is one card: eyebrow, one hero,
+  evidence chips, and exactly one action row. The card carries the substance;
+  the voice carries one clause and never narrates what the card already shows.
+- **Height equals status.** Open cards are full; resolved, expired, and
+  dismissed cards collapse to a one-line receipt. Disposal is receipted.
+- **The gate is in the hand, not the console.** Authorization lives only in
+  the bottom hand. The staged action renders identically in the console and
+  in the hand — one state, two renderings.
+- Critically damped throughout — no bounce, wobble, or droplet on an
+  authorization surface. Motion never gates input.
+
+Full region geometry: `docs/redesign-2026/14-final-layout-spec.md` §2–§3.
 
 ### TALON replies
 
@@ -169,10 +204,20 @@ Elevation is carried only by `material.*`. Component-local `boxShadow` recipes a
 
 ### Laptop layouts
 
-- 1280x800: 260px rails, compact navbar, focused command surface.
-- 1366x768: 280px rails, secondary navbar metrics hidden.
-- 1440x900: 300px rails.
-- 1920x1080: rails may grow modestly; map remains dominant.
+The rails are **collapsed by default** (56px icon spine) and open to a panel
+width on demand. A night-shift operator should see almost no chrome until
+they ask for it.
+
+- 1280x800: 56px collapsed spines; panels open to 340 / 380.
+- 1366x768: as above; secondary navbar metrics hidden.
+- 1440x900: as above; the map remains dominant.
+- 1920x1080: as above. The map occupies the frame; chrome is opt-in.
+
+> **Superseded 2026-10-21.** This section previously specified 260 / 280 /
+> 300px *always-open* rails, which described the v2 chrome. The v3 rails
+> collapse to 56px and open on demand, and the region geometry is owned by
+> `docs/redesign-2026/14-final-layout-spec.md` §2. `verify:docs` now fails if
+> a stale rail width reappears in this file.
 
 ### Materials
 

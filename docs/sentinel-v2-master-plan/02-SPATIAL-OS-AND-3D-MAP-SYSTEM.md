@@ -63,9 +63,11 @@ To fulfill the thesis *"when the camera feed dies, the 3D world is the operator'
 │      elevation using Three.js `Line2` fat vector lines (width: 3px, antialiased).                │
 │    • Elevated +4m above terrain to prevent z-fighting with the ground plane.                     │
 │                                                                                                  │
-│ 2. CONCENTRIC SPREAD RINGS:                                                                      │
-│    • 15 MIN (Red `#E5533C`), 30 MIN (Amber `#FF8A4A`), and 60 MIN (Muted `#9BA8B8`).            │
-│    • Rendered as dashed horizontal bezier rings hovering +15m above terrain elevation.           │
+│ 2. CONCENTRIC SPREAD RINGS — SUPERSEDED 2026-10-21:                            │
+│    Three static circles (15/30/60 MIN) said how far the fire might spread,     │
+│    not where it has been. Replaced by TIME-STAMPED ISOCHRONES + a head-fire    │
+│    axis from model/fire.ts. The palette survives; the geometry does not.       │
+│    See SPEC.md §1.1 M5.                                                        │
 │                                                                                                  │
 │ 3. EVACUATION CORRIDOR GLOW RIBBONS:                                                             │
 │    • Route A (East Ridge Road) and Route B (Valley Ingress) rendered as glowing ribbons.         │

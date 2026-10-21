@@ -1,5 +1,9 @@
 # Product
 
+> **Status: canonical.** Identity, users, and design principles. Authority
+> tier 2 in `AGENTS.md` — below `DECISIONS.md` and `SPEC.md`, above every
+> planning doc. Where this doc and `DECISIONS.md` disagree, the register wins.
+
 ## Register
 
 product
