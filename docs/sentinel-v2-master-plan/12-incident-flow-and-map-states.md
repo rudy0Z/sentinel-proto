@@ -29,6 +29,35 @@ fire at all** and still produce a complete, credible picture.
 
 ---
 
+## 0.5 The flow is not a visible surface
+
+> **Ruled 2026-10-21.** A previous build exposed the flow as a **phase
+> player**: a phase selector, a phase card with Authorize/Approve/Reject, a
+> timeline with Prev / phase buttons / Next / Auto-play, a time scrubber, and
+> a "Follow phase" toggle. **That is test scaffolding, and it is the repeat
+> of the four-tier mistake from the first build.**
+
+In the product, **the operator never sees a phase.** The incident *is* the
+state. The operator experiences a report arriving, a doubt, an intel gap, a
+recommendation, a decision, a consequence, and a change — because of what
+they do, not because a scrubber moved.
+
+**Consequences:**
+
+- The flow is driven by the **incident state machine**, and the shell renders
+  whatever state it is in. There is no "go to phase D" affordance.
+- A **phase player is permitted in the harness** — it is how a reviewer
+  exercises all seven phases in seconds, and `tools/phases.mjs` uses it. It
+  ships nowhere.
+- The map's `scenarioPlayer` is likewise a **testbed actor**. In the
+  product, the situation is produced by the incident, not played back.
+- This does not change the phase *definitions* below. It changes who drives
+  them.
+
+See `13-talon-and-shell.md` §0.
+
+---
+
 ## 1. The incident arc
 
 Seven phases. Each is a step in the operator's actual working sequence: a
