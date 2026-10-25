@@ -154,7 +154,7 @@
   /* ---- layout */
   --gap: 10px;
   --topbar-h: 52px;
-  --rail-w: 52px;
+  --rail-w2: 44px;
   --panel-w: 372px;
   --timeline-h: 60px;
   --slots-h: 204px;
@@ -330,16 +330,26 @@ button.lrow { appearance: none; background: none; border: 0; color: inherit; fon
 .inspector .acts { display: flex; gap: var(--s-2); margin-top: var(--s-3); flex-wrap: wrap; }
 
 /* ==========================================================================
-   TALON (orb in the topbar · decision cards · on-demand drawer)
+   TALON as One (reference-one-ui): an edge pill rail is the only persistent
+   surface; the chat is a floating card; tasks surface as cards and popovers.
    ========================================================================== */
-.orb { appearance: none; position: relative; width: 44px; height: 44px; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--talon) 38%, transparent); background: var(--talon-soft); display: grid; place-items: center; padding: 0; flex: none; transition: background var(--dur-fast), border-color var(--dur-fast); }
-.orb:hover { background: color-mix(in srgb, var(--talon) 22%, transparent); }
-.orb[aria-pressed="true"] { border-color: var(--talon); box-shadow: var(--highlight-top), 0 0 0 3px var(--talon-soft); }
-.orb .mascot { width: 30px; height: 30px; }
-.orb .pips { position: absolute; bottom: -3px; left: 50%; transform: translateX(-50%); display: flex; gap: 2px; }
-.orb .pips i { width: 8px; height: 3px; border-radius: 1.5px; background: var(--n-6); }
-.orb .pips i.on { background: var(--critical); }
-.orb .badge { position: absolute; top: -4px; right: -6px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: var(--r-pill); background: var(--needs); color: var(--text-inverse); font: var(--fw-bold) 10px/16px var(--font-sans); text-align: center; }
+.rail { position: absolute; z-index: var(--z-talon); right: var(--gap); top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; align-items: center; gap: var(--s-2); }
+.rail .statuspill { display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 10px 7px; border-radius: var(--r-pill); border: 1px solid var(--border-subtle); background: var(--surface-glass); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); box-shadow: var(--shadow-1); }
+.rail .statuspill .adot { appearance: none; border: 0; padding: 0; background: transparent; display: grid; place-items: center; cursor: pointer; }
+.rail .statuspill .adot .dot { transition: transform var(--dur-fast) var(--ease-out); }
+.rail .statuspill .adot:hover .dot { transform: scale(1.35); }
+.rail .rbtn { appearance: none; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border-subtle); background: var(--surface-glass); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); box-shadow: var(--shadow-1); color: var(--text-2); display: grid; place-items: center; transition: color var(--dur-fast), background var(--dur-fast); position: relative; }
+.rail .rbtn:hover { color: var(--text-1); background: var(--surface-hover); }
+.rail .rbtn[aria-pressed="true"] { color: var(--talon-ink); border-color: color-mix(in srgb, var(--talon) 45%, transparent); background: var(--talon-soft); }
+.rail .rbtn .badge { position: absolute; top: -3px; right: -3px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: var(--r-pill); background: var(--needs); color: var(--text-inverse); font: var(--fw-bold) 10px/16px var(--font-sans); text-align: center; }
+.rail .rbtn .pips { position: absolute; bottom: -2px; left: 50%; transform: translateX(-50%); display: flex; gap: 2px; }
+.rail .rbtn .pips i { width: 6px; height: 2.5px; border-radius: 1px; background: var(--n-6); }
+.rail .rbtn .pips i.on { background: var(--critical); }
+
+/* chat: a floating card over the map — never a docked panel, the map does not reflow */
+.chat { position: absolute; z-index: var(--z-talon); top: calc(var(--gap) * 2 + var(--topbar-h)); right: calc(var(--gap) * 2 + var(--rail-w2)); width: var(--panel-w); max-height: calc(100vh - var(--topbar-h) - var(--slots-h) - 96px); border-radius: var(--r-xl); display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--shadow-2); animation: chat-in var(--dur-base) var(--ease-out); }
+.chat[hidden] { display: none; }
+@keyframes chat-in { from { opacity: 0; transform: translateX(10px); } }
 
 /* posture pill: the operator follows the incident, not the process */
 .posture { appearance: none; display: inline-flex; align-items: center; gap: var(--s-2); height: 30px; padding: 0 var(--s-3); border-radius: var(--r-pill); border: 1px solid var(--border); background: var(--surface-raised); color: var(--text-1); font-weight: var(--fw-semibold); font-size: var(--fs-caption); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
@@ -350,17 +360,14 @@ button.lrow { appearance: none; background: none; border: 0; color: inherit; fon
 .posture.bad .dot { background: var(--critical); }
 .gatechip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: var(--r-pill); background: var(--needs-soft); color: var(--needs); font: var(--fw-semibold) var(--fs-micro)/1.4 var(--font-mono); letter-spacing: .05em; }
 
-/* decision cards: appear only while an item is open — tasks surface naturally */
-.cards { position: absolute; z-index: var(--z-talon); top: calc(var(--gap) * 2 + var(--topbar-h) + 4px); right: var(--gap); width: 372px; display: grid; gap: var(--s-2); max-height: calc(100vh - var(--topbar-h) - var(--slots-h) - 120px); overflow-y: auto; scrollbar-width: none; pointer-events: none; }
+/* decision cards: appear only while an item is open — tasks surface naturally,
+   anchored to the left of the edge rail */
+.cards { position: absolute; z-index: var(--z-talon); top: calc(var(--gap) * 2 + var(--topbar-h) + 4px); right: calc(var(--gap) * 2 + var(--rail-w2)); width: 372px; display: grid; gap: var(--s-2); max-height: calc(100vh - var(--topbar-h) - var(--slots-h) - 120px); overflow-y: auto; scrollbar-width: none; pointer-events: none; }
 .cards > * { pointer-events: auto; }
 .cards:empty { display: none; }
 .cards .card { box-shadow: var(--shadow-2); }
-.app.drawer-open .cards { right: calc(var(--gap) + var(--talon-w, 0px) + var(--s-2)); }
-
-/* drawer: transient overlay; the map never reflows around it */
-.drawer { position: absolute; z-index: calc(var(--z-talon) + 1); top: calc(var(--gap) * 2 + var(--topbar-h)); right: var(--gap); bottom: var(--gap); width: var(--panel-w); border-radius: var(--r-xl); display: flex; flex-direction: column; overflow: hidden; animation: drawer-in var(--dur-base) var(--ease-out); }
-.drawer[hidden] { display: none; }
-@keyframes drawer-in { from { opacity: 0; transform: translateX(12px); } }
+.app.chat-open .cards { right: calc(var(--gap) * 3 + var(--rail-w2) + var(--panel-w)); }
+.app.chat-open .cards { max-height: calc(100vh - var(--topbar-h) - var(--slots-h) - 96px); }
 .tip { position: fixed; z-index: var(--z-toast); pointer-events: none; padding: 6px var(--s-3); border-radius: var(--r-pill); background: var(--surface-glass-strong); border: 1px solid var(--border); box-shadow: var(--shadow-1); font-size: var(--fs-caption); white-space: nowrap; display: flex; align-items: center; gap: var(--s-2); opacity: 0; transform: translateX(4px); transition: opacity var(--dur-fast), transform var(--dur-fast); }
 .tip.on { opacity: 1; transform: none; }
 .tip small { color: var(--text-3); }

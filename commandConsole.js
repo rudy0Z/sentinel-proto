@@ -125,7 +125,7 @@ export async function mountConsole(app) {
     app.insertAdjacentHTML('beforeend', SHELL);
     const ui = {
         sit: params.get('situation') ?? store.get('situation', 'wui-breakout'),
-        // The drawer is on demand — the orb is the only persistent TALON surface. ?talon=open starts it open.
+        // The chat card is on demand — the edge rail is the only persistent TALON surface (One reference). ?talon=open starts it open.
         panel: params.get('talon') === 'open',
         tab: 'now',
         logAgent: 'all',
@@ -228,15 +228,16 @@ export async function mountConsole(app) {
             ui.liveT = ps.t;
         announce(ts, ps);
         renderTopbar(ps, ts);
+        renderRail(ts);
         renderCards(ps, ts);
-        renderDrawer(ps, ts);
+        renderChat(ps, ts);
         renderBoardhead(ps);
         renderTimeline(ps);
         renderSlots(ps, ts);
         renderInspector(ps);
         renderAttention(ts);
         updateCountdowns(ps);
-        app.classList.toggle('drawer-open', ui.panel);
+        app.classList.toggle('chat-open', ui.panel);
         app.classList.toggle('dock-min', ui.dockMin);
         updateInsets();
     }
@@ -281,14 +282,14 @@ export async function mountConsole(app) {
                 chime('ask');
         }
     }
-    // ------------------------------------------------------------------ topbar
+    // ------------------------------------------------------------------ topbar (TALON lives on the edge rail, not here)
     function renderTopbar(ps, ts) {
         const inc = ps.telemetry.incident;
         const wall = sit.meta.epoch ? player.wallClock(ps.t) : '';
         const mode = ui.review ? 'review' : isPast() ? 'past' : 'live';
         const mine = ts.open.filter((o) => !o.item.reraise).length;
         const gateOpen = !!ps.gate?.open;
-        const k = [ui.sit, inc?.value, inc?.level, ps.phase.id, gateOpen, Math.floor(ps.gate?.expires ?? 0), wall, mode, ui.pop, mine, ui.panel, ui.replay, ui.listening, ts.mood, ts.budget.used, ui.ai?.model ?? ''];
+        const k = [ui.sit, inc?.value, inc?.level, ps.phase.id, gateOpen, Math.floor(ps.gate?.expires ?? 0), wall, mode, ui.pop, mine, ui.panel, ui.replay, ui.listening, ui.ai?.model ?? ''];
         if (!changed('top', k))
             return;
         const s = SITUATIONS.find((x) => x.id === ui.sit);
@@ -304,18 +305,26 @@ export async function mountConsole(app) {
       ${mode === 'past' ? `<button class="btn sm" data-act="golive">${ic('live', 'xs')}Back to live</button>` : ''}
       <button class="btn icon ghost" data-act="scrub" aria-pressed="${ui.replay}" aria-label="Incident timeline" title="Incident timeline (scrub, replay)">${ic('timeline')}</button>
       <button class="btn ${ui.review ? 'primary' : 'ghost'}" data-act="review" aria-pressed="${ui.review}" title="After-action review (R)">${ic('review')}<span>${ui.review ? 'Exit review' : 'Review'}</span></button>
-      <button class="btn icon ghost" data-act="pop" data-pop="authority" aria-pressed="${ui.pop === 'authority'}" aria-label="What TALON may do" title="What TALON may do">${ic('shield')}</button>
-      <button class="btn icon ghost" data-act="pop" data-pop="settings" aria-pressed="${ui.pop === 'settings'}" aria-label="Settings" title="Settings">${ic('gear')}</button>
-      <button class="btn icon ghost" data-act="keys" aria-label="Keyboard shortcuts (?)" title="Keyboard shortcuts (?)">${ic('help')}</button>
-      <button class="orb" data-act="panel" aria-pressed="${ui.panel}" aria-label="TALON${mine ? ` · ${mine} need${mine > 1 ? '' : 's'} you` : ' · quiet'}" title="TALON (T) — thread, log, review">
-        ${mascot(ui.listening ? 'listening' : ts.mood, 'orbFace')}
-        <span class="pips" aria-hidden="true">${Array.from({ length: ts.budget.max }, (_, i) => `<i class="${i < ts.budget.used ? 'on' : ''}"></i>`).join('')}</span>
-        ${mine ? `<span class="badge">${mine}</span>` : ''}
-      </button>`;
+      <button class="btn icon ghost" data-act="keys" aria-label="Keyboard shortcuts (?)" title="Keyboard shortcuts (?)">${ic('help')}</button>`;
     }
-    // ------------------------------------------------------------------ TALON drawer (on demand; the orb in the topbar is the only persistent surface)
+    // ------------------------------------------------------------------ edge rail (One reference): agent dots in a pill + chat/voice controls
+    function renderRail(ts) {
+        const mine = ts.open.filter((o) => !o.item.reraise).length;
+        const k = [ts.agents.map((a) => a.status), mine, ui.panel, ui.pop, ui.listening, ts.budget.used];
+        if (!changed('rail', k))
+            return;
+        $('#rail').innerHTML = `
+      <button class="statuspill" data-act="pop" data-pop="agents" aria-haspopup="menu" aria-expanded="${ui.pop === 'agents'}" aria-label="TALON agents — ${mine ? `${mine} need${mine > 1 ? '' : 's'} you` : 'all quiet'}">
+        ${ts.agents.map((a) => `<span class="adot" data-tip="${esc(a.name)} · ${a.status === 'needs' ? 'needs you' : a.status}|${esc(a.line)}"><i class="dot ${a.status === 'idle' ? '' : a.status}"></i></span>`).join('')}
+      </button>
+      <button class="rbtn" data-act="panel" aria-pressed="${ui.panel}" aria-label="TALON chat (T)" data-tip="TALON chat|thread · log · review (T)">${ic('chat')}${mine ? `<span class="badge">${mine}</span>` : ''}</button>
+      <button class="rbtn mic" data-act="mic" aria-pressed="${ui.listening}" aria-label="Voice command (V)" data-tip="Voice command|press V">${ic('mic')}</button>
+      <button class="rbtn" data-act="pop" data-pop="authority" aria-pressed="${ui.pop === 'authority'}" aria-label="What TALON may do" data-tip="Authority|what TALON may do alone">${ic('shield')}</button>
+      <button class="rbtn" data-act="pop" data-pop="settings" aria-pressed="${ui.pop === 'settings'}" aria-label="Settings" data-tip="Settings · live model">${ic('gear')}</button>`;
+    }
+    // ------------------------------------------------------------------ TALON chat (a floating card — the rail is the only persistent surface)
     let lastFocus = null;
-    function renderDrawer(ps, ts) {
+    function renderChat(ps, ts) {
         const dr = $('#panel');
         dr.hidden = !ui.panel;
         const mine = ts.open.filter((o) => !o.item.reraise);
@@ -328,7 +337,7 @@ export async function mountConsole(app) {
         <div class="budget" title="Interrupt budget: at most ${ts.budget.max} per ${ts.budget.windowMin} min (ISA-18.2). Over budget, TALON holds an interrupt to an ask and logs it."><div class="pips">${Array.from({ length: ts.budget.max }, (_, i) => `<i class="${i < ts.budget.used ? 'on' : ''}"></i>`).join('')}</div><small>Interrupts ${ts.budget.used}/${ts.budget.max} · ${ts.budget.windowMin} min</small></div>`;
             $('#ptabs').innerHTML = ['now', 'log', 'review'].map((t) => `<button role="tab" aria-selected="${ui.tab === t}" data-act="tab" data-tab="${t}">${t === 'now' ? 'Thread' : t === 'log' ? 'Log' : 'Review'}</button>`).join('');
         }
-        // The header is cheap and always rendered (the drawer keeps its identity when closed);
+        // The header is cheap and always rendered (the chat card keeps its identity when closed);
         // the body only renders while open.
         if (!ui.panel)
             return;
@@ -617,7 +626,7 @@ export async function mountConsole(app) {
             ui.liveT = Math.max(ui.liveT, t1);
         if (hold) {
             ui.hold = hold.item;
-            // The decision card in the stack is the surface for this — no forced drawer.
+            // The decision card in the stack is the surface for this — the chat stays closed.
             return stopPlay();
         }
         if (t1 >= sit.clock.end - 1e-3)
@@ -894,6 +903,16 @@ export async function mountConsole(app) {
     function popContent(name) {
         if (name === 'sit')
             return `<div class="caps" style="padding:4px 8px">Exercise situation</div>${SITUATIONS.map((s) => `<button class="menu-item" role="menuitemradio" aria-checked="${s.id === ui.sit}" data-act="situation" data-sit="${s.id}"><span><b>${s.name}</b><small>${s.sub}</small></span></button>`).join('')}`;
+        if (name === 'agents') {
+            // The One task list: agents with their live lines, then what is waiting on you.
+            const ts = talon.state();
+            const mine = ts.open.filter((o) => !o.item.reraise);
+            const routed = ts.open.filter((o) => o.item.reraise);
+            return `<h3 class="caps">TALON agents</h3>
+        ${ts.agents.map((a) => `<button class="menu-item" data-act="agent" data-agent="${a.id}"><i class="dot ${a.status === 'idle' ? '' : a.status}" style="margin-top:5px"></i><span><b>${esc(a.name)}</b><small>${esc(a.line)}</small></span></button>`).join('')}
+        ${mine.length ? `<div class="caps ghead">Waiting on you</div>${mine.map((o) => `<button class="menu-item" data-act="panel"><i class="dot needs" style="margin-top:5px"></i><span><b>${esc(talon.text(o.item.title, player.getTime()))}</b><small>${esc(talon.agentName(o.item.agent))} · waits for you</small></span></button>`).join('')}` : `<div class="caps ghead">Nothing needs you${ts.handled ? ` · ${ts.handled} handled under standing orders` : ''}</div>`}
+        ${routed.map((o) => `<div class="menu-item" style="cursor:default"><i class="dot working" style="margin-top:5px"></i><span><b>${esc(o.item.title)}</b><small>routed to ${esc(o.item.reraise.to)} · you are copied</small></span></div>`).join('')}`;
+        }
         if (name === 'arc') {
             // The journey, on demand: the operator follows the incident, not the process.
             const ps = player.getState();
@@ -969,15 +988,14 @@ export async function mountConsole(app) {
                 engine.setLayerVisible(l.id, !hide);
         }
     }
-    // ------------------------------------------------------------------ insets: the map centres between topbar and board; the drawer re-centres it smoothly
+    // ------------------------------------------------------------------ insets: the map centres between topbar, rail and board
     let insetKey = '';
     function updateInsets() {
         const top = $('#topbar').getBoundingClientRect().bottom + 6;
         const dock = $('#dock').getBoundingClientRect();
-        const dr = $('#panel').getBoundingClientRect();
-        const right = ui.panel && dr.width ? innerWidth - dr.left : 0;
+        const right = innerWidth - ($('#rail').getBoundingClientRect().left) + 6;
         const bottom = innerHeight - dock.top;
-        document.documentElement.style.setProperty('--talon-w', `${ui.panel ? dr.width : 0}px`);
+        document.documentElement.style.setProperty('--talon-w', `${Math.round(right)}px`);
         document.documentElement.style.setProperty('--dock-h', `${bottom}px`);
         const k = `${Math.round(top)}|${Math.round(right)}|${Math.round(bottom)}`;
         if (k === insetKey)
@@ -1069,7 +1087,7 @@ export async function mountConsole(app) {
         stopPlay();
         ui.review = on;
         if (on)
-            ui.panel = true; // the review lives in the drawer — open it there
+            ui.panel = true; // the review lives in the chat card — open it there
         ui.tab = on ? 'review' : 'now';
         ui.dissent = null;
         if (!on) {
@@ -1116,7 +1134,7 @@ export async function mountConsole(app) {
         $('#overlay .btn.primary').focus();
     }
     function shortcuts() {
-        const rows = [['1 – 3', 'Answer the card TALON is asking'], ['/', 'Type to TALON'], ['V', 'Voice command'], ['T', 'TALON drawer — thread, log, review'], ['R', 'After-action review'], ['C', '2D / 3D map'], ['L', 'Day / night'], ['I', 'Thermal map'], ['Esc', 'Close drawer, popovers, highlight'], ['Space', 'Exercise clock (harness)'], ['.', 'Next beat (harness)']];
+        const rows = [['1 – 3', 'Answer the card TALON is asking'], ['/', 'Type to TALON'], ['V', 'Voice command'], ['T', 'TALON chat — thread, log, review'], ['R', 'After-action review'], ['C', '2D / 3D map'], ['L', 'Day / night'], ['I', 'Thermal map'], ['Esc', 'Close chat, popovers, highlight'], ['Space', 'Exercise clock (harness)'], ['.', 'Next beat (harness)']];
         $('#overlay').innerHTML = `<div class="scrim" data-act="overlay-close"><div class="modal glass" role="dialog" aria-label="Keyboard shortcuts"><h2>Shortcuts</h2><div class="keys">${rows.map(([k, d]) => `<span class="kbd">${k}</span><span>${d}</span>`).join('')}</div><div class="row"><button class="btn primary" data-act="overlay-close">Done</button></div></div></div>`;
     }
     // ------------------------------------------------------------------ input wiring
@@ -1164,6 +1182,13 @@ export async function mountConsole(app) {
             }
             case 'scrub':
                 ui.replay = !ui.replay;
+                return schedule();
+            case 'agent':
+                ui.panel = true;
+                ui.tab = 'log';
+                ui.logAgent = d.agent;
+                keys.delete('now');
+                closePop();
                 return schedule();
             case 'tab':
                 ui.tab = d.tab;
@@ -1591,8 +1616,9 @@ const SHELL = `
   <div class="boardhead glass" id="boardhead"></div>
   <div class="slots" id="slots"></div>
 </section>
+<nav class="rail" id="rail" aria-label="TALON"></nav>
 <div class="cards" id="cards" role="region" aria-label="TALON decision cards" aria-live="polite"></div>
-<aside class="drawer glass" id="panel" aria-label="TALON copilot" hidden>
+<aside class="chat glass" id="panel" aria-label="TALON chat" hidden>
   <header class="phead" id="phead"></header>
   <nav class="ptabs" id="ptabs" role="tablist"></nav>
   <div class="pbody" id="pbody" aria-live="polite" tabindex="0"></div>
