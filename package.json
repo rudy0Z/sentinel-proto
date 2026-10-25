@@ -1,0 +1,25 @@
+{
+  "name": "tactical-terrain",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Sentinel command console + TALON copilot on an incident-agnostic Three.js terrain engine",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "typecheck": "tsc --noEmit -p .",
+    "serve": "node tools/serve.mjs 8130",
+    "verify": "node tools/verify.mjs",
+    "data": "node tools/fetch-real-data.mjs && node tools/encinal-scenario.mjs",
+    "fixture": "node tools/export-fixture.mjs",
+    "phases": "node tools/phases.mjs",
+    "shot": "node tools/cshot.mjs"
+  },
+  "devDependencies": {
+    "@types/three": "0.170.0",
+    "geotiff": "^2.1.3",
+    "pngjs": "^7.0.0",
+    "puppeteer-core": "23.11.1",
+    "three": "0.170.0",
+    "typescript": "5.6.3"
+  }
+}

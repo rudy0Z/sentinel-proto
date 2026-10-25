@@ -1,0 +1,14 @@
+import { launch } from './browser.mjs';
+import { serve } from './serve.mjs';
+import { readFileSync } from 'node:fs';
+const server = await serve(8132);
+const browser = await launch();
+const page = await browser.newPage();
+page.on('console', (m) => { if (m.type()==='error'||m.type()==='warning') console.log(m.type(), m.text()); });
+await page.setViewport({ width: 800, height: 500 });
+await page.goto('http://127.0.0.1:8132/harness.html');
+await page.waitForFunction('window.engine', { timeout: 60000 });
+await page.evaluate(readFileSync(process.argv[2], 'utf8'));
+await page.waitForFunction('window.__probe', { timeout: 30000 });
+console.log(await page.evaluate('window.__probe'));
+await browser.close(); server.close();

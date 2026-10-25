@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sentinel · TALON</title>
+<meta name="description" content="Sentinel command console with TALON, an AI copilot for wildfire response. Training exercise on real Encinal Canyon terrain.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 5 54 14q4 2 4 7v13q0 16-26 25Q6 50 6 34V21q0-5 4-7Z' fill='%23161922' stroke='%238F7CFF' stroke-width='3'/%3E%3Crect x='19' y='27' width='10' height='7' rx='3.5' fill='%23ECEEF2'/%3E%3Crect x='35' y='27' width='10' height='7' rx='3.5' fill='%23ECEEF2'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./console.css">
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
+</script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="talonRim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--violet-4)"/><stop offset=".55" style="stop-color:var(--violet-5)"/><stop offset="1" style="stop-color:var(--blue-5)"/></linearGradient>
+    <radialGradient id="talonFace" cx=".42" cy=".3" r=".85"><stop offset="0" style="stop-color:var(--n-5)"/><stop offset="1" style="stop-color:var(--n-1)"/></radialGradient>
+  </defs>
+</svg>
+<div class="app" id="app">
+  <div id="map" aria-label="Tactical map"></div>
+  <div class="boot" id="boot"><div><span id="bootMascot"></span><span id="bootText">LOADING ENCINAL CANYON…</span></div></div>
+</div>
+<noscript>Sentinel needs JavaScript.</noscript>
+<script type="module">
+  if (location.protocol === 'file:') {
+    document.getElementById('bootText').textContent = 'RUN “npm run serve” AND OPEN http://127.0.0.1:8130/ (the console reads ./data over HTTP).';
+  } else {
+    import('./commandConsole.js').then((m) => m.mountConsole(document.getElementById('app'))).catch((e) => {
+      document.getElementById('bootText').textContent = `COULD NOT START: ${e.message}`;
+      throw e;
+    });
+  }
+</script>
+</body>
+</html>

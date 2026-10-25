@@ -1,0 +1,23 @@
+// Quick screenshot helper: node tools/shot.mjs <name> "<js to run before shot>" [waitMs] [w] [h]
+import { launch } from './browser.mjs';
+import { serve } from './serve.mjs';
+import { mkdirSync } from 'node:fs';
+const [name = 'shot', code = '', wait = '2500', w = '1440', h = '900'] = process.argv.slice(2);
+const server = await serve(8131);
+const browser = await launch();
+const page = await browser.newPage();
+const logs = [];
+page.on('console', (m) => { if (['error', 'warning'].includes(m.type())) logs.push(`${m.type()}: ${m.text()}`); });
+page.on('pageerror', (e) => logs.push(`pageerror: ${e.message}`));
+await page.setViewport({ width: +w, height: +h, deviceScaleFactor: 1 });
+await page.goto('http://127.0.0.1:8131/harness.html' + (process.env.Q ?? ''), { waitUntil: 'load' });
+await page.waitForFunction('window.engine && window.player', { timeout: 90000 });
+await new Promise((r) => setTimeout(r, 1200));
+if (code) await page.evaluate(code);
+await new Promise((r) => setTimeout(r, +wait));
+mkdirSync('qa', { recursive: true });
+await page.screenshot({ path: `qa/${name}.png` });
+console.log(JSON.stringify(await page.evaluate(() => engine.getMetrics())));
+console.log(logs.join('\n'));
+await browser.close();
+server.close();
