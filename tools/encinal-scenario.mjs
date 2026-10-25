@@ -402,6 +402,7 @@ const telemetryWUI = [
   { at: ESC, values: { incident: { value: 'Type 3 · extended attack', level: 'bad', basis: 'authored', source: 'Operator escalation' } } },
   { at: '@authorize+0.2', values: { incident: { value: 'Type 3 · evacuation order', level: 'bad', basis: 'authored', source: 'Operator authorization' } } },
   { at: 'F', values: { wind: W_('ENE 20 G34 mph', 247) } },
+  { at: 50, values: { status: { value: 'GOES-West IR lost · drone-only fusion', level: 'warn', basis: 'measured', source: 'GOES-West ground segment' } } },
   { at: T_OBS, values: { spread: { value: `${ROS} m/min · spotting ${spotAhead} m`, basis: 'modeled', source: 'TALON spread model v3 (corrected)' } } },
 ];
 
@@ -421,6 +422,9 @@ const zoneLabel = (pct, proposed) => [
 ];
 const CLEAR = [[6, 10], [12, 28], [22, 51], [37, 70], [52, 80], [64, 84]];
 const PLAN = { states: [{ at: 'D', state: 'proposed' }, { at: '@authorize', state: 'committed' }] };
+// Source conflict: a registered burn plot near the detection (county registry, exercise).
+const plotP = [detection[0] - 40, detection[1] + 330];
+const burnPlotRing = [[plotP[0] - 110, plotP[1] - 90], [plotP[0] + 110, plotP[1] - 90], [plotP[0] + 110, plotP[1] + 90], [plotP[0] - 110, plotP[1] + 90], [plotP[0] - 110, plotP[1] - 90]].map(r2);
 const station = (id, pos, title, detail) => ({ id, group: 'assets', name: title, provenance: meas('Dock and sensor telemetry'), spec: { type: 'marker', position: pos, icon: 'station', tone: 'slate', title, detail } });
 
 const layersWUI = [
@@ -439,6 +443,8 @@ const layersWUI = [
   { id: 'wind', group: 'weather', name: 'Wind', from: 'C', provenance: meas('RAWS Malibu Hills'),
     spec: { type: 'marker', position: r2([headAt(60)[0] - 250, headAt(60)[1] + 380]), icon: 'wind', tone: 'slate', rotation: 247, title: 'WIND ENE 22 G38', detail: 'RH 8% · 66°F' },
     patches: [{ at: 'F', spec: { title: 'WIND ENE 20 G34', detail: 'RH 9% · 65°F' } }] },
+  { id: 'burn-plot', group: 'detections', name: 'Registered burn plot', from: 4.4, until: 13, provenance: auth('County burn-permit registry (exercise)'),
+    spec: { type: 'polygon', rings: [burnPlotRing], mode: 'tint', fill: PALETTE.amber, fillOpacity: 0.1, outline: { color: PALETTE.amber, width: 2, dash: [8, 6], opacity: 0.7 } } },
   { id: 'evac-safe', group: 'evacZones', name: 'Zone 3 · safe', from: 'D', provenance: auth('TALON plan P-1'), ...PLAN, spec: zoneSpec(zone3, PALETTE.ok, 'tint', 0.08, { color: PALETTE.ok, width: 2, dash: [10, 6], opacity: 0.6 }) },
   { id: 'evac-warning', group: 'evacZones', name: 'Zone 2 · warning', from: 'D', provenance: auth('TALON plan P-1'), ...PLAN, spec: zoneSpec(zone2, PALETTE.amber, 'tint', 0.08, { color: PALETTE.amber, width: 2, dash: [10, 6], opacity: 0.6 }) },
   { id: 'evac-order', group: 'evacZones', name: 'Zone 1 · mandatory', from: 'D', provenance: auth('TALON plan P-1'), ...PLAN, spec: zoneSpec(zone1, PALETTE.red, 'hatch', 0.3, { color: PALETTE.red, width: 2.2, opacity: 0.85 }) },
@@ -482,14 +488,21 @@ const ftStandoffs = [6, 20, 38, 54, 70, 86, T_G, 110, 125].map((at) => ({ at, ta
 const ft02Out = fly(dock2, standoff(headAt(6), 160, 460), 4, 14);
 const ft02Spot = standoff(spot, 200, 420);
 const ft03Out = fly(dock1, z1c, 0, 15), ft03Up = fly(z1c, upperMid, 0, 15), ft03North = fly(upperMid, routeBNorth[Math.floor(routeBNorth.length * 0.7)], 0, 15);
+// Failure-inject tracks: the battery handover (FT-01 → FT-02) and the failsafe return.
+const ft01Home = fly(standoff(headAt(74)), dock2, 0, 14);
+const ft02Head = fly(standoff(headAt(74), 160, 460), standoff(headAt(76)), 0, 12);
 const loop = (line, i0, i1) => { const seg = line.slice(i0, i1); return [...seg, ...seg.slice(1, -1).reverse()].map(r2); };
 const unitsWUI = [
   { spec: { id: 'FT-01', kind: 'drone', name: 'Kite', altitudeFt: 1200, status: 'active', detail: 'Canyon sweep', position: sweep[0], patrol: { path: sweep, speedMps: 22 } }, provenance: meas('Telemetry'),
-    info: [{ at: -30, data: { battery: 81, role: 'Patrol', payload: 'EO/IR gimbal' } }, { at: 60, data: { battery: 46 } }, { at: 110, data: { battery: 28 } }],
+    info: [{ at: -30, data: { battery: 81, role: 'Patrol', payload: 'EO/IR gimbal' } }, { at: 60, data: { battery: 46 } }, { at: 74, data: { battery: 14 } }, { at: 110, data: { battery: 6 } }, { at: '@answer:battery:handover+30', data: { battery: 34 } }],
     patches: [
       { at: 'B', spec: { track: [...ft01Out, ...ftStandoffs.slice(1).map((s) => ({ t: s.at, p: s.pos }))], detail: 'Retasked · heat detection', status: 'enroute', gimbal: { target: detection }, orbitRadius: 0 } },
       { at: endT(ft01Out), spec: { status: 'active', detail: 'Orbit · detection', orbitRadius: 140, orbitPeriodS: 70, gimbal: { target: detection, tempC: 412, targetId: 'DET-1' } } },
       ...ftStandoffs.slice(1).map((s) => ({ at: s.at, spec: { detail: 'Gimbal lock · head', orbitRadius: 90, orbitPeriodS: 80, gimbal: { target: s.target, tempC: 980, targetId: 'HS-01' } } })),
+      { at: '@answer:battery:handover+0.2', rel: true, spec: { status: 'enroute', detail: 'Returning to dock D-2 · handover', track: ft01Home, orbitRadius: 0, gimbal: null } },
+      { at: `@answer:battery:handover+${r1(0.2 + endT(ft01Home))}`, spec: { status: 'standby', detail: 'Docked D-2 · charging', altitudeFt: 0, track: null, orbitRadius: 0 } },
+      { at: '@answer:battery:hold+18', rel: true, spec: { status: 'enroute', detail: 'Failsafe return · battery 6%', track: ft01Home, orbitRadius: 0, gimbal: null } },
+      { at: `@answer:battery:hold+${r1(18 + endT(ft01Home))}`, spec: { status: 'standby', detail: 'Docked D-2 · auto-return', altitudeFt: 0, track: null, orbitRadius: 0 } },
     ] },
   { spec: { id: 'FT-02', kind: 'drone', name: 'Hawk', altitudeFt: 0, status: 'standby', detail: 'Docked · D-2', position: dock2 }, provenance: meas('Telemetry'),
     info: [{ at: -30, data: { battery: 100, role: 'Perimeter mapping', payload: 'IR mapping' } }, { at: 60, data: { battery: 58 } }, { at: 110, data: { battery: 31 } }],
@@ -497,6 +510,8 @@ const unitsWUI = [
       { at: 4, spec: { altitudeFt: 900, status: 'enroute', detail: 'Launched · perimeter mapping', track: [...ft02Out, ...ftStandoffs.slice(2, 6).map((s) => ({ t: s.at, p: standoff(headAt(s.at), 160, 460) })), { t: T_SPOT, p: standoff(headAt(T_SPOT), 160, 460) }, { t: T_OBS - 0.5, p: ft02Spot }], gimbal: { target: headAt(6) } } },
       { at: endT(ft02Out), spec: { status: 'active', detail: 'Perimeter orbit', orbitRadius: 260, orbitPeriodS: 140, gimbal: { target: r2(headAt(10)), tempC: 940, targetId: 'PERIM' } } },
       { at: T_OBS - 0.5, spec: { detail: 'Gimbal lock · spot fire', orbitRadius: 120, orbitPeriodS: 90, gimbal: { target: spot, tempC: 760, targetId: 'SPOT-1' } } },
+      { at: '@answer:battery:handover+0.2', rel: true, spec: { detail: 'Head watch · handover from FT-01', track: ft02Head, gimbal: { target: r2(headAt(76)), tempC: 980, targetId: 'HS-01' } } },
+      { at: `@answer:battery:handover+${r1(0.2 + endT(ft02Head))}`, spec: { status: 'active', detail: 'Head watch', orbitRadius: 120, orbitPeriodS: 80, track: null } },
     ] },
   { spec: { id: 'FT-03', kind: 'drone', name: 'Lark', altitudeFt: 0, status: 'standby', detail: 'Docked · D-1', position: dock1 }, provenance: meas('Telemetry'),
     info: [{ at: -30, data: { battery: 100, role: 'Evacuation support', payload: 'Speaker + strobes' } }, { at: '@authorize+40', data: { battery: 64 } }, { at: '@authorize+90', data: { battery: 37 } }],
@@ -609,6 +624,17 @@ const talonWUI = {
       reraise: { of: 'escalate', to: 'Regional Duty Supervisor', newEvidence: [`FT-02 perimeter (T+0:08): head now ${ROS + 3} m/min, faster than at your decision`, `2-hour projection grew to ${nIn(9, 120)} homes`, 'E-32 reports spot fires across Trancas Cyn Rd'] },
       body: 'Only what is new since you held. Routed to the Regional Duty Supervisor; you are copied.', authority: 'operator',
       options: [{ id: 'escalate', label: 'Escalate', recommended: true }, { id: 'hold', label: 'Uphold the hold' }] },
+    { id: 'conflict', agent: 'recon', at: 4.4, until: 12, level: 'ask', kind: 'ask', title: 'Two sources disagree on the heat',
+      body: `S-7 and FT-01 IR read a flame front at the detection. The county registry lists a permitted burn plot 330 m north of it — unlit when FT-01 last passed. One of the two is stale.`,
+      authority: 'operator', options: [{ id: 'verify', label: 'FT-01 EO look at the plot', recommended: true }, { id: 'proceed', label: 'Proceed on live IR' }],
+      why: ['Live IR from two sensors says wildfire; the registry entry is from this morning', 'An EO look takes about 40 seconds — FT-01 is 300 m away', 'If it is the permitted plot we stand the engines down; if not, the registry is stale and the conflict rides with the report'],
+      evidence: [{ label: 'Registered plot', layers: ['burn-plot'], point: r2(plotP) }, { label: 'Detection', point: detection, layers: ['detection'] }], dock: ['feed'] },
+    { id: 'conflict-ok', agent: 'recon', at: '@answer:conflict:verify+1.2', level: 'feed', kind: 'note', title: 'Resolved: wildfire — the registry entry is stale',
+      body: 'FT-01 EO: the plot is unlit, and the heat is outside its bounds and moving away from it. The discrepancy is resolved and rides with the report.' },
+    { id: 'conflict-proceed', agent: 'recon', at: '@answer:conflict:proceed+0.1', level: 'feed', kind: 'note', title: 'Proceeding on live IR',
+      body: 'Two live sensors against one stale registry entry. The discrepancy stays open on the record and rides with the report.' },
+    { id: 'conflict-open', agent: 'recon', at: 12, unless: '@answer:conflict', level: 'feed', kind: 'note', title: 'Registry conflict unresolved — proceeding on live IR',
+      body: 'The window for the EO look closed unanswered. Two live sensors outweigh the registry entry; the discrepancy stays on the record.' },
     { id: 'escalated', agent: 'dispatch', at: plus(ESC, 0.1), level: 'feed', kind: 'note', milestone: 'Type 3', title: 'Type 3 · mutual aid requested', body: `DZ-3 and two engines from LA County Fire. DZ-3 on scene in ~${Math.round(dzArrive)} min.` },
     { id: 'plan', agent: 'egress', at: 6, until: '@authorize', hold: 7.8, level: 'ask', kind: 'proposal', milestone: 'Plan P-1', title: 'Plan P-1: evacuate Zone 1, warn Zone 2',
       body: 'Adapted from playbook ENC-3 (pre-computed at T−0:42). Two changes: the wind is 8° more easterly, and Zone 2 is wider by 6 homes.',
@@ -628,6 +654,18 @@ const talonWUI = {
     ...CLEAR.map(([m, pct]) => ({ id: `clear${m}`, agent: 'egress', at: `@authorize+${m}`, level: 'log', kind: 'status', title: `Zone 1 · ${pct}% cleared`, body: m === 6 ? 'SH-12 has traffic flowing at the hairpin, 14 vehicles/min.' : undefined })),
     { id: 'dz3', agent: 'dispatch', at: plus(ESC, dzArrive), level: 'feed', kind: 'note', title: 'DZ-3 on scene', body: 'Cutting the contingency line on the south flank.', evidence: [{ label: 'DZ-3', unit: 'DZ-3' }] },
     { id: 'modelcheck', agent: 'spread', at: 60, level: 'log', kind: 'status', title: 'Model check passed', body: 'FT-02 perimeter matches the projection within 40 m.' },
+    { id: 'satloss', agent: 'spread', at: 50, level: 'feed', kind: 'note', title: 'GOES-West IR feed lost', confidence: 'moderate',
+      body: 'Fusion continues on FT-01/FT-02 IR and the RAWS. Projection confidence drops until the next FT-02 perimeter pass (~6 min). Nothing here needs you; I am telling you because the map is one sensor poorer.' },
+    { id: 'battery', agent: 'recon', at: 74, until: 82, when: '@authorize', level: 'ask', kind: 'ask', title: 'FT-01 at 14% — hand the head watch to FT-02?',
+      body: 'FT-02 is at 58% on the perimeter orbit 400 m south. A handover takes about 40 seconds; below 10% FT-01 loses the gimbal on the flight home.',
+      authority: 'operator', options: [{ id: 'handover', label: 'Hand over to FT-02', recommended: true }, { id: 'hold', label: 'Keep FT-01 up 20 min' }],
+      why: ['FT-01 battery 14% and falling; the return flight needs 8%', 'FT-02 is on station with the IR payload already warm', 'A blind gap at the head is what the spot fire taught us to avoid'],
+      evidence: [{ label: 'FT-01', unit: 'FT-01' }, { label: 'FT-02', unit: 'FT-02' }], dock: ['fleet', 'feed'] },
+    { id: 'battery-done', agent: 'recon', at: '@answer:battery:handover+0.5', level: 'feed', kind: 'action', title: 'Head watch handed to FT-02',
+      body: 'FT-01 returning to dock D-2, 34% on arrival. No gap at the head: FT-02 had it before FT-01 turned.', evidence: [{ label: 'FT-02', unit: 'FT-02' }] },
+    { id: 'battery-fail', agent: 'recon', at: '@answer:battery:hold+18', level: 'feed', kind: 'action', authority: 'standing', standing: 'SO-3 · failsafe return below 8% battery',
+      title: 'FT-01 failsafe return — battery 6%',
+      body: 'Pre-authorized safety return; the gimbal goes dark on the way to the dock. The head is uncovered until FT-02 can shift its orbit — that gap is on the record.' },
     { id: 'stall', agent: 'egress', at: '@authorize+64', until: '@authorize+74', level: 'ask', kind: 'ask', title: 'Zone 1 has stalled at 84%',
       body: `${occupied} households in the upper canyon haven't left (Sheriff door-to-door). Send FT-03 to broadcast the order over them?`, authority: 'operator',
       options: [{ id: 'send', label: 'Send FT-03 · speaker + strobes', recommended: true }, { id: 'no', label: 'Leave it to the Sheriff' }],
@@ -670,9 +708,11 @@ const wui = {
     // Exercise autopilot (harness only): the operator role, for hands-free demo runs.
     { at: -27, kind: 'answer', item: 'prepos', option: 'yes' },
     { at: 0.6, kind: 'answer', item: 'detect', option: 'wait' },
+    { at: 5.0, kind: 'answer', item: 'conflict', option: 'verify' },
     { at: 5.3, kind: 'answer', item: 'escalate', option: 'escalate' },
     { at: 7.6, kind: 'answer', item: 'plan', option: 'authorize' }, { at: 7.6, kind: 'authorize' },
     { at: 7.6 + 64.8, kind: 'answer', item: 'stall', option: 'send' },
+    { at: 75, kind: 'answer', item: 'battery', option: 'handover' },
     { at: T_G + 2.4, kind: 'answer', item: 'draft', option: 'approve' }, { at: T_G + 2.4, kind: 'approve' },
   ],
   telemetry: telemetryWUI, presets: presetsWUI, boards: { evac: evacBoard }, talon: talonWUI,
@@ -757,6 +797,246 @@ const standby = {
     { id: 'docks', agent: 'recon', at: 2, level: 'log', kind: 'status', title: 'Docks D-1 and D-2: FT-02 and FT-03 ready, 100%' }] },
 };
 
+// ============================================================================
+// Journey v2 (2026-10-26 owner ruling): two arcs the linear script never had.
+//   contain   a containable fire: NO evacuation — but the authority is STILL notified,
+//             because the report is what queues the mutual-aid dozer that makes containment possible.
+//   falsepos  a false positive: the dismissal is the RIGHT call, and the save is the story.
+// ============================================================================
+
+// ---- contain: a smaller fire running WSW into the backcountry, away from the canyon homes.
+const head2 = [ignition[0] - 1050, ignition[1] - 520];
+const fire2 = simulateFireRun(ignition, head2, 777, { width: 0.2 });
+const FIELD2 = fireArrivalField(fire2, ignition, frame, { cols: FIELD.cols, rows: FIELD.rows, tIgnition: T_IGN, tRing: T_RING, cap: 900 });
+const f2 = sampler(FIELD2.data);
+const axis2 = dist(ignition, fire2.tip);
+const ax2 = [(fire2.tip[0] - ignition[0]) / axis2, (fire2.tip[1] - ignition[1]) / axis2];
+const head2At = (t) => { let prev = ignition; for (let d = 10; d < 4000; d += 10) { const p = [ignition[0] + ax2[0] * d, ignition[1] + ax2[1] * d]; if (f2(p[0], p[1]) > t) return prev; prev = p; } return prev; };
+const detectionC = r2(head2At(0.5));
+const ROS2 = Math.round(axis2 / (T_RING - T_IGN));
+const acres2 = (t) => acresAt(FIELD2.data, t);
+const homesC = (t, h) => centroids.filter((c) => { const a = f2(c[0], c[1]); return a > t && a <= t + h; }).length;
+const warnC = clusters(centroids.map((_, k) => k).filter((k) => ringD(centroids[k], fire2.ring) < 750)).map((g) => buffer(hull(g), 60));
+const hhC = centroids.filter((c) => inRings(c, warnC)).length;
+// The flank line, the dozer that cuts it, and the field clamped where the line held.
+const sv2 = [ax2[1], -ax2[0]];
+const dozer2 = [];
+for (let uu = 0.1; uu <= 0.62; uu += 0.025) {
+  const b = [ignition[0] + ax2[0] * axis2 * uu, ignition[1] + ax2[1] * axis2 * uu];
+  let dd = 0;
+  for (let d = 0; d < 2000; d += 10) { if (f2(b[0] + sv2[0] * d, b[1] + sv2[1] * d) > 140) { dd = d; break; } }
+  dozer2.push(r2([b[0] + sv2[0] * (dd + 110), b[1] + sv2[1] * (dd + 110)]));
+}
+const anchorC = r2(dozer2[Math.floor(dozer2.length * 0.4)]);
+const dz4Road = drive(pchEastEntry, dozer2[dozer2.length - 1], 0, 11);
+const dz4Line = along([...dozer2].reverse(), endT(dz4Road) + 4, 0.45);
+const DZ4_AT = 12; // county mutual aid moves on the CAD entry — this many minutes after the report
+const LINE_MIN = Math.ceil(DZ4_AT + endT(dz4Line));
+const T_HOLD = LINE_MIN + 3;
+const CONT = Float32Array.from(FIELD2.data, (v) => (v > T_HOLD ? 9999 : v));
+const PLANC = { states: [{ at: '@authorize+1', state: 'proposed' }, { at: '@answer:attack:commit', state: 'committed' }] };
+const ft01cOut = fly(sweep[2], standoff(detectionC, 250, 380), 0, 12);
+const ft02cOut = fly(dock2, standoff(head2At(8), 160, 460), 4, 14);
+const e32c = drive(trancasMouth, [detectionC[0] + 240, detectionC[1] + 120], 2.2, 10);
+const e31c = drive(standbyE31, anchorC, 0, 9), e31cFar = drive(e31Far, anchorC, 0, 9);
+
+const phasesC = [
+  { id: 'A', name: 'Standby', t: -10, job: 'Show the place and the assets.', camera: { target: [0, -100], range: 5600, pitch: 52, bearing: -10 }, dock: ['fleet', 'weather', 'events'] },
+  { id: 'B', name: 'Detection', t: 0, job: 'Show exactly one thing, and where it is.', camera: { target: detectionC, range: 2400, pitch: 56, bearing: 250 }, feed: { drone: 'FT-01', sensor: 'ir' }, dock: ['feed', 'fleet'] },
+  { id: 'C', name: 'Sizing', t: 3.5, job: 'Show how big, and where it is going.', camera: { target: r2(head2At(40)), range: 3300, pitch: 55, bearing: 205 }, dock: ['growth', 'feed', 'weather'] },
+  { id: 'D', name: 'Notify', t: 5.5, job: 'The report is always required — even with no evacuation.', camera: { target: r2(head2At(30)), range: 3800, pitch: 54, bearing: 210 }, gate: { label: 'REPORT TO COUNTY FIRE AUTHORITY · VEGETATION FIRE', expires: 14 }, dock: ['growth', 'weather'] },
+  { id: 'E', name: 'Attack', t: 9, after: '@authorize', job: 'Direct attack: anchor and cut.', camera: { target: r2([ignition[0] - 200, ignition[1] - 100]), range: 3000, pitch: 56, bearing: 30 }, dock: ['fleet', 'growth'] },
+  { id: 'F', name: 'Contained', t: T_HOLD + 2, after: '@answer:attack:commit', job: 'The line held. Show it against the projection.', camera: { target: r2(ignition), range: 3400, pitch: 55, bearing: 30 }, dock: ['fleet', 'weather'] },
+];
+
+const contain = {
+  schema: 'tte.situation/1', id: 'contain',
+  meta: { title: 'Encinal Canyon', subtitle: 'Containable · no evacuation, authority still notified', coords: scenario.meta.coords, size: scenario.meta.size, attribution: ATTRIB, disclaimer: DISCLAIMER, epoch: EPOCH, tz: 'PST', feedDrone: 'FT-01' },
+  clock: { start: -10, end: T_HOLD + 26 },
+  phases: phasesC,
+  layers: [
+    { id: 'labels', group: 'labels', name: 'Place names', provenance: meas('OpenStreetMap'), spec: { type: 'labels', items: placeLabels } },
+    station('dock-1', dock1, 'DOCK D-1', 'FT-03 ready'), station('dock-2', dock2, 'DOCK D-2', 'FT-02 ready'), station('sensor-s7', s7, 'S-7 · THERMAL MAST', 'LWIR · 360°'),
+    { id: 'detection', group: 'detections', name: 'Heat detection', from: 'B', until: 'C', provenance: meas('S-7 LWIR'),
+      spec: { type: 'marker', position: detectionC, icon: 'detection', tone: 'warn', pulse: true, title: 'HEAT DETECTION · UNCONFIRMED', detail: `S-7 LWIR · 74% · ${fmtLL(detectionC)}` },
+      patches: [{ at: 2, spec: { tone: 'fire', title: 'CONFIRMED · VEGETATION FIRE', detail: `FT-01 IR · 388 °C · ${fmtLL(detectionC)}` } }] },
+    { id: 'fire', group: 'firePerimeter', name: 'Perimeter + projection', from: 'C', provenance: SPREAD, spec: { ...fieldBase, labelToward: r2(fire2.tip), data: q10(FIELD2.data) },
+      patches: [{ at: `@answer:attack:commit+${LINE_MIN}`, spec: { data: q10(CONT) } }] },
+    { id: 'ignition', group: 'firePerimeter', name: 'Ignition area', from: 'C', provenance: model('Origin estimate from spread'), spec: { type: 'marker', position: r2(ignition), icon: 'ignition', title: 'IGNITION AREA', detail: `est. ${fmtT(T_IGN)} · Trancas Cyn` } },
+    { id: 'wind', group: 'weather', name: 'Wind', from: 'C', provenance: meas('RAWS Malibu Hills'),
+      spec: { type: 'marker', position: r2([head2At(50)[0] - 250, head2At(50)[1] + 380]), icon: 'wind', tone: 'slate', rotation: 247, title: 'WIND ENE 14 G22', detail: 'RH 14% · 60°F' } },
+    { id: 'advisory', group: 'evacZones', name: 'Advisory · no order', from: '@authorize+0.3', provenance: auth('Advisory sent with the CAD report'),
+      spec: zoneSpec(warnC, PALETTE.amber, 'tint', 0.08, { color: PALETTE.amber, width: 2, dash: [10, 6], opacity: 0.6 }) },
+    { id: 'dozer-line', group: 'suppression', name: 'Dozer line · flank', from: '@authorize+1', provenance: auth('TALON plan P-2'), ...PLANC,
+      spec: { type: 'line', drape: true, points: dozer2, color: '#D9B36C', width: 12, style: 'dashed', dash: [26, 12] } },
+  ],
+  units: [
+    { spec: { id: 'FT-01', kind: 'drone', name: 'Kite', altitudeFt: 1200, status: 'active', detail: 'Canyon sweep', position: sweep[0], patrol: { path: sweep, speedMps: 22 } }, provenance: meas('Telemetry'),
+      info: [{ at: -10, data: { battery: 84, role: 'Patrol', payload: 'EO/IR gimbal' } }, { at: 40, data: { battery: 52 } }, { at: 66, data: { battery: 31 } }],
+      patches: [
+        { at: 'B', spec: { track: ft01cOut, detail: 'Retasked · heat detection', status: 'enroute', gimbal: { target: detectionC }, orbitRadius: 0 } },
+        { at: endT(ft01cOut), spec: { status: 'active', detail: 'Orbit · detection', orbitRadius: 140, orbitPeriodS: 70, gimbal: { target: detectionC, tempC: 388, targetId: 'DET-3' } } },
+        { at: '@answer:release:release', spec: { patrol: { path: sweep, speedMps: 22 }, detail: 'Canyon sweep (released)', orbitRadius: 0, gimbal: null } },
+      ] },
+    { spec: { id: 'FT-02', kind: 'drone', name: 'Hawk', altitudeFt: 0, status: 'standby', detail: 'Docked · D-2', position: dock2 }, provenance: meas('Telemetry'),
+      info: [{ at: -10, data: { battery: 100, role: 'Perimeter mapping' } }, { at: 40, data: { battery: 62 } }],
+      patches: [
+        { at: 4, spec: { altitudeFt: 900, status: 'enroute', detail: 'Launched · perimeter mapping', track: [...ft02cOut, { t: 20, p: standoff(head2At(20), 160, 460) }, { t: 40, p: standoff(head2At(40), 160, 460) }], gimbal: { target: r2(head2At(8)) } } },
+        { at: endT(ft02cOut), spec: { status: 'active', detail: 'Perimeter orbit', orbitRadius: 260, orbitPeriodS: 140, gimbal: { target: r2(head2At(10)), tempC: 870, targetId: 'PERIM' } } },
+      ] },
+    { spec: { id: 'E-31', kind: 'engine', type: 'Type 3', status: 'standby', detail: 'Available · PCH east', position: e31Far }, provenance: meas('AVL'),
+      patches: [
+        { at: '@answer:prepos:yes', rel: true, spec: { status: 'enroute', detail: 'Pre-positioning · Encinal junction', track: e31Pre, trail: 10 } },
+        { at: `@answer:prepos:yes+${r1(endT(e31Pre))}`, spec: { status: 'standby', detail: 'Staged · Encinal junction' } },
+        { at: '@answer:attack:commit+0.5', rel: true, when: '@answer:prepos:yes', spec: { status: 'enroute', detail: 'Anchor · flank', track: e31c, trail: 14 } },
+        { at: '@answer:attack:commit+0.5', rel: true, unless: '@answer:prepos:yes', spec: { status: 'enroute', detail: 'Anchor · flank', track: e31cFar, trail: 14 } },
+        { at: `@answer:attack:commit+${r1(0.5 + endT(e31c))}`, when: '@answer:prepos:yes', spec: { status: 'active', detail: 'Anchored · flank' } },
+        { at: `@answer:attack:commit+${r1(0.5 + endT(e31cFar))}`, unless: '@answer:prepos:yes', spec: { status: 'active', detail: 'Anchored · flank' } },
+      ] },
+    { spec: { id: 'E-32', kind: 'engine', type: 'Type 3', status: 'standby', detail: 'Available · Trancas', position: trancasMouth }, provenance: meas('AVL'),
+      patches: [{ at: 2.2, spec: { status: 'enroute', detail: 'Initial attack · coastal slope', track: e32c, trail: 14 } }, { at: Math.ceil(endT(e32c)), spec: { status: 'active', detail: 'On scene · IC' } }] },
+    { spec: { id: 'DZ-4', kind: 'dozer', type: 'Dozer · county mutual aid', status: 'enroute', detail: 'Flank line · mutual aid', position: pchEastEntry }, from: `@authorize+${DZ4_AT}`, provenance: meas('AVL'),
+      patches: [
+        { at: `@authorize+${DZ4_AT}`, rel: true, spec: { track: [...dz4Road, ...dz4Line], trail: 20 } },
+        { at: `@authorize+${r1(DZ4_AT + endT(dz4Road) + 4)}`, spec: { status: 'active', detail: 'Cutting line · flank' } },
+      ] },
+  ],
+  telemetry: [
+    { at: 'A', values: { status: { value: 'Fire weather watch', level: 'warn', basis: 'authored', source: 'NWS (exercise inject)' }, wind: W_('ENE 12 G22 mph', 247), rh: W_('14%'), temp: W_('60°F'), fuel: W_('1-h 6% · ERC 62'), incident: { value: 'No incident', level: 'ok', basis: 'authored', source: 'CAD' } } },
+    { at: 'B', values: { incident: { value: 'Detection · unconfirmed', level: 'warn', basis: 'measured', source: 'S-7 LWIR' } } },
+    { at: 2, values: { incident: { value: 'Type 4 · initial attack', level: 'warn', basis: 'measured', source: 'FT-01 IR' } } },
+    { at: 'C', values: { spread: { value: `${ROS2} m/min WSW`, basis: 'modeled', source: 'TALON spread model v3' } } },
+    { at: '@authorize+0.2', values: { incident: { value: 'Type 4 · reported', level: 'warn', basis: 'authored', source: 'Operator report' } } },
+    { at: T_HOLD + 2, values: { incident: { value: 'Type 4 · contained', level: 'ok', basis: 'authored', source: 'IC report' } } },
+  ],
+  presets: [
+    { name: 'Overview', sub: 'full frame', target: [0, -100], range: 5600, pitch: 52, bearing: -10 },
+    { name: 'Fire', sub: 'backcountry head', target: r2(head2At(40)), range: 1800, pitch: 58, bearing: 30 },
+    { name: 'Flank line', sub: 'dozer cut', target: anchorC, range: 1300, pitch: 56, bearing: 30 },
+  ],
+  script: [
+    { at: -6, kind: 'answer', item: 'prepos', option: 'yes' },
+    { at: 0.6, kind: 'answer', item: 'detect', option: 'wait' },
+    { at: 6.4, kind: 'answer', item: 'notify', option: 'send' }, { at: 6.4, kind: 'authorize' },
+    { at: 8.6, kind: 'answer', item: 'attack', option: 'commit' },
+    { at: T_HOLD + 6, kind: 'answer', item: 'release', option: 'release' },
+  ],
+  talon: { agents: AGENTS, review: { detect: 'detect', confirm: 'confirm', plan: 'attack', baseline: { minutes: 38, label: 'Manual baseline', source: 'FlytBase brief, “The Old Way”' } }, items: [
+    readiness(-10),
+    prepos(-8, -2),
+    { id: 'detect', agent: 'recon', at: 0, until: 2, level: 'interrupt', kind: 'ask', milestone: 'Heat detection', title: 'Heat detection on Trancas ridge',
+      body: `S-7 thermal mast · 74% match to a flame signature · ${fmtLL(detectionC)}. FT-01 is on its way to look, on scene in ${mmss(endT(ft01cOut))}.`,
+      authority: 'operator', options: [{ id: 'wait', label: 'Wait for FT-01', recommended: true }, { id: 'confirm', label: 'Confirm now' }, { id: 'dismiss', label: 'Dismiss as false alarm' }],
+      why: ['74% match is below my confirm threshold (85%)', `FT-01 can see it in ${mmss(endT(ft01cOut))}; confirming blind costs nothing to wait for`, `Nearest home is ${nearestHome(detectionC)} m away`],
+      evidence: [{ label: 'Detection', point: detectionC, layers: ['detection'] }, { label: 'FT-01', unit: 'FT-01' }, { label: 'S-7 mast', point: s7, layers: ['sensor-s7'] }], dock: ['feed'], feed: { drone: 'FT-01', sensor: 'ir' } },
+    { id: 'retask', agent: 'recon', at: 0.05, level: 'feed', kind: 'action', authority: 'standing', standing: SO_LOOK, title: 'FT-01 retasked to the detection', body: 'Airspace box TRANCAS-2 is pre-cleared. Sweep paused.', busy: 2 },
+    { id: 'reraise_dismiss', agent: 'recon', at: 2, when: '@answer:detect:dismiss', level: 'feed', kind: 'note', title: 'The detection you dismissed is real',
+      body: 'FT-01 IR shows active flame at 388 °C. Your dismissal stays on the record; I have opened the incident on the new evidence and copied the Regional Duty Supervisor.' },
+    { id: 'confirm', agent: 'recon', at: 2, level: 'feed', kind: 'note', milestone: 'Confirmed', title: 'Confirmed: vegetation fire',
+      body: `FT-01 IR: ${r1(acres2(2))} ac, ${nearestHome(detectionC)} m from the nearest home, running WSW into the backcountry with the wind.`, evidence: [{ label: 'Fire', point: detectionC }] },
+    { id: 'runcard', agent: 'dispatch', at: 2.2, level: 'feed', kind: 'action', authority: 'standing', standing: 'Run card ENC-N · normal dispatch level', title: 'E-32 dispatched', body: `From Trancas Canyon, ETA ${Math.round(endT(e32c) - 2.2)} min.`, evidence: [{ label: 'E-32', unit: 'E-32' }] },
+    { id: 'ft02', agent: 'recon', at: 4, level: 'feed', kind: 'action', authority: 'standing', standing: SO_LOOK, title: 'FT-02 launched from dock D-2', body: 'Mapping the perimeter on a 260 m orbit.', busy: 6, evidence: [{ label: 'FT-02', unit: 'FT-02' }] },
+    { id: 'projection', agent: 'spread', at: 3.8, level: 'feed', kind: 'note', milestone: 'Projection', title: `Projection: WSW into the backcountry at ${ROS2} m/min`,
+      body: `${r1(acres2(4))} ac now. ${homesC(4, 60)} homes inside the +60 min projection; ${hhC} within 750 m of the flank get an advisory. The canyon mouth is off the right flank.`, confidence: 'moderate',
+      basis: 'Spread model v3 · FT-01 IR perimeter 1 min old · RAWS 4 min old', evidence: [{ label: 'Projection', layers: ['fire'], point: r2(head2At(40)) }], dock: ['growth'] },
+    { id: 'notify', agent: 'notify', at: 5.5, until: 14, hold: 7, level: 'ask', kind: 'ask', milestone: 'Report', title: 'Report the fire to the county authority?',
+      body: `Type 4, ${r1(acres2(5.5))} ac, no homes in the projection — no evacuation is proposed. The county still requires the report within 30 min of confirmation, and it is the CAD entry that queues the mutual-aid dozer if the wind turns.`,
+      authority: 'operator', confidence: 'high', basis: 'County fire code §F-210 (exercise) · CAD report format',
+      gate: { label: 'REPORT TO COUNTY FIRE AUTHORITY · VEGETATION FIRE', needs: 'Your authorization', expires: 14, reach: 'CAD report · size, location, resources, no evacuation', check: 'Report drafted from live telemetry · geofence matches the advisory only', onExpire: 'Nothing is sent. The report is still required; I escalate to the Regional Duty Supervisor.' },
+      options: [{ id: 'send', label: 'Send the report', recommended: true, effect: { kind: 'authorize' } }, { id: 'hold', label: 'Hold the report' }],
+      why: ['Confirmed vegetation fire: the county requires a report within 30 min, evacuation or not', 'The CAD entry is what makes a county dozer available if this grows', 'Confirmation was at T+0:02 — the statutory clock is running', 'No public alert is drafted: nothing here touches the public'],
+      evidence: [{ label: 'Fire', layers: ['fire'], point: detectionC }], dock: ['growth'] },
+    { id: 'reported', agent: 'notify', at: '@authorize+0.2', level: 'feed', kind: 'note', milestone: 'Reported', title: 'Report sent · County Fire Authority',
+      body: `CAD entry from live telemetry: Type 4, ${r1(acres2(6))} ac, WSW into the backcountry, E-32 on scene, no evacuation. Advisory going to ${hhC} homes near the flank.` },
+    { id: 'lapsed', agent: 'notify', at: 14, unless: '@authorize', level: 'interrupt', kind: 'note', title: 'The report lapsed without a decision',
+      body: 'Nothing was sent. Silence is not approval: the report is still required, so I escalated to the Regional Duty Supervisor.' },
+    { id: 'attack', agent: 'dispatch', at: '@authorize+1', until: 20, level: 'ask', kind: 'proposal', milestone: 'Plan P-2', title: 'Plan P-2: direct attack — anchor and cut',
+      body: `E-31 anchors the flank where the line starts, the county dozer (queued by your report) cuts ${Math.round(length(dozer2))} m of flank line, FT-02 maps the perimeter every 6 min. No evacuation: the advisory covers the nearest homes.`,
+      authority: 'operator', confidence: 'moderate', basis: 'TALON attack model · flank ROS ≈ 60% of head · dozer line at 0.45 m/s',
+      compare: { cols: [{ id: 'a', label: 'COA A', sub: 'Anchor + cut', recommended: true }, { id: 'b', label: 'COA B', sub: 'Monitor only' }],
+        rows: [{ label: 'Homes at risk', values: [`${homesC(6, 120)}`, `${homesC(6, 120) + 2} if the wind turns`], best: 0 },
+          { label: 'Line complete', values: [`~${LINE_MIN - DZ4_AT - Math.round(endT(dz4Road))} min of dozer work`, '—'] },
+          { label: 'Cost', values: ['1 dozer + 2 engines', 'FT-02 mapping only'] }] },
+      options: [{ id: 'commit', label: 'Commit P-2', recommended: true }, { id: 'monitor', label: 'Monitor only' }],
+      why: [`The head runs at ${ROS2} m/min into open backcountry — a flank line can catch it`, 'The dozer is already queued by the report: no new request, no new delay', `${hhC} homes sit within 750 m of the flank; the advisory is not a substitute for a line`, 'Monitoring waits for the wind to decide'],
+      evidence: [{ label: 'Dozer line', layers: ['dozer-line'], point: anchorC }, { label: 'E-31', unit: 'E-31' }], dock: ['fleet'] },
+    { id: 'attackexec', agent: 'dispatch', at: '@answer:attack:commit+0.2', level: 'feed', kind: 'action', authority: 'standing', standing: 'Plan P-2 (authorized)', title: 'Executing P-2', body: 'E-31 to the anchor point, DZ-4 starts the flank line on arrival, FT-02 continues mapping.', busy: 4 },
+    { id: 'monitorbad', agent: 'spread', when: '@answer:attack:monitor', at: '@answer:attack:monitor+35', level: 'feed', kind: 'note', title: 'Wind turned 15° — the flank is running',
+      body: `The flank is now the head, toward the ${hhC} advisory homes. Monitoring is no longer the cheap option. The choice and this consequence are both on the record.` },
+    { id: 'dz4', agent: 'dispatch', at: `@authorize+${r1(DZ4_AT + endT(dz4Road) + 4)}`, level: 'feed', kind: 'note', title: 'County dozer on scene · cutting the flank', evidence: [{ label: 'DZ-4', unit: 'DZ-4' }] },
+    { id: 'held', agent: 'spread', when: '@answer:attack:commit', at: `@answer:attack:commit+${LINE_MIN}`, level: 'interrupt', kind: 'note', milestone: 'Line held', title: 'The line held',
+      body: `Perimeter stopped at ${r1(acresAt(CONT, T_HOLD))} ac — the projection had ${r1(acres2(T_HOLD))} ac by now. The head is backing into the burn; FT-02 confirms no crossing.`,
+      evidence: [{ label: 'Held perimeter', layers: ['fire'], point: r2(head2At(Math.max(6, T_HOLD - 5))) }] },
+    { id: 'contained', agent: 'dispatch', when: '@answer:attack:commit', at: T_HOLD + 2, level: 'feed', kind: 'note', milestone: 'Contained', title: 'Contained (IC report)',
+      body: `Line complete at ${r1(acresAt(CONT, T_HOLD))} ac. E-32 mopping up; the dozer finishes the flank at ${fmtT(LINE_MIN)}.` },
+    { id: 'release', agent: 'recon', at: T_HOLD + 4, until: T_HOLD + 14, level: 'ask', kind: 'ask', title: 'Release FT-01 back to its sweep?', body: 'E-32 has eyes on the fire and the line is holding. FT-01 battery 31%.', authority: 'operator',
+      options: [{ id: 'release', label: 'Release FT-01', recommended: true }, { id: 'keep', label: 'Keep it overhead 15 min' }], why: ['The line is holding and FT-02 continues mapping', 'Two canyon sectors have gone unswept for 40 minutes'], evidence: [{ label: 'FT-01', unit: 'FT-01' }] },
+    { id: 'reviewready', agent: 'notify', at: T_HOLD + 20, level: 'feed', kind: 'note', title: 'The incident log is ready for review', body: 'Every recommendation, decision, dissent and standing-order action is on the record.' },
+  ] },
+};
+
+// ---- falsepos: the heat is a permitted burn. The dismissal is the right call, and the save is the story.
+const fpPlot = [sDet[0] - 40, sDet[1] + 320];
+const fpRing = [[fpPlot[0] - 110, fpPlot[1] - 90], [fpPlot[0] + 110, fpPlot[1] - 90], [fpPlot[0] + 110, fpPlot[1] + 90], [fpPlot[0] - 110, fpPlot[1] + 90], [fpPlot[0] - 110, fpPlot[1] - 90]].map(r2);
+const falsepos = {
+  schema: 'tte.situation/1', id: 'falsepos',
+  meta: { title: 'Encinal Canyon', subtitle: 'Permitted burn · false positive', coords: scenario.meta.coords, size: scenario.meta.size, attribution: ATTRIB, disclaimer: DISCLAIMER, epoch: EPOCH, tz: 'PST', feedDrone: 'FT-01' },
+  clock: { start: -5, end: 26 },
+  phases: [
+    { id: 'A', name: 'Standby', t: -5, job: 'Show the place and the assets.', camera: { target: [0, -100], range: 5600, pitch: 52, bearing: -10 }, dock: ['fleet', 'weather', 'events'] },
+    { id: 'B', name: 'Detection', t: 0, job: 'Show exactly one thing, and where it is.', camera: { target: sDet, range: 1500, pitch: 56, bearing: 200 }, feed: { drone: 'FT-01', sensor: 'eo' }, dock: ['feed', 'fleet'] },
+    { id: 'C', name: 'Resolved', t: 4, job: 'The heat is a permitted plot. Show the save.', camera: { target: fpPlot, range: 1200, pitch: 58, bearing: 200 }, dock: ['fleet', 'weather'] },
+  ],
+  layers: [
+    { id: 'labels', group: 'labels', name: 'Place names', provenance: meas('OpenStreetMap'), spec: { type: 'labels', items: placeLabels } },
+    station('dock-1', dock1, 'DOCK D-1', 'FT-03 ready'), station('dock-2', dock2, 'DOCK D-2', 'FT-02 ready'), station('sensor-s7', s7, 'S-7 · THERMAL MAST', 'LWIR · 360°'),
+    { id: 'detection', group: 'detections', name: 'Heat detection', from: 'B', provenance: meas('S-7 LWIR'),
+      spec: { type: 'marker', position: sDet, icon: 'detection', tone: 'warn', pulse: true, title: 'HEAT DETECTION · UNCONFIRMED', detail: `S-7 LWIR · 71% · ${fmtLL(sDet)}` },
+      patches: [{ at: 2.4, spec: { tone: 'ok', pulse: false, title: 'PERMITTED BURN · AU-2214', detail: `FT-01 EO · within plot bounds · ${fmtLL(sDet)}` } }] },
+    { id: 'burn-plot', group: 'detections', name: 'Registered burn plot', from: 2.4, provenance: auth('County burn-permit registry AU-2214 (exercise)'),
+      spec: { type: 'polygon', rings: [fpRing], mode: 'tint', fill: PALETTE.amber, fillOpacity: 0.1, outline: { color: PALETTE.amber, width: 2, dash: [8, 6], opacity: 0.7 } } },
+  ],
+  units: [
+    { spec: { id: 'FT-01', kind: 'drone', name: 'Kite', altitudeFt: 1200, status: 'active', detail: 'Canyon sweep', position: sweep[0], patrol: { path: sweep, speedMps: 22 } }, provenance: meas('Telemetry'),
+      info: [{ at: -5, data: { battery: 78, role: 'Patrol', payload: 'EO/IR gimbal' } }],
+      patches: [{ at: 'B', spec: { patrol: null, position: standoff(sDet, 20, 260), altitudeFt: 400, orbitRadius: 90, orbitPeriodS: 60, detail: 'Orbit · detection', gimbal: { target: sDet, tempC: 340, targetId: 'DET-4' } } },
+        { at: '@answer:dismiss:close', spec: { patrol: { path: sweep, speedMps: 22 }, altitudeFt: 1200, orbitRadius: 0, gimbal: null, detail: 'Canyon sweep (released)' } }] },
+  ],
+  telemetry: [
+    { at: 'A', values: { status: { value: 'Normal fire weather', level: 'ok', basis: 'authored', source: 'NWS (exercise inject)' }, wind: W_('ENE 9 mph', 247), rh: W_('28%'), temp: W_('57°F'), fuel: W_('1-h 9% · ERC 44'), incident: { value: 'No incident', level: 'ok', basis: 'authored', source: 'CAD' } } },
+    { at: 'B', values: { incident: { value: 'Detection · unconfirmed', level: 'warn', basis: 'measured', source: 'S-7 LWIR' } } },
+    { at: 2.4, values: { incident: { value: 'Permitted burn · no incident', level: 'ok', basis: 'measured', source: 'FT-01 EO + county registry' } } },
+  ],
+  presets: [{ name: 'Overview', sub: 'full frame', target: [0, -100], range: 5600, pitch: 52, bearing: -10 }, { name: 'Detection', sub: 'the heat', target: sDet, range: 900, pitch: 58, bearing: 200 }],
+  script: [{ at: 0.5, kind: 'answer', item: 'detect', option: 'wait' }, { at: 3.6, kind: 'answer', item: 'dismiss', option: 'close' }],
+  talon: { agents: AGENTS, review: { detect: 'detect', confirm: 'verify' }, items: [
+    { id: 'ready', agent: 'spread', at: -5, level: 'feed', kind: 'note', title: 'Normal fire weather', body: 'ENE 9 mph, RH 28%. FT-01 on its canyon sweep. The burn-permit window is open tonight until 23:00.' },
+    { id: 'detect', agent: 'recon', at: 0, until: 2.5, level: 'interrupt', kind: 'ask', milestone: 'Heat detection', title: 'Heat on the coastal slope', body: `S-7 LWIR · 71% match to a flame signature · ${fmtLL(sDet)}. FT-01 is right there and dropping for a look.`, authority: 'operator',
+      options: [{ id: 'wait', label: 'Wait for FT-01', recommended: true }, { id: 'confirm', label: 'Confirm now' }, { id: 'dismiss', label: 'Dismiss as false alarm' }],
+      why: ['71% is below my confirm threshold (85%)', 'The burn-permit window is open tonight — a permitted plot is a live possibility', 'FT-01 is overhead; the EO look takes under two minutes'],
+      evidence: [{ label: 'Detection', point: sDet, layers: ['detection'] }, { label: 'FT-01', unit: 'FT-01' }], dock: ['feed'], feed: { drone: 'FT-01', sensor: 'eo' } },
+    { id: 'look', agent: 'recon', at: 0.05, level: 'feed', kind: 'action', authority: 'standing', standing: SO_LOOK, title: 'FT-01 orbiting the detection', body: 'Pre-cleared airspace, 400 ft AGL, EO first: tonight the registry matters more than the IR.', busy: 2 },
+    { id: 'verify', agent: 'recon', at: 2.3, level: 'feed', kind: 'note', milestone: 'Identified', title: 'It is a permitted burn plot',
+      body: `FT-01 EO: burn rows aligned with the wind, a control line on three sides, no spread beyond the plot. The county registry lists permit AU-2214 for exactly this polygon, valid tonight until 23:00. S-7's 71% flame-match is the plot doing what its permit says.`,
+      evidence: [{ label: 'Registered plot', layers: ['burn-plot'], point: r2(fpPlot) }] },
+    { id: 'dismiss', agent: 'recon', at: 3, until: 12, level: 'ask', kind: 'ask', milestone: 'Close-out', title: 'Close as permitted burn?',
+      body: 'No engines, no report, no escalation: the permit covers it. If anything changes — spread past the plot bounds, the permit lapses — I re-open on the new evidence.',
+      authority: 'operator', options: [{ id: 'close', label: 'Close as permitted burn', recommended: true }, { id: 'watch', label: 'Keep FT-01 overhead 20 min' }],
+      why: ['The registry match is exact: permit AU-2214, this polygon, valid tonight', 'FT-01 EO shows the burn inside its control lines', 'A close-out is reversible: I re-open on any new evidence, and a disagreement goes to your supervisor'],
+      evidence: [{ label: 'Registered plot', layers: ['burn-plot'], point: r2(fpPlot) }], dock: ['feed'] },
+    { id: 'closed', agent: 'recon', at: '@answer:dismiss:close+0.2', level: 'feed', kind: 'note', milestone: 'Resolved', title: 'Closed as permitted burn AU-2214',
+      body: 'No engines rolled, no report sent — the permit covers the burn. The registry match, the EO look and your call are all on the record.' },
+    { id: 'watchdone', agent: 'recon', when: '@answer:dismiss:watch', at: '@answer:dismiss:watch+15', level: 'feed', kind: 'note', milestone: 'Resolved', title: 'Plot burned out within permit bounds',
+      body: 'FT-01 watched it to the end: no spread past the control line. Closed.' },
+    { id: 'watchopen', agent: 'recon', at: 12, unless: '@answer:dismiss', level: 'feed', kind: 'note', title: 'Window closed unanswered — staying on watch',
+      body: 'You did not close it, so I did not either. FT-01 stays on the plot; silence keeps the watch, it never closes an incident.' },
+    { id: 'confirmwrong', agent: 'recon', when: '@answer:detect:confirm', at: '@answer:detect:confirm+0.8', level: 'feed', kind: 'note', title: 'The confirmed heat is the permitted plot',
+      body: 'FT-01 EO on it: burn rows, control lines, registry match. No incident — standing the confirmation down. Your call and my 71% are both on the record.' },
+    { id: 'dismissed-early', agent: 'recon', when: '@answer:detect:dismiss', at: 2.5, level: 'feed', kind: 'note', title: 'You dismissed it before the look',
+      body: 'FT-01 was already overhead, so the look happened anyway: permitted plot AU-2214. Your dismissal stands — and now it stands on evidence.' },
+  ] },
+};
+
 mkdirSync(join(data, 'scenarios'), { recursive: true });
-for (const sit of [standby, small, wui]) writeFileSync(join(data, 'scenarios', `${sit.id}.json`), JSON.stringify(sit));
+for (const sit of [standby, small, contain, falsepos, wui]) writeFileSync(join(data, 'scenarios', `${sit.id}.json`), JSON.stringify(sit));
 console.log(JSON.stringify({ situations: true, ROS, cut: { t: r1(cut.t), p: r2(cut.p) }, cutRev: { t: r1(cutRev.t), p: r2(cutRev.p) }, ERR, T_SPOT, T_OBS, T_G, spot, spotAhead, upstream, occupied, hh1, hh2, devices, clearA, clearB, upCanyon, n120_4: nIn(4, 120), firstHome, dzArrive, s7, dock1, dock2, e31: [endT(e31FromFar), endT(e31FromJ)], kb: Math.round(JSON.stringify(wui).length / 1024) }));

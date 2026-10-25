@@ -31,22 +31,23 @@ async function open(q, w = 1600, h = 960, pinned) {
   // Surfaces v2: orb + posture pill in the topbar; the timeline is a replay surface;
   // decision cards exist only while an item is open; the drawer opens on demand.
   const surf = await page.evaluate(async () => {
+    const poll = (fn, ms = 8000) => new Promise((resolve) => {
+      const t0 = Date.now();
+      const step = () => { const v = fn(); if (v) resolve(true); else if (Date.now() - t0 > ms) resolve(false); else setTimeout(step, 100); };
+      step();
+    });
     const live = { orb: !!document.querySelector('.orb'), posture: document.querySelector('.posture b')?.textContent ?? '', tlHidden: document.querySelector('#timeline')?.hidden, exhandle: !document.querySelector('#exhandle')?.hidden, cards: document.querySelectorAll('#cards .card').length };
     player.setTime(1.5); // the detection ask is open
-    await new Promise((r) => setTimeout(r, 700));
-    const askCards = document.querySelectorAll('#cards .card').length;
+    const askCards = await poll(() => document.querySelectorAll('#cards .card').length >= 1);
     document.querySelector('.orb')?.click();
-    await new Promise((r) => setTimeout(r, 400));
-    const drawer = !document.querySelector('#panel').hidden && !!document.querySelector('#panel h1');
+    const drawer = await poll(() => !document.querySelector('#panel')?.hidden && !!document.querySelector('#panel h1'), 4000);
     document.querySelector('.orb')?.click();
     document.querySelector('[data-act=review]')?.click();
-    await new Promise((r) => setTimeout(r, 700));
-    const reviewTl = !document.querySelector('#timeline').hidden;
+    const reviewTl = await poll(() => !document.querySelector('#timeline')?.hidden, 8000);
     document.querySelector('[data-act=review]')?.click();
-    await new Promise((r) => setTimeout(r, 250));
     return { ...live, askCards, drawer, reviewTl };
   });
-  check('surfaces v2: orb + posture, timeline hidden in live, cards only when open, drawer on demand', surf.orb && /standby/i.test(surf.posture) && surf.tlHidden && surf.exhandle && surf.cards === 0 && surf.askCards >= 1 && surf.drawer && surf.reviewTl, JSON.stringify(surf));
+  check('surfaces v2: orb + posture, timeline hidden in live, cards only when open, drawer on demand', surf.orb && /standby/i.test(surf.posture) && surf.tlHidden && surf.exhandle && surf.cards === 0 && surf.askCards && surf.drawer && surf.reviewTl, JSON.stringify(surf));
 
   // Governance: TALON never acts without a citation; no interrupt over budget anywhere in the run.
   const gov = await page.evaluate(() => {
@@ -106,6 +107,28 @@ async function open(q, w = 1600, h = 960, pinned) {
     return { committed: P.getState().committed, lapsed: s.log.some((e) => e.id === 'expired' || e.kind === 'expired'), order: engine.getOverlayLayerIds().includes('authority') };
   });
   check('silence is never approval: no decision, plan lapses, no order', !lapse.committed && lapse.lapsed && !lapse.order, JSON.stringify(lapse));
+  // Failure injects (journey v2): source conflict, battery handover, satellite loss.
+  const inj = await page.evaluate(() => {
+    player.setTime(4.5);
+    const conflict = talon.state().open.some((o) => o.item.id === 'conflict');
+    const cv = talon.answer('conflict', 'verify');
+    player.setTime(6.2);
+    const resolved = talon.state().log.some((e) => /registry entry is stale/i.test(e.title));
+    // The lapse check that follows rewinds history and branches away the earlier
+    // authorize — re-take it so the battery item's `when: '@authorize'` is live.
+    player.setTime(6.5);
+    talon.answer('plan', 'authorize');
+    player.setTime(74.5);
+    const battery = talon.state().open.some((o) => o.item.id === 'battery');
+    const bh = talon.answer('battery', 'handover');
+    player.setTime(77);
+    const ft2 = engine.units.find((u) => u.spec.id === 'FT-02')?.spec.detail ?? '';
+    const ft1 = engine.units.find((u) => u.spec.id === 'FT-01')?.spec.status ?? '';
+    player.setTime(52);
+    const satloss = (player.getState().telemetry.status?.value ?? '').includes('drone-only');
+    return { conflict, cv: cv.ok, resolved, battery, bh: bh.ok, ft2, ft1, satloss };
+  });
+  check('failure injects: source conflict resolves on evidence; battery handover moves the head watch; satellite loss degrades honestly', inj.conflict && inj.cv && inj.resolved && inj.battery && inj.bh && /head watch/i.test(inj.ft2) && inj.ft1 === 'enroute' && inj.satloss, JSON.stringify(inj));
   check('no console errors (operator run)', errors.length === 0, errors.slice(0, 3).join(' | '));
   await page.close();
 }
@@ -158,6 +181,52 @@ async function open(q, w = 1600, h = 960, pinned) {
   check('static scene renders 0 frames (motion off, feed closed)', m2.frames - f0 <= 1, `frames ${f0} -> ${m2.frames}`);
   check('no console errors (situations)', errors.length === 0, errors.slice(0, 3).join(' | '));
   await page.close();
+}
+
+// ---------------------------------------------------------------- journey v2: contain-without-evac, false positive
+{
+  const { page, errors } = await open('situation=contain');
+  const con = await page.evaluate(() => {
+    // The report is ALWAYS required — silence lapses it and nothing is sent.
+    player.setTime(5.9);
+    player.answer('noop', 'x'); // fresh branch: answer nothing after rewinding before the gate
+    player.setTime(20);
+    const lapse = { committed: player.getState().committed, lapsed: talon.state().log.some((e) => e.itemId === 'notify' && e.kind === 'expired') };
+    // The operator branch: report → attack → county dozer → the line holds. No evacuation ever.
+    player.setTime(5.6);
+    const send = talon.answer('notify', 'send');
+    player.setTime(8.6);
+    const commit = talon.answer('attack', 'commit');
+    player.setTime(80);
+    const done = { phase: player.getState().phase.id, dz: engine.units.some((u) => u.spec.id === 'DZ-4'), held: talon.state().log.some((e) => /line held/i.test(e.title)), contained: talon.state().log.some((e) => /contained \(ic report\)/i.test(e.title)) };
+    let order = false;
+    for (let t = -10; t <= 80; t += 2) { player.setTime(t); if (engine.getOverlayLayerIds().some((id) => /evac-order|route-/.test(id))) order = true; }
+    const rv = talon.review();
+    return { lapse, send: send.ok, commit: commit.ok, done, order, measures: rv.measures.map((m) => m.label) };
+  });
+  check('contain: the report is always required — a lapse sends nothing; notify → attack → county dozer → line held; no evacuation order ever', !con.lapse.committed && con.lapse.lapsed && con.send && con.commit && con.done.phase === 'F' && con.done.dz && con.done.held && con.done.contained && !con.order, JSON.stringify(con.lapse) + ' ' + JSON.stringify(con.done));
+  check('contain: review measures computed for the no-evacuation arc', con.measures.some((m) => /confirmed/.test(m)) && con.measures.some((m) => /plan proposed/.test(m)) && !con.measures.some((m) => /evacuation order/.test(m)), con.measures.join(' · '));
+  check('no console errors (contain)', errors.length === 0, errors.slice(0, 3).join(' | '));
+  await page.close();
+
+  const fpo = await open('situation=falsepos');
+  const fp = await fpo.page.evaluate(async () => {
+    player.setTime(3.2);
+    const ask = talon.state().open.find((o) => o.item.id === 'dismiss');
+    const rec = ask?.item.options.find((o) => o.recommended)?.id ?? null;
+    await new Promise((r) => setTimeout(r, 700));
+    const card = document.querySelectorAll('#cards .card').length; // the close-out renders as a decision card
+    const close = talon.answer('dismiss', 'close');
+    player.setTime(8);
+    const closed = talon.state().log.some((e) => /closed as permitted/i.test(e.title));
+    let fire = false;
+    for (let t = -5; t <= 24; t += 2) { player.setTime(t); if (engine.getOverlayLayerIds().some((id) => /fire|evac-order|route-/.test(id))) fire = true; }
+    const rv = talon.review();
+    return { rec, card, close: close.ok, closed, fire, measures: rv.measures.length, dissents: rv.dissents.length };
+  });
+  check('false positive: closing is the recommendation and renders as a card, the save is on the record, no fire surface is ever drawn', fp.rec === 'close' && fp.card >= 1 && fp.close && fp.closed && !fp.fire, JSON.stringify(fp));
+  check('no console errors (falsepos)', fpo.errors.length === 0, fpo.errors.slice(0, 3).join(' | '));
+  await fpo.page.close();
 }
 
 // ---------------------------------------------------------------- engine bench: hud:false, procedural fixture

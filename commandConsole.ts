@@ -91,6 +91,8 @@ const BRAND = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="1
 const SITUATIONS = [
   { id: 'standby', name: 'Standby', sub: 'No incident · Red Flag watch' },
   { id: 'small-incident', name: 'Small incident', sub: 'One detection · one engine' },
+  { id: 'contain', name: 'Containable', sub: 'No evacuation · authority still notified' },
+  { id: 'falsepos', name: 'Permitted burn', sub: 'False positive · the save' },
   { id: 'wui-breakout', name: 'WUI breakout', sub: 'Full incident · Encinal Canyon' },
 ];
 const WIDGETS: Record<string, { title: string }> = {
