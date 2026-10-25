@@ -1,6 +1,6 @@
 # Tactical Terrain Engine
 
-> **Start with [HANDOFF.md](HANDOFF.md)**: the Sentinel console (`index.html`, `commandConsole.ts`), the TALON copilot (`talon.ts`), the governance rules, open decisions and what is left. This README covers the engine and the bench harness.
+> **Start with [HANDOFF.md](HANDOFF.md)**: the Sentinel console (`index.html`, `commandConsole.ts`), the TALON copilot (`talon.ts`), the optional live-model adapter (`talonAgent.ts`), the governance rules, open decisions and what is left. The design system renders at `tokens.html`. This README covers the engine and the bench harness.
 
 A Three.js (r170) terrain and map engine for emergency command displays, plus a player that runs an incident as a timeline. Three tiers:
 
@@ -8,20 +8,30 @@ A Three.js (r170) terrain and map engine for emergency command displays, plus a 
 |---|---|---|
 | 1 · engine | `terrainEngine.ts` | terrain, vegetation, roads, structures, generic layers (line, polygon, points, marker, labels, time-of-arrival field), units, cameras, drone feed. Nothing about fires, plans or incidents. |
 | 2 · situation | `data/scenarios/*.json` + `scenarioPlayer.ts` | phases, timed layers, plan routes and decisions. Mounts a situation on any engine through its public API. |
-| 3 · shell | `harness.html` | situation selector, phase card, plan actions (authorize, approve, reject), incident timeline scrubber. |
+| 3 · shell | `index.html` + `commandConsole.ts` | the operator console: topbar (posture pill, orb), decision cards, situation board, on-demand TALON drawer. `harness.html` stays as the engine bench. |
 
 `scenarioFixtures.ts` holds incident content used by the tools and the procedural demo (`simulateFireRun`, `fireArrivalField`, `buildDemoScenario`). The compiled `.js` modules are inlined into `harness.html` so it also runs from `file://`; `three` comes from jsDelivr through an import map.
 
 ```sh
 npm install
-npm run serve        # http://127.0.0.1:8130/harness.html  (needed for ./data/ fetches)
-npm run verify       # headless checks (29)
+npm run serve        # http://127.0.0.1:8130/  (console) · /tokens.html (design system) · /harness.html (bench)
+npm run verify       # headless checks (32): governance, journey arcs, live-model adapter, a11y, engine
 npm run build        # tsc + re-inline the three modules into harness.html
 npm run data         # re-download ./data/ and rebuild the scenario + situations
 npm run phases       # screenshot every phase into qa/ and print draw calls per phase
 ```
 
-Over HTTP the harness opens the real Encinal data on the WUI breakout at Phase A (Standby). From `file://`, or with `?data=procedural`, it falls back to the procedural fixture as a one-phase snapshot. URL flags: `?situation=standby|small-incident|wui-breakout`, `?phase=D`, `?lighting=day`. Keys: `←`/`→` phase, `P` auto-play, `2`/`3` view, `L` lighting, `T` thermal, `X` relief, `F` drone feed, `M` motion.
+Over HTTP the harness opens the real Encinal data on the WUI breakout at Phase A (Standby). From `file://`, or with `?data=procedural`, it falls back to the procedural fixture as a one-phase snapshot. URL flags: `?situation=standby|small-incident|contain|falsepos|wui-breakout`, `?phase=D`, `?lighting=day`. Keys: `←`/`→` phase, `P` auto-play, `2`/`3` view, `L` lighting, `T` thermal, `X` relief, `F` drone feed, `M` motion.
+
+## Situations
+
+Five arcs, all on the real Encinal Canyon data (`data/scenarios/`):
+
+- `standby` — the place and the assets, no incident.
+- `small-incident` — one detection, one engine, a short hand line, never a perimeter.
+- `contain` — a containable fire: **no evacuation, but the authority is still notified** (the CAD report queues the mutual-aid dozer that makes containment possible).
+- `falsepos` — the heat is a permitted burn: the dismissal is the recommended call, and the save is the story.
+- `wui-breakout` — the full incident (A→G), with failure injects: a registry-vs-IR source conflict, a battery handover with a failsafe branch, and a GOES-West IR feed loss.
 
 ## Incident flow
 

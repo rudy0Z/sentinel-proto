@@ -490,7 +490,7 @@ export async function mountConsole(app: HTMLElement) {
     const by = (b: string) => (b === 'operator' ? 'You' : b === 'autopilot' ? 'Autopilot' : b === 'authority' ? 'Supervisor' : b === 'expired' ? 'Lapsed' : 'Open');
     $('#pbody').innerHTML = `
       <div class="card" style="gap:var(--s-2)"><div class="meta"><span class="caps">After-action review</span></div><h2>${esc(sit.meta.title)} · ${esc(SITUATIONS.find((s) => s.id === ui.sit)?.name ?? '')}</h2><p>The map and TALON's panel show exactly what you saw at each moment. Scrub the timeline or pick a decision below.</p>
-        <label class="lrow" role="switch" aria-checked="${ps.hindsight}" data-act="hindsight" style="grid-template-columns:1fr auto"><span class="nm">Overlay what we know now<small>Corrected projection at every time (hindsight)</small></span><span class="switch"></span></label>
+        <button type="button" class="lrow" role="switch" aria-checked="${ps.hindsight}" data-act="hindsight" style="grid-template-columns:1fr auto"><span class="nm">Overlay what we know now<small>Corrected projection at every time (hindsight)</small></span><span class="switch"></span></button>
         <button class="btn sm" data-act="replay">${ic('play', 'xs')}Replay from the start</button></div>
       <div class="measures">${rv.measures.map((m) => `<div class="measure"><b>${esc(m.value)}</b><span>${esc(m.label)}</span>${m.note ? `<small>${esc(m.note)}</small>` : ''}</div>`).join('')}<div class="measure"><b>${rv.standing}</b><span>Standing-order actions</span><small>${rv.demoted} interrupt${rv.demoted === 1 ? '' : 's'} held by budget</small></div></div>
       <div><span class="caps">Decisions</span>${rv.decisions.map((d) => `<button class="drow" data-act="jump" data-t="${d.closedAt ?? d.raisedAt}"><time>${fmtT(d.raisedAt)}</time><span><b>${esc(talon.text(d.item.title, ps.t))}</b>TALON: ${esc(d.recommended ?? '–')} · ${by(d.by)}: ${esc(d.choice ?? '–')}${d.latency !== null ? ` · ${fmtDur(d.latency)} to decide` : ''}</span><span class="chip ${d.by === 'expired' ? 'needs' : d.choice && d.choice !== d.recommended ? 'needs' : ''}">${d.choice && d.recommended && d.choice !== d.recommended ? 'Dissent' : by(d.by)}</span></button>`).join('')}</div>
@@ -536,6 +536,11 @@ export async function mountConsole(app: HTMLElement) {
     }
     if (!vis) return;
     const x = scale.pos(ps.t), live = scale.pos(ui.review ? sit.clock.end : ui.liveT);
+    const tr = $('#track');
+    tr.setAttribute('aria-valuemin', String(sit.clock.start));
+    tr.setAttribute('aria-valuemax', String(sit.clock.end));
+    tr.setAttribute('aria-valuenow', String(Math.round(ps.t * 10) / 10));
+    tr.setAttribute('aria-valuetext', `${fmtT(ps.t)}${sit.meta.epoch ? ` · ${player.wallClock(ps.t)}` : ''}`);
     ($('#tlfill') as HTMLElement).style.width = `${x * 100}%`;
     ($('#tlhead') as HTMLElement).style.left = `${x * 100}%`;
     ($('#tlfuture') as HTMLElement).style.left = `${live * 100}%`;
@@ -661,7 +666,7 @@ export async function mountConsole(app: HTMLElement) {
     slots.style.setProperty('--cols', String(c.cols));
     const layout = [...c.op.map((w) => ({ w, by: 'op', reason: '' })), ...c.talonSlots.map((s) => ({ w: s.w, by: 'talon', reason: s.reason }))];
     if (changed('layout', layout.map((l) => l.w + l.by))) {
-      slots.innerHTML = layout.map((l, i) => `<article class="widget glass ${l.w === 'feed' ? 'feed' : ''} ${l.by === 'talon' ? 'by-talon' : ''}" data-w="${l.w}" data-slot="${i}"><header></header><div class="wbody"></div></article>`).join('');
+      slots.innerHTML = layout.map((l, i) => `<article class="widget glass ${l.w === 'feed' ? 'feed' : ''} ${l.by === 'talon' ? 'by-talon' : ''}" data-w="${l.w}" data-slot="${i}"><header></header><div class="wbody" tabindex="0"></div></article>`).join('');
       for (const k of [...keys.keys()]) if (k.startsWith('w:')) keys.delete(k);
     }
     slots.querySelectorAll<HTMLElement>('.widget').forEach((el, i) => renderWidget(el, layout[i], ps, ts));
@@ -1415,6 +1420,14 @@ export async function mountConsole(app: HTMLElement) {
       (tgt as HTMLInputElement).blur?.();
       return schedule();
     }
+    if (tgt.id === 'track' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Home' || e.key === 'End')) {
+      e.preventDefault();
+      stopPlay();
+      if (e.key === 'Home') scrubTo(sit.clock.start);
+      else if (e.key === 'End') scrubTo(sit.clock.end);
+      else scrubTo(player.getTime() + (e.key === 'ArrowRight' ? 1 : -1));
+      return;
+    }
     if (tgt.closest('input, textarea') || e.metaKey || e.ctrlKey || e.altKey) {
       if (tgt.id === 'dissentText' && e.key === 'Enter' && (e.metaKey || e.ctrlKey) && ui.dissent) answer(ui.dissent.item, ui.dissent.option, (tgt as HTMLTextAreaElement).value);
       return;
@@ -1484,10 +1497,10 @@ const SHELL = `
 </div>
 <div class="readout glass" id="readout" aria-hidden="true"></div>
 <section class="inspector glass" id="inspector" aria-label="Inspector" hidden></section>
-<div class="exhandle glass" id="exhandle" aria-label="Exercise controls (harness)" hidden></div>
-<div class="timeline glass" id="timeline" aria-label="Incident timeline" hidden>
+<div class="exhandle glass" id="exhandle" role="region" aria-label="Exercise controls (harness)" hidden></div>
+<div class="timeline glass" id="timeline" role="region" aria-label="Incident timeline" hidden>
   <div class="exercise" id="exercise" aria-label="Exercise controls (harness)"></div>
-  <div class="track" id="track" role="slider" aria-label="Incident timeline" tabindex="0">
+  <div class="track" id="track" role="slider" aria-label="Incident timeline" aria-orientation="horizontal" tabindex="0">
     <div class="line"></div><div class="fill" id="tlfill"></div><div class="future" id="tlfuture"></div>
     <div id="tlmarks"></div><div class="head" id="tlhead"></div><div class="ticks" id="tlticks"></div><div class="scrubtip" id="scrubtip"></div>
   </div>
@@ -1501,7 +1514,7 @@ const SHELL = `
 <aside class="drawer glass" id="panel" aria-label="TALON copilot" hidden>
   <header class="phead" id="phead"></header>
   <nav class="ptabs" id="ptabs" role="tablist"></nav>
-  <div class="pbody" id="pbody" aria-live="polite"></div>
+  <div class="pbody" id="pbody" aria-live="polite" tabindex="0"></div>
   <form class="composer" id="composer" autocomplete="off">
     <div class="suggest" id="suggest"><button type="button" class="chip" data-say="status">Status</button><button type="button" class="chip" data-say="what changed">What changed?</button><button type="button" class="chip" data-say="why">Why?</button><button type="button" class="chip" data-say="show route b">Show route B</button><button type="button" class="chip" data-say="help">Help</button></div>
     <div class="field"><input id="cmd" placeholder="Ask TALON, or @E-31 to message a unit" aria-label="Command"><button type="button" class="btn icon sm ghost" data-act="mic" aria-label="Voice">${ic('mic', 'sm')}</button><button class="btn icon sm" type="submit" aria-label="Send">${ic('send', 'sm')}</button></div>
@@ -1509,7 +1522,7 @@ const SHELL = `
   </form>
 </aside>
 <div class="toasts" id="toasts" aria-live="assertive"></div>
-<div class="tip" id="tip" role="tooltip"></div>
+<div class="tip" id="tip" aria-hidden="true"></div>
 <div id="overlay"></div>`;
 
 // ============================================================================

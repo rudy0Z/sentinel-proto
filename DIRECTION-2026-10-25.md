@@ -103,3 +103,19 @@ edge *reasons* is thrown away — they become edge data.
 - **ADR-7 (new):** stage graph per §3 replaces the linear phase strip as the journey model; phases remain the map's
   time backbone.
 - ADR-1..4 from HANDOFF.md remain open.
+
+---
+
+## Update — 2026-10-26 (all five phases shipped, verify 32/32)
+
+The plan above was executed in one session. What shipped, phase by phase:
+
+- **Phase 0–1 · Design system v2**: self-hosted Geist (no CDN), tabular numerals, violet `#9B8AFF` identity, the plan-state ladder as tokens, accent-bar cards (the halo frames and the panel mood glow are gone), blur 22→10px, `tokens.html` as the live design sheet.
+- **Phase 2 · Surfaces v2**: TALON de-panelled — orb in the topbar, decision cards that exist only while an item is open, on-demand drawer (T / ESC, focus restored). The timeline is replay-only; the harness collapsed to an EXERCISE pill. Stage-first board (no "Context" filler); KPIs moved to the board head. The posture pill shows the current stage + open gate; the arc popover is on demand.
+- **Phase 3 · Journey v2**: `contain` (authorities always notified even with no evacuation — the CAD entry is what queues the mutual-aid dozer; silence lapses the report, verified) and `falsepos` (closing as a permitted burn is the recommendation; the save is recorded). WUI breakout gained source-conflict, battery-handover and satellite-loss injects.
+- **Phase 4 · Live-model adapter** (`talonAgent.ts`): read/propose tools only, truth guard (execution claims, impersonation, uncited dispatches, invented numbers — token-level, "47" ≠ "247"), model items stripped of effects and demoted from interrupts, settings popover, honest basis footer. No key = scripted, unchanged.
+- **Phase 5 · a11y + docs**: vendored axe-core in `verify` over four console states (0 violations), the timeline is a real slider (arrow keys), HANDOFF/README rewritten.
+
+Owner rulings recorded: violet identity, Geist typography, and the journey principle — **the operator follows the incident, not the process** (posture pill, progressive disclosure; supersedes ADR-4).
+
+Not done (next): real-key smoke test of the adapter, day-lighting QA of the new surfaces, real-GPU perf check, network-degradation and route-blocked injects, ADR-1/2/3.

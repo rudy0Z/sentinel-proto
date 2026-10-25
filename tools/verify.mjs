@@ -260,6 +260,25 @@ async function open(q, w = 1600, h = 960, pinned) {
   await page.close();
 }
 
+// ---------------------------------------------------------------- a11y: vendored axe-core over the key console states
+{
+  const { page, errors } = await open('situation=standby');
+  await page.addScriptTag({ path: 'tools/axe.min.js' });
+  const states = [];
+  const runAxe = (label) => page.evaluate((label) => window.axe.run(document, { resultTypes: ['violations'] }).then((r) => ({ label, count: r.violations.length, list: r.violations.map((v) => `${v.impact}:${v.id} ×${v.nodes.length}`) })), label);
+  states.push(await runAxe('standby'));
+  await page.evaluate(() => { player.setTime(1.5); }); await sleep(900);
+  states.push(await runAxe('detection-card'));
+  await page.evaluate(() => document.querySelector('.orb')?.click()); await sleep(600);
+  states.push(await runAxe('drawer'));
+  await page.evaluate(() => document.querySelector('[data-act=review]')?.click()); await sleep(900);
+  states.push(await runAxe('review'));
+  const bad = states.filter((s) => s.count > 0);
+  check('a11y: axe-core clean on standby, decision card, drawer and review states', bad.length === 0, bad.map((s) => `${s.label}: ${s.list.join(', ')}`).join(' | ') || states.map((s) => s.label).join(' · '));
+  check('no console errors (a11y)', errors.length === 0, errors.slice(0, 3).join(' | '));
+  await page.close();
+}
+
 // ---------------------------------------------------------------- engine bench: hud:false, procedural fixture
 {
   const page = await browser.newPage();
