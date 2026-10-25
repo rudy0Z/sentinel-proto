@@ -17,6 +17,7 @@
 import { createTerrainEngine, loadWorldData, type Engine, type OverlaySpec, type Vec2 } from './terrainEngine.js';
 import { createScenarioPlayer, type PlayerState, type ScenarioPlayer, type Situation, type UnitState } from './scenarioPlayer.js';
 import { createTalon, fmtDur, fmtT, layerPoint, type OpenItem, type Talon, type TalonEntry, type TalonEvidence, type TalonItem, type TalonState } from './talon.js';
+import { createTalonAgent, type AiConfig } from './talonAgent.js';
 
 // ============================================================================
 // Small DOM helpers
@@ -166,6 +167,8 @@ export async function mountConsole(app: HTMLElement) {
     pop: null as string | null,
     listening: false,
     dockMin: false,
+    ai: store.get<AiConfig | null>('ai', null),
+    aiProvider: 'openai' as 'openai' | 'anthropic',
   };
   let player!: ScenarioPlayer;
   let talon!: Talon;
@@ -296,7 +299,7 @@ export async function mountConsole(app: HTMLElement) {
     const mode = ui.review ? 'review' : isPast() ? 'past' : 'live';
     const mine = ts.open.filter((o) => !o.item.reraise).length;
     const gateOpen = !!ps.gate?.open;
-    const k = [ui.sit, inc?.value, inc?.level, ps.phase.id, gateOpen, Math.floor(ps.gate?.expires ?? 0), wall, mode, ui.pop, mine, ui.panel, ui.replay, ui.listening, ts.mood, ts.budget.used];
+    const k = [ui.sit, inc?.value, inc?.level, ps.phase.id, gateOpen, Math.floor(ps.gate?.expires ?? 0), wall, mode, ui.pop, mine, ui.panel, ui.replay, ui.listening, ts.mood, ts.budget.used, ui.ai?.model ?? ''];
     if (!changed('top', k)) return;
     const s = SITUATIONS.find((x) => x.id === ui.sit)!;
     $('#topbar').innerHTML = `
@@ -306,6 +309,7 @@ export async function mountConsole(app: HTMLElement) {
         <i class="dot"></i><b>${esc(ps.phase.name)}</b>${gateOpen ? `<span class="gatechip">GATE <span class="countdown" data-until="${ps.gate!.expires}"></span></span>` : ''}
       </button>
       <div class="grow"></div>
+      ${ui.ai?.key ? `<span class="chip working" title="Live model · grounded in the situation, held by the truth guard, never executing">AI · ${esc(ui.ai.model)}</span>` : ''}
       <div class="clock" title="Scene time · wall clock"><span class="live ${mode}">${mode === 'live' ? 'LIVE' : mode === 'review' ? 'REVIEW' : 'VIEWING'}</span><b>${fmtT(ps.t)}</b><span>${esc(wall)}</span></div>
       ${mode === 'past' ? `<button class="btn sm" data-act="golive">${ic('live', 'xs')}Back to live</button>` : ''}
       <button class="btn icon ghost" data-act="scrub" aria-pressed="${ui.replay}" aria-label="Incident timeline" title="Incident timeline (scrub, replay)">${ic('timeline')}</button>
@@ -343,6 +347,9 @@ export async function mountConsole(app: HTMLElement) {
     else if (ui.tab === 'log') renderLog(ts);
     else renderReview(ps);
     $('#composer').hidden = ui.tab === 'review';
+    const basis = ui.ai?.key ? `replies by ${ui.ai.model} · grounded, truth-guarded, never executing` : 'replies are scripted in this prototype';
+    const b = $('#aiBasis');
+    if (b && b.textContent !== basis) b.textContent = basis;
   }
 
   function confBars(c?: string) {
@@ -885,13 +892,23 @@ export async function mountConsole(app: HTMLElement) {
           ['Hide or remove data', 'Never', ''],
           ['Override you', 'Never', 'A re-raise goes to the Regional Duty Supervisor'],
         ].map(([a, b, c]) => `<tr style="border-top:1px solid var(--border-subtle)"><td style="padding:7px 8px 7px 0;color:var(--text-1)">${a}${c ? `<div style="color:var(--text-3);font-size:var(--fs-micro)">${c}</div>` : ''}</td><td style="padding:7px 0;white-space:nowrap;color:${b === 'Never' ? 'var(--critical)' : b === 'You decide' ? 'var(--needs)' : 'var(--text-2)'}">${b}</td></tr>`).join('')}</table>`;
-    if (name === 'settings')
+    if (name === 'settings') {
+      const ai = ui.ai;
+      const prov = ui.aiProvider ?? ai?.provider ?? 'openai';
       return `<h3 class="caps">Settings</h3>${[
         ['follow', 'Camera follows the exercise', ui.follow],
         ['sound', 'Sound for asks and interrupts', ui.sound],
       ].map(([k, n, v]) => `<div class="lrow" role="switch" tabindex="0" aria-checked="${v}" data-act="setting" data-k="${k}" style="grid-template-columns:1fr auto"><span class="nm">${n}</span><span class="switch"></span></div>`).join('')}
         <div class="lrow" role="switch" tabindex="0" aria-checked="${engine.getLighting() === 'day'}" data-act="lighting" style="grid-template-columns:1fr auto"><span class="nm">Day lighting<small>Exercise variant</small></span><span class="switch"></span></div>
+        <div class="caps ghead">Live model · optional</div>
+        <p style="margin:0 0 10px;color:var(--text-2);font-size:var(--fs-caption);max-width:320px">Plug in an API key and TALON's replies come from the model — grounded in the live situation, held by the truth guard, never executing anything. The key stays in this browser (localStorage). No key: scripted replies, unchanged.</p>
+        <div class="airow"><span class="caps">Provider</span><div class="seg" role="group" aria-label="Provider"><button data-act="aiprovider" data-p="openai" aria-pressed="${prov === 'openai'}">OpenAI-compatible</button><button data-act="aiprovider" data-p="anthropic" aria-pressed="${prov === 'anthropic'}">Anthropic</button></div></div>
+        <div class="airow"><span class="caps">Model</span><input class="in" id="aiModel" placeholder="e.g. gpt-4o-mini, claude-sonnet-4, gemini-2.0-flash" value="${esc(ai?.model ?? '')}" aria-label="Model"></div>
+        <div class="airow"><span class="caps">API key</span><input class="in" id="aiKey" type="password" placeholder="stored in this browser only" value="${esc(ai?.key ?? '')}" aria-label="API key"></div>
+        <div class="airow"><span class="caps">Base URL</span><input class="in" id="aiBase" placeholder="optional · e.g. a local server" value="${esc(ai?.baseUrl ?? '')}" aria-label="Base URL"></div>
+        <div class="row" style="display:flex;gap:8px;margin-top:10px"><button class="btn sm primary" data-act="aisave">Apply</button>${ai?.key ? `<button class="btn sm ghost" data-act="aiclear">Use scripted replies</button>` : ''}</div>
         <button class="menu-item" data-act="intro"><span><b>How TALON works</b><small>Replay the introduction</small></span></button>`;
+    }
     return '';
   }
 
@@ -958,8 +975,24 @@ export async function mountConsole(app: HTMLElement) {
   function command(text: string) {
     const ps = player.getState();
     const st = engine.getFieldStats();
-    const res = talon.command(text, { acres: st ? st.reachedArea / 4046.86 : undefined, threatened: st?.threatened, destroyed: st?.destroyed, phase: SITUATIONS.find((s) => s.id === ui.sit)?.name ?? '', wall: sit.meta.epoch ? player.wallClock(ps.t) : fmtT(ps.t), units: ps.units, boards: { evac: player.boardAt('evac') }, lastSeen: ui.lastSeen });
+    const facts = { acres: st ? st.reachedArea / 4046.86 : undefined, threatened: st?.threatened, destroyed: st?.destroyed, phase: SITUATIONS.find((s) => s.id === ui.sit)?.name ?? '', wall: sit.meta.epoch ? player.wallClock(ps.t) : fmtT(ps.t), units: ps.units, boards: { evac: player.boardAt('evac') }, lastSeen: ui.lastSeen };
     ui.lastSeen = ps.t;
+    if (ui.ai?.key) {
+      // Live model: the operator's message goes on the record now; the model answers
+      // through the adapter — grounded in the snapshot, held by the truth guard.
+      talon.command(text, facts, ps.t, { scripted: false });
+      const agent = createTalonAgent(talon, player, ui.ai, {
+        onItem: () => keys.clear(),
+        onMessage: (unit) => setTimeout(() => { talon.crewReply(unit, `${unit}: Copy.`); keys.delete('now'); schedule(); }, 2500),
+        onFocus: (ev) => { ui.hoverEv = { ev, label: ev[0]?.label ?? '' }; showOnMap(ev); setTimeout(() => { ui.hoverEv = null; keys.delete('att'); schedule(); }, 4500); },
+      });
+      void agent.ask(text, facts).then(() => { keys.delete('now'); schedule(); });
+      ui.panel = true;
+      ui.tab = 'now';
+      keys.delete('now');
+      return schedule();
+    }
+    const res = talon.command(text, facts, ps.t);
     if (res.evidence?.length) {
       ui.hoverEv = { ev: res.evidence, label: res.evidence[0].label };
       setTimeout(() => {
@@ -1197,6 +1230,25 @@ export async function mountConsole(app: HTMLElement) {
         ui.autopilot = !ui.autopilot;
         player.autopilot = ui.autopilot;
         toast(ui.autopilot ? 'Exercise autopilot on: the script takes the operator’s decisions.' : 'Exercise autopilot off: you decide.');
+        return schedule();
+      case 'aiprovider':
+        ui.aiProvider = d.p as 'openai' | 'anthropic';
+        return schedule();
+      case 'aisave': {
+        const model = (document.getElementById('aiModel') as HTMLInputElement)?.value.trim() ?? '';
+        const key = (document.getElementById('aiKey') as HTMLInputElement)?.value.trim() ?? '';
+        const baseUrl = (document.getElementById('aiBase') as HTMLInputElement)?.value.trim() ?? '';
+        ui.ai = key && model ? { provider: ui.aiProvider ?? 'openai', model, key, baseUrl: baseUrl || undefined } : null;
+        store.set('ai', ui.ai);
+        closePop();
+        toast(ui.ai ? `Live model on · ${ui.ai.model} · grounded, truth-guarded, never executing` : 'Scripted replies.');
+        return schedule();
+      }
+      case 'aiclear':
+        ui.ai = null;
+        store.set('ai', null);
+        closePop();
+        toast('Scripted replies.');
         return schedule();
       case 'mic':
         return toggleVoice();
@@ -1453,7 +1505,7 @@ const SHELL = `
   <form class="composer" id="composer" autocomplete="off">
     <div class="suggest" id="suggest"><button type="button" class="chip" data-say="status">Status</button><button type="button" class="chip" data-say="what changed">What changed?</button><button type="button" class="chip" data-say="why">Why?</button><button type="button" class="chip" data-say="show route b">Show route B</button><button type="button" class="chip" data-say="help">Help</button></div>
     <div class="field"><input id="cmd" placeholder="Ask TALON, or @E-31 to message a unit" aria-label="Command"><button type="button" class="btn icon sm ghost" data-act="mic" aria-label="Voice">${ic('mic', 'sm')}</button><button class="btn icon sm" type="submit" aria-label="Send">${ic('send', 'sm')}</button></div>
-    <div class="to">Talking to <b>TALON</b> · replies are scripted in this prototype</div>
+    <div class="to">Talking to <b>TALON</b> · <span id="aiBasis">replies are scripted in this prototype</span></div>
   </form>
 </aside>
 <div class="toasts" id="toasts" aria-live="assertive"></div>

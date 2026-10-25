@@ -532,13 +532,18 @@ export class Talon {
 
   // ------------------------------------------------------------------ typed commands
 
-  /** Adds the operator's message and TALON's reply to the thread (both at scene time t). */
-  command(text: string, facts: CommandFacts, t = this.player.getTime()): CommandResult {
+  /**
+   * Adds the operator's message and TALON's reply to the thread (both at scene time t).
+   * `scripted: false` pushes the operator's message only — the live-model adapter
+   * (talonAgent.ts) answers instead of the intent matcher.
+   */
+  command(text: string, facts: CommandFacts, t = this.player.getTime(), opts?: { scripted?: boolean }): CommandResult {
     const raw = text.trim();
     if (!raw) return { reply: '' };
-    const res = this.interpret(raw, facts, t);
-    const to = res.to ?? (/^@(\S+)/.exec(raw)?.[1] ?? null);
+    const to = /^@(\S+)/.exec(raw)?.[1] ?? null;
     this.thread.push({ id: `msg:${++this.seq}`, t, seq: this.seq, agent: null, who: 'operator', level: 'feed', kind: 'message', title: raw, to: to ?? undefined });
+    if (opts?.scripted === false) return { reply: '' };
+    const res = this.interpret(raw, facts, t);
     if (res.reply) this.thread.push({ id: `rep:${++this.seq}`, t, seq: this.seq, agent: res.agent ?? null, who: 'talon', level: 'feed', kind: 'reply', title: res.reply, bullets: res.bullets, evidence: res.evidence });
     return res;
   }
@@ -546,6 +551,34 @@ export class Talon {
   /** A field unit acknowledges (the shell simulates radio-to-text). */
   crewReply(unit: string, text: string, t = this.player.getTime()) {
     this.thread.push({ id: `crew:${++this.seq}`, t, seq: this.seq, agent: null, who: 'crew', level: 'feed', kind: 'message', title: text, to: unit });
+  }
+
+  /**
+   * Phase 4 (live model): a proposal item may be injected at the current scene time.
+   * Governance holds for model items exactly as for authored ones: standing claims
+   * without a citation are dropped, effects are stripped (the operator's pick is
+   * recorded but nothing runs), and an interrupt is demoted to an ask — the model
+   * does not get to spend the operator's interrupt budget.
+   */
+  injectItem(item: TalonItem): { ok: boolean; reason?: string } {
+    if (!item || typeof item.id !== 'string' || !item.title) return { ok: false, reason: 'malformed item' };
+    if (this.script.items.some((i) => i.id === item.id)) return { ok: false, reason: 'duplicate id' };
+    if (item.authority === 'standing' && !item.standing) return { ok: false, reason: 'a standing action must cite its order' };
+    const clean: TalonItem = {
+      ...item,
+      at: this.player.getTime(),
+      agent: item.agent ?? 'recon',
+      level: item.level === 'interrupt' ? 'ask' : (item.level ?? 'feed'),
+      kind: item.kind === 'proposal' || item.kind === 'ask' ? item.kind : 'note',
+      options: item.options?.map((o) => ({ ...o, effect: undefined })),
+    };
+    this.script.items.push(clean);
+    return { ok: true };
+  }
+
+  /** Phase 4: a live model's reply enters the thread like any other TALON turn. */
+  agentReply(reply: string, evidence?: TalonEvidence[], t = this.player.getTime()) {
+    this.thread.push({ id: `ai:${++this.seq}`, t, seq: this.seq, agent: null, who: 'talon', level: 'feed', kind: 'reply', title: reply, evidence });
   }
 
   /** Drop session messages after t (the timeline was rewound and history branched). */

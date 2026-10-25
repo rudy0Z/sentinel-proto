@@ -21,6 +21,7 @@
     "scenarioFixtures.ts",
     "scenarioPlayer.ts",
     "talon.ts",
+    "talonAgent.ts",
     "commandConsole.ts"
   ]
 }

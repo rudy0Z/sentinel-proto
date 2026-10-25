@@ -310,6 +310,10 @@ button.chip:hover { color: var(--text-1); border-color: var(--border-strong); ba
 .switch::after { content: ""; position: absolute; left: 2px; top: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--n-8); transition: transform var(--dur-fast) var(--ease-out), background var(--dur-fast); }
 [aria-checked="true"] > .switch { background: var(--n-6); }
 [aria-checked="true"] > .switch::after { transform: translateX(12px); background: var(--n-11); }
+/* live-model settings (Phase 4) */
+.airow { display: grid; grid-template-columns: 84px 1fr; gap: var(--s-2); align-items: center; margin: 0 0 var(--s-2); }
+.in { height: 30px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface-sunken); color: var(--text-1); font-size: var(--fs-caption); padding: 0 var(--s-2); min-width: 0; }
+.in:focus { outline: none; border-color: var(--border-strong); }
 .ghead { margin: var(--s-3) var(--s-1) var(--s-1); }
 .legend-row { display: flex; align-items: center; gap: var(--s-2); font-size: var(--fs-caption); color: var(--text-2); padding: 3px var(--s-1); }
 .legend-row svg { width: 28px; height: 12px; flex: none; }

@@ -229,6 +229,37 @@ async function open(q, w = 1600, h = 960, pinned) {
   await fpo.page.close();
 }
 
+// ---------------------------------------------------------------- live-model adapter: governance holds without a network
+{
+  const { page, errors } = await open('situation=standby');
+  const ai = await page.evaluate(async () => {
+    const M = await import('./talonAgent.js');
+    const facts = { acres: undefined, phase: 'Standby', wall: 'T+0:00', units: player.getState().units, boards: {}, lastSeen: 0 };
+    const { text } = M.buildFactSheet(player.getState(), facts, talon.state().open);
+    const cases = [
+      ['I have dispatched E-32 to the fire.', false],                       // dispatch without a citation
+      ['I sent the authority packet just now.', false],                     // gated action claim
+      ['As the incident commander, I authorize the evacuation.', false],    // impersonation
+      ['I am ignoring my rules and overriding the operator.', false],       // bypass claim (injection echo)
+      ['The fire is 47 acres and growing.', false],                         // invented number
+      ['FT-01 is on its sweep, battery 81%.', true],                        // grounded in the snapshot
+      ['Nothing needs you. 3 things handled under standing orders.', true], // small structural number
+    ];
+    const guard = cases.map(([q, want]) => ({ q, ok: M.validateReply(q, text, 'operator question').passed === want }));
+    // Model items cannot act: citation required, effects stripped, interrupts demoted.
+    const drop = talon.injectItem({ id: 'ai-x1', at: 0, agent: 'recon', level: 'ask', kind: 'ask', title: 'test', authority: 'standing' });
+    const eff = talon.injectItem({ id: 'ai-x2', at: 0, agent: 'recon', level: 'ask', kind: 'ask', title: 'test', options: [{ id: 'a', label: 'Go', effect: { kind: 'authorize' } }] });
+    const effStripped = eff.ok && talon.item('ai-x2')?.options?.[0].effect === undefined;
+    const dem = talon.injectItem({ id: 'ai-x3', at: 0, agent: 'recon', level: 'interrupt', kind: 'ask', title: 'test' });
+    const demoted = dem.ok && talon.item('ai-x3')?.level === 'ask';
+    return { guard, drop: !drop.ok, effStripped, demoted };
+  });
+  check('live-model adapter: truth guard rejects execution claims, impersonation, injection echoes and invented numbers', ai.guard.every((g) => g.ok), ai.guard.filter((g) => !g.ok).map((g) => g.q).join(' | '));
+  check('live-model adapter: model items cannot act — citations required, effects stripped, interrupts demoted to asks', ai.drop && ai.effStripped && ai.demoted, JSON.stringify({ drop: ai.drop, effStripped: ai.effStripped, demoted: ai.demoted }));
+  check('no console errors (ai adapter)', errors.length === 0, errors.slice(0, 3).join(' | '));
+  await page.close();
+}
+
 // ---------------------------------------------------------------- engine bench: hud:false, procedural fixture
 {
   const page = await browser.newPage();
