@@ -5,6 +5,15 @@
    Map-state colours mirror terrainEngine.ts PALETTE so the legend matches the map.
    ========================================================================== */
 
+/* Self-hosted faces (latin): the console boots with no CDN. */
+@font-face { font-family: "Geist"; font-style: normal; font-weight: 400; font-display: swap; src: url("./fonts/geist-400.woff2") format("woff2"); }
+@font-face { font-family: "Geist"; font-style: normal; font-weight: 500; font-display: swap; src: url("./fonts/geist-500.woff2") format("woff2"); }
+@font-face { font-family: "Geist"; font-style: normal; font-weight: 600; font-display: swap; src: url("./fonts/geist-600.woff2") format("woff2"); }
+@font-face { font-family: "Geist"; font-style: normal; font-weight: 700; font-display: swap; src: url("./fonts/geist-700.woff2") format("woff2"); }
+@font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url("./fonts/geist-mono-400.woff2") format("woff2"); }
+@font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 500; font-display: swap; src: url("./fonts/geist-mono-500.woff2") format("woff2"); }
+@font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 600; font-display: swap; src: url("./fonts/geist-mono-600.woff2") format("woff2"); }
+
 :root {
   /* ---- primitives: neutrals (cool graphite, 0 = darkest) */
   --n-0: #07080B;
@@ -22,9 +31,9 @@
   --n-12: #FFFFFF;
 
   /* ---- primitives: hues (each with a soft tint for fills) */
-  --violet-5: #8F7CFF;   /* TALON identity */
-  --violet-4: #B4A7FF;
-  --violet-1: rgba(143, 124, 255, .14);
+  --violet-5: #9B8AFF;   /* TALON identity */
+  --violet-4: #BBA9FF;
+  --violet-1: rgba(155, 138, 255, .14);
   --blue-5: #4F98FF;     /* working */
   --blue-1: rgba(79, 152, 255, .14);
   --amber-5: #FFB547;    /* needs you (waiting on a human) */
@@ -40,13 +49,21 @@
   --map-fire: #FF6A00;   /* fire front */
   --map-ok: #3DDC84;     /* safe zone */
   --map-sand: #D9B36C;   /* suppression line */
+  /* plan-state ladder — mirrors terrainEngine PALETTE so cards and map can never disagree */
+  --state-proposed: #67D9F0;    /* plan drawn, not yet authorized */
+  --state-expiring: var(--needs); /* gate open, clock running (a human is being waited on) */
+  --state-committed: #00E5FF;   /* authorized order */
+  --state-lapsed: #7A8193;      /* gate expired — nothing was sent */
+  --state-draft: #FF8A4A;       /* TALON revision awaiting a decision */
+  --state-compromised: #E5533C; /* plan invalidated by events */
   /* data viz (validated: dark surface --n-2, CVD ΔE 27) */
   --viz-1: #E8650F;
   --viz-2: #5B86E6;
 
   /* ---- semantic: surfaces */
   --bg: var(--n-0);
-  --surface-glass: rgba(12, 14, 19, .78);
+  --surface-glass: rgba(12, 14, 19, .85);
+  --surface-card: rgba(17, 20, 26, .92);
   --surface-glass-strong: rgba(12, 14, 19, .9);
   --surface-raised: rgba(255, 255, 255, .045);
   --surface-hover: rgba(255, 255, 255, .07);
@@ -86,12 +103,13 @@
   --prov-authored: #C9B8FF;
 
   /* ---- type */
-  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --fs-micro: 10.5px;
+  --font-sans: "Geist", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --fs-micro: 11px;
   --fs-caption: 11.5px;
-  --fs-body: 13px;
-  --fs-title: 14.5px;
+  --fs-body: 12.5px;
+  --fs-title: 13.5px;
+  --fs-readout: 18px;
   --fs-heading: 17px;
   --fs-display: 22px;
   --lh-tight: 1.2;
@@ -101,6 +119,7 @@
   --fw-semibold: 600;
   --fw-bold: 700;
   --tracking-caps: .08em;
+  --tracking-tight: -0.01em;
 
   /* ---- space (4px grid) */
   --s-1: 4px;
@@ -123,7 +142,7 @@
   /* ---- elevation */
   --shadow-1: 0 8px 24px rgba(0, 0, 0, .35);
   --shadow-2: 0 18px 50px rgba(0, 0, 0, .5);
-  --blur: blur(22px) saturate(150%);
+  --blur: blur(10px) saturate(140%);
 
   /* ---- motion */
   --dur-fast: 120ms;
@@ -216,7 +235,7 @@ button.chip:hover { color: var(--text-1); border-color: var(--border-strong); ba
 .chip.critical { color: var(--critical); border-color: color-mix(in srgb, var(--critical) 45%, transparent); background: var(--critical-soft); }
 .chip.ok { color: var(--done); border-color: color-mix(in srgb, var(--done) 40%, transparent); background: var(--done-soft); }
 .chip.working { color: var(--working); border-color: color-mix(in srgb, var(--working) 40%, transparent); background: var(--working-soft); }
-.prov { font: var(--fw-semibold) 9px/1 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; padding: 3px 5px; border-radius: 4px; border: 1px solid; white-space: nowrap; }
+.prov { font: var(--fw-semibold) 10px/1 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; padding: 3px 5px; border-radius: 4px; border: 1px solid; white-space: nowrap; }
 .prov.measured { color: var(--prov-measured); border-color: color-mix(in srgb, var(--prov-measured) 40%, transparent); }
 .prov.modeled { color: var(--prov-modeled); border-color: color-mix(in srgb, var(--prov-modeled) 40%, transparent); }
 .prov.authored { color: var(--prov-authored); border-color: color-mix(in srgb, var(--prov-authored) 40%, transparent); }
@@ -325,7 +344,6 @@ button.chip:hover { color: var(--text-1); border-color: var(--border-strong); ba
 
 .panel { width: var(--panel-w); border-radius: var(--r-xl); display: flex; flex-direction: column; overflow: hidden; order: 1; transition: opacity var(--dur-base), transform var(--dur-base) var(--ease-out); position: relative; }
 .app.talon-closed .panel { display: none; }
-.panel::before { content: ""; position: absolute; inset: -40% -30% auto auto; width: 320px; height: 260px; background: radial-gradient(closest-side, color-mix(in srgb, var(--mood, var(--talon)) 26%, transparent), transparent); pointer-events: none; transition: background var(--dur-slow); }
 .phead { position: relative; display: flex; align-items: center; gap: var(--s-3); padding: var(--s-4) var(--s-4) var(--s-3); }
 .phead h1 { margin: 0; font-size: var(--fs-heading); font-weight: var(--fw-bold); letter-spacing: .1em; line-height: 1; }
 .phead .line { color: var(--text-2); font-size: var(--fs-caption); margin-top: 5px; display: flex; gap: 6px; align-items: center; }
@@ -359,15 +377,26 @@ button.chip:hover { color: var(--text-1); border-color: var(--border-strong); ba
 @keyframes listen { to { transform: scaleY(.45); } }
 .mascot .rimglow { opacity: 0; transition: opacity var(--dur-slow); }
 
-/* cards */
-.card { border-radius: var(--r-lg); border: 1px solid var(--border); background: var(--surface-raised); padding: var(--s-3) var(--s-4) var(--s-4); display: grid; gap: var(--s-3); position: relative; }
-.card.needs { border-color: color-mix(in srgb, var(--needs) 38%, transparent); box-shadow: 0 0 0 4px var(--needs-soft); }
-.card.critical { border-color: color-mix(in srgb, var(--critical) 45%, transparent); box-shadow: 0 0 0 4px var(--critical-soft); }
+/* cards — one accent, never a full coloured frame: a 2px edge cue, not an alarm box */
+.card { border-radius: var(--r-lg); border: 1px solid var(--border); background: var(--surface-card); padding: var(--s-3) var(--s-4) var(--s-4); display: grid; gap: var(--s-3); position: relative; }
+.card.needs::before, .card.critical::before { content: ""; position: absolute; left: -1px; top: 14px; bottom: 14px; width: 2px; border-radius: 1px; }
+.card.needs::before { background: var(--needs); }
+.card.critical::before { background: var(--critical); }
+.card::after { content: ""; position: absolute; inset: 2px; pointer-events: none; opacity: 0; transition: opacity var(--dur-fast); background:
+  linear-gradient(var(--border-strong), var(--border-strong)) left top / 10px 1px no-repeat,
+  linear-gradient(var(--border-strong), var(--border-strong)) left top / 1px 10px no-repeat,
+  linear-gradient(var(--border-strong), var(--border-strong)) right top / 10px 1px no-repeat,
+  linear-gradient(var(--border-strong), var(--border-strong)) right top / 1px 10px no-repeat,
+  linear-gradient(var(--border-strong), var(--border-strong)) left bottom / 10px 1px no-repeat,
+  linear-gradient(var(--border-strong), var(--border-strong)) left bottom / 1px 10px no-repeat,
+  linear-gradient(var(--border-strong), var(--border-strong)) right bottom / 10px 1px no-repeat,
+  linear-gradient(var(--border-strong), var(--border-strong)) right bottom / 1px 10px no-repeat; }
+.card:hover::after { opacity: 1; }
 .card.routed { border-style: dashed; background: transparent; }
 .card .meta { display: flex; align-items: center; gap: var(--s-2); }
 .card .meta .caps { color: var(--text-2); }
 .card .meta .grow + * { margin-left: auto; }
-.card h2 { margin: 0; font-size: var(--fs-title); font-weight: var(--fw-semibold); line-height: 1.3; }
+.card h2 { margin: 0; font-size: var(--fs-title); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-tight); line-height: 1.3; }
 .card p { margin: 0; color: var(--text-2); font-size: var(--fs-body); }
 .countdown { font: var(--fw-semibold) var(--fs-caption)/1 var(--font-mono); color: var(--needs); display: inline-flex; align-items: center; gap: 4px; }
 .countdown.low { color: var(--critical); }

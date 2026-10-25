@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sentinel · design system</title>
+<link rel="stylesheet" href="./console.css">
+<style>
+  /* Sheet chrome only — every component style comes from console.css so this page cannot drift. */
+  html, body { height: auto; overflow: auto; }
+  body { padding: 40px 48px 80px; background:
+      radial-gradient(1200px 600px at 70% -10%, rgba(79, 152, 255, .06), transparent),
+      radial-gradient(900px 500px at 10% 110%, rgba(155, 138, 255, .05), transparent), var(--bg); }
+  .sheet { max-width: 1160px; margin: 0 auto; display: grid; gap: 40px; }
+  .sheet > header h1 { margin: 0 0 6px; font-size: var(--fs-display); letter-spacing: .02em; }
+  .sheet > header p { margin: 0; color: var(--text-2); font-size: var(--fs-body); max-width: 640px; }
+  section h2 { margin: 0 0 14px; font-size: var(--fs-heading); font-weight: var(--fw-semibold); display: flex; align-items: baseline; gap: 10px; }
+  section h2 small { font-size: var(--fs-caption); color: var(--text-3); font-weight: var(--fw-regular); }
+  .grid { display: grid; gap: 10px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .swatches { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+  .sw { border: 1px solid var(--border-subtle); border-radius: var(--r-sm); overflow: hidden; background: var(--surface-card); }
+  .sw i { display: block; height: 44px; border-bottom: 1px solid var(--border-subtle); }
+  .sw span { display: block; padding: 6px 8px; font-family: var(--font-mono); font-size: 10px; color: var(--text-2); }
+  .sw span b { display: block; color: var(--text-1); font-weight: var(--fw-medium); }
+  .demo-card { background: var(--surface-card); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 20px; display: grid; gap: 14px; }
+  .type-row { display: grid; grid-template-columns: 110px 1fr; gap: 14px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--border-subtle); }
+  .type-row:last-child { border-bottom: 0; }
+  .type-row code { font: var(--fw-medium) 10px/1.4 var(--font-mono); color: var(--text-3); }
+  .ladder { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  .rung { display: grid; grid-template-columns: 14px 1fr; gap: 12px; align-items: start; padding: 12px 14px; border: 1px solid var(--border-subtle); border-radius: var(--r-md); background: var(--surface-card); }
+  .rung i { width: 14px; height: 14px; border-radius: 4px; margin-top: 2px; }
+  .rung b { display: block; font-size: var(--fs-body); font-weight: var(--fw-semibold); }
+  .rung small { display: block; color: var(--text-3); font-size: var(--fs-caption); margin-top: 2px; }
+  .rung code { font-family: var(--font-mono); font-size: 10px; color: var(--text-4); }
+  .field-note { color: var(--text-3); font-size: var(--fs-caption); }
+  .cols-2 { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 900px) { .cols-2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <header>
+    <h1>Sentinel · design system v2</h1>
+    <p>Every value on this page is rendered from <code>console.css</code> tokens — the sheet imports it and adds no
+    component styles of its own, so what you see here is exactly what the console renders. Owner rulings 2026-10-26:
+    violet TALON identity, Geist Sans + Geist Mono self-hosted, tabular numerals everywhere numbers live.</p>
+  </header>
+
+  <section>
+    <h2>Typography <small>Geist Sans · Geist Mono · latin, self-hosted in ./fonts</small></h2>
+    <div class="demo-card">
+      <div class="type-row"><code>--fs-micro 11px</code><span class="caps">Task 02 · dissent gate · standing order cited</span></div>
+      <div class="type-row"><code>--fs-caption 11.5px</code><span>Zone 1 · mandatory · 34 homes · 84% cleared</span></div>
+      <div class="type-row"><code>--fs-body 12.5px</code><span style="font-size:var(--fs-body)">Spot fire 400 m east of the main head, driven by the same wind corridor that carried the original run.</span></div>
+      <div class="type-row"><code>--fs-title 13.5px</code><span style="font-size:var(--fs-title);font-weight:var(--fw-semibold);letter-spacing:var(--tracking-tight)">Approve ridge fireline · Plan P-1</span></div>
+      <div class="type-row"><code>--fs-readout 18px</code><span class="mono" style="font-size:var(--fs-readout);font-weight:var(--fw-medium)">38 mph NW · 03:47:12</span></div>
+      <div class="type-row"><code>--fs-heading 17px</code><span style="font-size:var(--fs-heading);font-weight:var(--fw-semibold)">TALON</span></div>
+      <div class="type-row"><code>--fs-display 22px</code><span style="font-size:var(--fs-display);font-weight:var(--fw-bold)">7:48<span class="field-note"> · detection → order</span></span></div>
+      <div class="row" style="margin-top:4px">
+        <span class="mono">Geist Mono 400 · 03:47:12 · T+4:12 · 749°C · 0123456789</span>
+        <span class="mono" style="font-weight:var(--fw-medium)">500 · tabular: 1111 vs 0000</span>
+        <span class="mono" style="font-weight:var(--fw-semibold)">600 · CONFIDENCE 78%</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Neutrals <small>cool graphite ramp · 0 = darkest</small></h2>
+    <div class="grid swatches" id="neutrals"></div>
+  </section>
+
+  <section>
+    <h2>Hues &amp; semantics <small>one meaning each, never reused for decoration</small></h2>
+    <div class="grid swatches" id="hues"></div>
+    <div class="row" style="margin-top:12px">
+      <span class="status-pill ok">No incident</span>
+      <span class="status-pill warn">Detection · unconfirmed</span>
+      <span class="status-pill bad">Type 3 · extended attack</span>
+      <span class="dot working"></span><span class="dot needs"></span><span class="dot done"></span><span class="dot critical"></span><span class="dot"></span>
+      <span class="prov measured">MEA</span><span class="prov modeled">MOD</span><span class="prov authored">AUT</span>
+      <span class="auth operator">operator authority</span><span class="auth standing">standing order</span>
+      <span class="kbd">T</span><span class="kbd">1–3</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>Plan-state ladder <small>mirrors terrainEngine PALETTE — cards and map can never disagree</small></h2>
+    <div class="grid ladder">
+      <div class="rung"><i style="background:var(--state-proposed)"></i><div><b>Proposed</b><small>Plan drawn, not yet authorized. Hollow core on the map.</small><code>--state-proposed</code></div></div>
+      <div class="rung"><i style="background:var(--state-expiring)"></i><div><b>Expiring</b><small>Gate open, clock running — a human is being waited on.</small><code>--state-expiring</code></div></div>
+      <div class="rung"><i style="background:var(--state-committed)"></i><div><b>Committed</b><small>Authorized order. Spec as given.</small><code>--state-committed</code></div></div>
+      <div class="rung"><i style="background:var(--state-lapsed)"></i><div><b>Lapsed</b><small>Gate expired — nothing was sent. Silence is never approval.</small><code>--state-lapsed</code></div></div>
+      <div class="rung"><i style="background:var(--state-draft)"></i><div><b>Draft</b><small>TALON revision awaiting a decision, beside the committed plan.</small><code>--state-draft</code></div></div>
+      <div class="rung"><i style="background:var(--state-compromised)"></i><div><b>Compromised</b><small>Plan invalidated by events (route cut, projection passed).</small><code>--state-compromised</code></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Map &amp; data colours</h2>
+    <div class="grid swatches" id="mapcolors"></div>
+  </section>
+
+  <section>
+    <h2>Buttons · chips · controls</h2>
+    <div class="demo-card">
+      <div class="row">
+        <button class="btn">Default</button>
+        <button class="btn primary">Primary</button>
+        <button class="btn ghost">Ghost</button>
+        <button class="btn sm">Small</button>
+        <button class="btn" disabled>Disabled</button>
+        <button class="btn" aria-pressed="true">Pressed</button>
+      </div>
+      <div class="row">
+        <span class="chip">Context</span>
+        <span class="chip talon">TALON · suggestion</span>
+        <span class="chip needs">Needs you</span>
+        <span class="chip critical">Life safety</span>
+        <span class="chip ok">Done</span>
+        <span class="chip working">Working</span>
+      </div>
+      <div class="row">
+        <div class="seg"><button aria-pressed="true">EO</button><button>IR</button></div>
+        <button class="menu-item" style="width:auto" aria-checked="true"><span><b>Encinal Canyon</b><small>WUI breakout · training</small></span></button>
+        <span style="display:inline-flex;align-items:center;gap:8px">Layer visibility <i class="switch" style="display:inline-block;vertical-align:middle"></i></span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Cards <small>one accent, never a full coloured frame — a 2px edge cue, not an alarm box</small></h2>
+    <div class="grid cols-2">
+      <article class="card">
+        <div class="meta"><span class="caps">TALON · spread</span><span class="grow"></span><span class="countdown">0:42</span></div>
+        <h2>Sizing · projection ready</h2>
+        <p>Burned 14 ac · 19 homes inside the 60-minute projection. Model: self-similar growth of the authored perimeter (MOD).</p>
+        <div class="opts">
+          <button class="opt rec"><span class="k">1</span><span><b>Open the plan</b><small>Route A primary · choke at the hairpin</small></span><span class="tag">recommended</span></button>
+          <button class="opt"><span class="k">2</span><span><b>Keep sizing</b><small>Wait for the +30 min isochrone</small></span></button>
+          <button class="opt" disabled><span class="k">3</span><span><b>Unavailable</b><small>No second drone airborne</small></span></button>
+        </div>
+      </article>
+      <article class="card needs">
+        <div class="meta"><span class="caps">Gate · operator</span><span class="grow"></span><span class="countdown">1:12</span></div>
+        <h2>Order mandatory evacuation · Zone 1</h2>
+        <p>34 homes. If it lapses, nothing is sent — the plan returns to watch and I escalate to the Regional Duty Supervisor.</p>
+        <div class="gate"><b>ORDER MANDATORY EVACUATION · ZONE 1</b><span>Expires T+0:16 · silence is never approval</span></div>
+      </article>
+      <article class="card critical">
+        <div class="meta"><span class="caps">Interrupt · life safety</span><span class="grow"></span><span class="countdown low">0:08</span></div>
+        <h2>Projection crossed Encinal Canyon Rd</h2>
+        <p>The road cuts 14 minutes earlier than modeled. 19 homes north of the cut have one way out: north to Mulholland.</p>
+        <div class="coa">
+          <span class="hd rl"></span>
+          <button class="hd" aria-pressed="true"><b>Route B north</b><small>draft</small></button>
+          <button class="hd"><b>Keep Route A</b><small>committed</small></button>
+          <span class="rl">Homes reached</span><span class="v">19</span><span class="v best">7</span>
+          <span class="rl">Egress time</span><span class="v">22 min</span><span class="v best">14 min</span>
+        </div>
+      </article>
+      <article class="card routed">
+        <div class="meta"><span class="caps">Rerouted</span><span class="grow"></span><span class="conf"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span></div>
+        <h2>Draft · send the upper canyon north</h2>
+        <p>Rerouted from the committed plan — dashed until approved or rejected. Nothing moves until you decide.</p>
+        <div class="row"><span class="chip" style="border-style:dashed">draft · not executed</span></div>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>Measures <small>review · computed from the run, never typed in</small></h2>
+    <div class="measures" style="max-width:560px">
+      <div class="measure"><b>7:48</b><span>Detection → evacuation order</span><small>Manual baseline: 38 min · exercise brief</small></div>
+      <div class="measure"><b>14 min</b><span>Projection error caught</span><small>by drone at T+1:29</small></div>
+    </div>
+  </section>
+</div>
+<script>
+  // Render swatch grids from the live tokens so this page can never show a stale value.
+  const groups = {
+    neutrals: ['--n-0','--n-1','--n-2','--n-3','--n-4','--n-5','--n-6','--n-7','--n-8','--n-9','--n-10','--n-11','--n-12'],
+    hues: ['--violet-5','--blue-5','--amber-5','--green-5','--red-5','--talon','--working','--needs','--done','--critical','--idle','--prov-measured','--prov-modeled','--prov-authored'],
+    mapcolors: ['--map-cyan','--map-amber','--map-red','--map-fire','--map-ok','--map-sand','--state-proposed','--state-committed','--state-draft','--state-compromised','--viz-1','--viz-2'],
+  };
+  for (const [id, vars] of Object.entries(groups)) {
+    const el = document.getElementById(id);
+    for (const v of vars) {
+      el.insertAdjacentHTML('beforeend',
+        `<div class="sw"><i style="background:var(${v})"></i><span><b>${v.replace(/^--/, '')}</b><em data-var="${v}"></em></span></div>`);
+    }
+  }
+  for (const em of document.querySelectorAll('[data-var]')) {
+    em.textContent = getComputedStyle(document.documentElement).getPropertyValue(em.dataset.var).trim();
+  }
+</script>
+</body>
+</html>
