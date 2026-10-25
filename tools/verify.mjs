@@ -28,6 +28,26 @@ async function open(q, w = 1600, h = 960, pinned) {
   const a = await page.evaluate(() => ({ phase: player.getState().phase.id, layers: engine.getOverlayLayerIds().sort(), panel: !!document.querySelector('#panel h1'), insets: engine.getView() }));
   check('boots on Standby: place, assets, TALON panel', a.phase === 'A' && a.layers.every((id) => /labels|dock|sensor|talon:focus/.test(id)) && a.panel, a.layers.join(' '));
 
+  // Surfaces v2: orb + posture pill in the topbar; the timeline is a replay surface;
+  // decision cards exist only while an item is open; the drawer opens on demand.
+  const surf = await page.evaluate(async () => {
+    const live = { orb: !!document.querySelector('.orb'), posture: document.querySelector('.posture b')?.textContent ?? '', tlHidden: document.querySelector('#timeline')?.hidden, exhandle: !document.querySelector('#exhandle')?.hidden, cards: document.querySelectorAll('#cards .card').length };
+    player.setTime(1.5); // the detection ask is open
+    await new Promise((r) => setTimeout(r, 700));
+    const askCards = document.querySelectorAll('#cards .card').length;
+    document.querySelector('.orb')?.click();
+    await new Promise((r) => setTimeout(r, 400));
+    const drawer = !document.querySelector('#panel').hidden && !!document.querySelector('#panel h1');
+    document.querySelector('.orb')?.click();
+    document.querySelector('[data-act=review]')?.click();
+    await new Promise((r) => setTimeout(r, 700));
+    const reviewTl = !document.querySelector('#timeline').hidden;
+    document.querySelector('[data-act=review]')?.click();
+    await new Promise((r) => setTimeout(r, 250));
+    return { ...live, askCards, drawer, reviewTl };
+  });
+  check('surfaces v2: orb + posture, timeline hidden in live, cards only when open, drawer on demand', surf.orb && /standby/i.test(surf.posture) && surf.tlHidden && surf.exhandle && surf.cards === 0 && surf.askCards >= 1 && surf.drawer && surf.reviewTl, JSON.stringify(surf));
+
   // Governance: TALON never acts without a citation; no interrupt over budget anywhere in the run.
   const gov = await page.evaluate(() => {
     const items = talon.script.items;

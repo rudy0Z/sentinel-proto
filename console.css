@@ -325,25 +325,41 @@ button.chip:hover { color: var(--text-1); border-color: var(--border-strong); ba
 .inspector .acts { display: flex; gap: var(--s-2); margin-top: var(--s-3); flex-wrap: wrap; }
 
 /* ==========================================================================
-   TALON (rail + panel)
+   TALON (orb in the topbar · decision cards · on-demand drawer)
    ========================================================================== */
-.copilot { position: absolute; z-index: var(--z-talon); top: calc(var(--gap) * 2 + var(--topbar-h)); right: var(--gap); bottom: var(--gap); display: flex; gap: var(--s-2); pointer-events: none; }
-.copilot > * { pointer-events: auto; }
-.co-rail { width: var(--rail-w); align-self: flex-start; border-radius: var(--r-pill); padding: var(--s-2) 0; display: flex; flex-direction: column; align-items: center; gap: var(--s-1); order: 2; }
-.co-rail .rb { appearance: none; position: relative; width: 38px; height: 38px; border-radius: 50%; border: 0; background: transparent; color: var(--text-2); display: grid; place-items: center; }
-.co-rail .rb:hover { background: var(--surface-hover); color: var(--text-1); }
-.co-rail .rb[aria-pressed="true"] { background: var(--surface-pressed); color: var(--text-1); }
-.co-rail .badge { position: absolute; top: 1px; right: 0; min-width: 17px; height: 17px; padding: 0 4px; border-radius: var(--r-pill); background: var(--needs); color: var(--text-inverse); font: var(--fw-bold) var(--fs-micro)/17px var(--font-sans); text-align: center; }
-.co-rail .agents { display: flex; flex-direction: column; gap: 2px; padding: var(--s-1) 0; margin: 2px 0; border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); }
-.co-rail .agent { appearance: none; width: 38px; height: 26px; border: 0; background: transparent; border-radius: var(--r-pill); display: grid; place-items: center; }
-.co-rail .agent:hover { background: var(--surface-hover); }
-.co-rail .agent .dot { width: 9px; height: 9px; }
+.orb { appearance: none; position: relative; width: 44px; height: 44px; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--talon) 38%, transparent); background: var(--talon-soft); display: grid; place-items: center; padding: 0; flex: none; transition: background var(--dur-fast), border-color var(--dur-fast); }
+.orb:hover { background: color-mix(in srgb, var(--talon) 22%, transparent); }
+.orb[aria-pressed="true"] { border-color: var(--talon); box-shadow: var(--highlight-top), 0 0 0 3px var(--talon-soft); }
+.orb .mascot { width: 30px; height: 30px; }
+.orb .pips { position: absolute; bottom: -3px; left: 50%; transform: translateX(-50%); display: flex; gap: 2px; }
+.orb .pips i { width: 8px; height: 3px; border-radius: 1.5px; background: var(--n-6); }
+.orb .pips i.on { background: var(--critical); }
+.orb .badge { position: absolute; top: -4px; right: -6px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: var(--r-pill); background: var(--needs); color: var(--text-inverse); font: var(--fw-bold) 10px/16px var(--font-sans); text-align: center; }
+
+/* posture pill: the operator follows the incident, not the process */
+.posture { appearance: none; display: inline-flex; align-items: center; gap: var(--s-2); height: 30px; padding: 0 var(--s-3); border-radius: var(--r-pill); border: 1px solid var(--border); background: var(--surface-raised); color: var(--text-1); font-weight: var(--fw-semibold); font-size: var(--fs-caption); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+.posture:hover { border-color: var(--border-strong); background: var(--surface-hover); }
+.posture .dot { width: 7px; height: 7px; }
+.posture.ok .dot { background: var(--done); }
+.posture.warn .dot { background: var(--needs); }
+.posture.bad .dot { background: var(--critical); }
+.gatechip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: var(--r-pill); background: var(--needs-soft); color: var(--needs); font: var(--fw-semibold) var(--fs-micro)/1.4 var(--font-mono); letter-spacing: .05em; }
+
+/* decision cards: appear only while an item is open — tasks surface naturally */
+.cards { position: absolute; z-index: var(--z-talon); top: calc(var(--gap) * 2 + var(--topbar-h) + 4px); right: var(--gap); width: 372px; display: grid; gap: var(--s-2); max-height: calc(100vh - var(--topbar-h) - var(--slots-h) - 120px); overflow-y: auto; scrollbar-width: none; pointer-events: none; }
+.cards > * { pointer-events: auto; }
+.cards:empty { display: none; }
+.cards .card { box-shadow: var(--shadow-2); }
+.app.drawer-open .cards { right: calc(var(--gap) + var(--talon-w, 0px) + var(--s-2)); }
+
+/* drawer: transient overlay; the map never reflows around it */
+.drawer { position: absolute; z-index: calc(var(--z-talon) + 1); top: calc(var(--gap) * 2 + var(--topbar-h)); right: var(--gap); bottom: var(--gap); width: var(--panel-w); border-radius: var(--r-xl); display: flex; flex-direction: column; overflow: hidden; animation: drawer-in var(--dur-base) var(--ease-out); }
+.drawer[hidden] { display: none; }
+@keyframes drawer-in { from { opacity: 0; transform: translateX(12px); } }
 .tip { position: fixed; z-index: var(--z-toast); pointer-events: none; padding: 6px var(--s-3); border-radius: var(--r-pill); background: var(--surface-glass-strong); border: 1px solid var(--border); box-shadow: var(--shadow-1); font-size: var(--fs-caption); white-space: nowrap; display: flex; align-items: center; gap: var(--s-2); opacity: 0; transform: translateX(4px); transition: opacity var(--dur-fast), transform var(--dur-fast); }
 .tip.on { opacity: 1; transform: none; }
 .tip small { color: var(--text-3); }
 
-.panel { width: var(--panel-w); border-radius: var(--r-xl); display: flex; flex-direction: column; overflow: hidden; order: 1; transition: opacity var(--dur-base), transform var(--dur-base) var(--ease-out); position: relative; }
-.app.talon-closed .panel { display: none; }
 .phead { position: relative; display: flex; align-items: center; gap: var(--s-3); padding: var(--s-4) var(--s-4) var(--s-3); }
 .phead h1 { margin: 0; font-size: var(--fs-heading); font-weight: var(--fw-bold); letter-spacing: .1em; line-height: 1; }
 .phead .line { color: var(--text-2); font-size: var(--fs-caption); margin-top: 5px; display: flex; gap: 6px; align-items: center; }
@@ -491,10 +507,24 @@ button.chip:hover { color: var(--text-1); border-color: var(--border-strong); ba
 .drow time { font: var(--fw-medium) var(--fs-micro)/18px var(--font-mono); color: var(--text-4); }
 
 /* ==========================================================================
-   Dock (timeline + widget slots)
+   Situation board (stage-aware modules) + replay surfaces
    ========================================================================== */
-.dock { position: absolute; z-index: var(--z-dock); left: var(--gap); bottom: var(--gap); right: calc(var(--gap) * 2 + var(--talon-w, 0px)); display: grid; gap: var(--s-2); }
-.timeline { height: var(--timeline-h); border-radius: var(--r-lg); display: flex; align-items: center; gap: var(--s-3); padding: 0 var(--s-3); min-width: 0; }
+.dock { position: absolute; z-index: var(--z-dock); left: var(--gap); right: var(--gap); bottom: var(--gap); display: grid; gap: var(--s-2); }
+.boardhead { height: 44px; border-radius: var(--r-lg); display: flex; align-items: center; gap: var(--s-3); padding: 0 var(--s-2) 0 var(--s-3); min-width: 0; }
+
+/* the timeline is a replay surface: hidden in live mode, the clock is in the topbar */
+.timeline { position: absolute; z-index: var(--z-dock); left: var(--gap); right: var(--gap); bottom: calc(var(--dock-h, 0px) + var(--gap) * 2); height: var(--timeline-h); border-radius: var(--r-lg); display: flex; align-items: center; gap: var(--s-3); padding: 0 var(--s-3); min-width: 0; }
+.timeline[hidden] { display: none; }
+
+/* exercise handle: the harness controls, collapsed to a pill when the timeline is away */
+.exhandle { position: absolute; z-index: var(--z-dock); right: var(--gap); bottom: calc(var(--dock-h, 0px) + var(--gap) * 2); display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: var(--r-md); border: 1px dashed var(--border-strong); }
+.exhandle[hidden] { display: none; }
+.exhandle::before { content: "EXERCISE"; position: absolute; top: -7px; left: 8px; padding: 0 4px; background: var(--n-2); font: var(--fw-bold) 8.5px/1 var(--font-sans); letter-spacing: .12em; color: var(--text-3); border-radius: 3px; }
+.exhandle .btn { height: 28px; border: 0; background: transparent; color: var(--text-2); }
+.exhandle .btn:hover { color: var(--text-1); background: var(--surface-hover); }
+.exhandle .btn[aria-pressed="true"] { background: var(--surface-pressed); color: var(--text-1); }
+.exhandle .holdmsg { font-size: var(--fs-caption); color: var(--needs); margin: 0 var(--s-2); white-space: nowrap; display: flex; gap: 6px; align-items: center; }
+
 .exercise { display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: var(--r-md); border: 1px dashed var(--border-strong); flex: none; position: relative; }
 .exercise::before { content: "EXERCISE"; position: absolute; top: -7px; left: 8px; padding: 0 4px; background: var(--n-2); font: var(--fw-bold) 8.5px/1 var(--font-sans); letter-spacing: .12em; color: var(--text-3); border-radius: 3px; }
 .exercise .btn { height: 30px; border: 0; background: transparent; color: var(--text-2); }
@@ -622,8 +652,7 @@ button.chip:hover { color: var(--text-1); border-color: var(--border-strong); ba
   .kpis .kpi.opt, .sitbtn small { display: none; }
 }
 @media (max-width: 980px) {
-  :root { --panel-w: min(372px, calc(100vw - var(--rail-w) - 40px)); }
-  .app:not(.talon-closed) .panel { box-shadow: var(--shadow-2); }
+  :root { --panel-w: min(400px, calc(100vw - 40px)); }
   .kpis { display: none; }
 }
 @media (max-width: 1500px) { .kpis .kpi.opt { display: none; } }
