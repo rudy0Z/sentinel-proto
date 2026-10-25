@@ -81,6 +81,9 @@
   --text-3: var(--n-8);
   --text-4: var(--n-7);
   --text-inverse: var(--n-1);
+  /* ---- semantic: icons (WCAG 1.4.11 non-text contrast — meaningful icons ≥3:1, chrome icons ≥7:1) */
+  --icon: var(--n-10);
+  --icon-strong: var(--n-12);
 
   /* ---- semantic: state (one meaning each, never reused for decoration) */
   --talon: var(--violet-5);
@@ -193,7 +196,7 @@ button { cursor: pointer; }
 .caps { font-size: var(--fs-micro); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--text-3); }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 [hidden] { display: none !important; }
-svg.ic { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+svg.ic { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 svg.ic.sm { width: 14px; height: 14px; }
 svg.ic.xs { width: 12px; height: 12px; }
 
@@ -225,7 +228,7 @@ svg.ic.xs { width: 12px; height: 12px; }
 .seg button[aria-pressed="true"] { background: var(--surface-pressed); color: var(--text-1); box-shadow: var(--highlight-top); }
 
 /* ---- chips, dots, badges */
-.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--idle); }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--n-8); }
 .dot.working { background: var(--working); box-shadow: 0 0 0 3px var(--working-soft); animation: breathe 1.6s var(--ease-in-out) infinite; }
 .dot.needs { background: var(--needs); box-shadow: 0 0 0 3px var(--needs-soft); }
 .dot.done { background: var(--done); }
@@ -283,9 +286,9 @@ button.chip:hover { color: var(--text-1); border-color: var(--border-strong); ba
 /* ---- map tools (bottom-right, above the board; the top-left stays clean) */
 .tools { position: absolute; z-index: var(--z-map-ui); right: calc(var(--gap) * 2 + var(--rail-w2)); bottom: calc(var(--dock-h, 0px) + var(--gap) * 2); display: grid; gap: var(--s-2); }
 .toolgroup { display: grid; border-radius: var(--r-md); overflow: hidden; }
-.toolgroup .btn { width: var(--tools-w); height: var(--tools-w); border-radius: 0; border: 0; border-bottom: 1px solid var(--border-subtle); background: transparent; color: var(--text-2); padding: 0; }
+.toolgroup .btn { width: var(--tools-w); height: var(--tools-w); border-radius: 0; border: 0; border-bottom: 1px solid var(--border-subtle); background: transparent; color: var(--icon); padding: 0; }
 .toolgroup .btn:last-child { border-bottom: 0; }
-.toolgroup .btn:hover { color: var(--text-1); }
+.toolgroup .btn:hover { color: var(--icon-strong); }
 .toolgroup .btn[aria-pressed="true"] { color: var(--text-1); background: var(--surface-pressed); }
 .toolgroup .btn b { font: var(--fw-semibold) var(--fs-caption)/1 var(--font-mono); }
 .compass svg { transition: transform var(--dur-fast) linear; }
@@ -341,8 +344,8 @@ button.lrow { appearance: none; background: none; border: 0; color: inherit; fon
 .rail .statuspill .adot { appearance: none; border: 0; padding: 0; background: transparent; display: grid; place-items: center; cursor: pointer; }
 .rail .statuspill .adot .dot { transition: transform var(--dur-fast) var(--ease-out); }
 .rail .statuspill .adot:hover .dot { transform: scale(1.35); }
-.rail .rbtn { appearance: none; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border-subtle); background: var(--surface-glass); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); box-shadow: var(--shadow-1); color: var(--text-2); display: grid; place-items: center; transition: color var(--dur-fast), background var(--dur-fast), transform var(--dur-fast); position: relative; }
-.rail .rbtn:hover { color: var(--text-1); background: var(--surface-hover); }
+.rail .rbtn { appearance: none; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface-glass); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); box-shadow: var(--shadow-1); color: var(--icon); display: grid; place-items: center; transition: color var(--dur-fast), background var(--dur-fast), transform var(--dur-fast); position: relative; }
+.rail .rbtn:hover { color: var(--icon-strong); background: var(--surface-hover); }
 .rail .rbtn .mascot { width: 26px; height: 26px; }
 .rail .rbtn[aria-pressed="true"] { color: var(--talon-ink); border-color: color-mix(in srgb, var(--talon) 45%, transparent); background: var(--talon-soft); }
 .rail .rbtn.mic[aria-pressed="true"] { color: var(--critical); border-color: color-mix(in srgb, var(--critical) 45%, transparent); background: var(--critical-soft); animation: breathe 1.4s var(--ease-in-out) infinite; }
@@ -536,7 +539,7 @@ button.lrow { appearance: none; background: none; border: 0; color: inherit; fon
 .slots { display: flex; align-items: flex-end; gap: var(--s-2); overflow-x: auto; scrollbar-width: none; }
 .slots::-webkit-scrollbar { display: none; }
 /* calm mode: no incident anywhere — the widgets dock as a left column, the map owns the rest */
-.app.calm .slots { position: fixed; z-index: var(--z-dock); left: var(--gap); top: calc(var(--gap) * 2 + var(--topbar-h)); flex-direction: column; align-items: stretch; width: 340px; max-height: calc(100vh - var(--topbar-h) - var(--slots-h) - 60px); overflow-y: auto; overflow-x: hidden; }
+.app.calm .slots { position: fixed; z-index: var(--z-dock); left: var(--gap); top: calc(var(--gap) * 2 + var(--topbar-h)); flex-direction: column; align-items: flex-start; width: 340px; max-height: calc(100vh - var(--topbar-h) - var(--slots-h) - 60px); overflow-y: auto; overflow-x: hidden; }
 .widget { flex: 0 0 auto; border-radius: var(--r-lg); display: flex; flex-direction: column; min-width: 0; overflow: hidden; animation: widget-in var(--dur-base) var(--ease-out); height: var(--slots-h); }
 .widget[data-w='fleet'], .widget[data-w='evac'], .widget[data-w='events'] { width: 316px; }
 .widget[data-w='weather'] { width: 336px; }
@@ -577,6 +580,8 @@ button.lrow { appearance: none; background: none; border: 0; color: inherit; fon
 .holdmsg { font-size: var(--fs-caption); color: var(--needs); white-space: nowrap; display: flex; gap: 6px; align-items: center; }
 
 .widget > header { height: 38px; flex: none; display: flex; align-items: center; gap: var(--s-2); padding: 0 var(--s-2) 0 var(--s-3); }
+.widget > header .btn.ghost { color: var(--icon); }
+.widget > header .btn.ghost:hover { color: var(--icon-strong); background: var(--surface-hover); }
 .widget > header h3 { margin: 0; font-size: var(--fs-caption); font-weight: var(--fw-semibold); letter-spacing: .02em; white-space: nowrap; }
 .widget > header .grow { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-micro); color: var(--text-3); }
 .widget .wbody { flex: 1; min-height: 0; padding: 0 var(--s-3) var(--s-3); overflow: auto; scrollbar-width: none; }
@@ -603,9 +608,11 @@ button.lrow { appearance: none; background: none; border: 0; color: inherit; fon
 .urow b { color: var(--text-1); font: var(--fw-semibold) var(--fs-caption)/1 var(--font-mono); }
 .urow span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .urow .eta { font: var(--fw-medium) var(--fs-micro)/1 var(--font-mono); color: var(--text-3); }
-.urow svg { width: 12px; height: 12px; }
-.bat { display: inline-block; width: 18px; height: 8px; border-radius: 2px; border: 1px solid var(--text-3); position: relative; vertical-align: -1px; }
-.bat i { position: absolute; left: 1px; top: 1px; bottom: 1px; border-radius: 1px; background: var(--text-2); }
+.urow svg { width: 14px; height: 14px; color: var(--icon); }
+/* battery: readable text, level-coloured (green >55 · amber 25–55 · red <25) */
+.batt { font: var(--fw-semibold) var(--fs-micro)/1 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--done); }
+.batt.warn { color: var(--needs); }
+.batt.low { color: var(--critical); }
 .zrow { display: grid; grid-template-columns: 1fr auto; gap: 4px var(--s-2); padding: 6px 0; border-bottom: 1px solid var(--border-subtle); font-size: var(--fs-caption); }
 .zrow:last-child { border-bottom: 0; }
 .zrow b { font-weight: var(--fw-medium); color: var(--text-1); display: flex; align-items: center; gap: 6px; }

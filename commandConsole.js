@@ -734,7 +734,9 @@ export async function mountConsole(app) {
     }
     function unitRow(u, t) {
         const st = u.status === 'enroute' ? 'working' : u.status === 'alert' ? 'needs' : u.status === 'standby' ? '' : 'done';
-        const bat = typeof u.info.battery === 'number' ? `<span class="bat" title="Battery ${u.info.battery}%"><i style="width:${Math.max(6, Number(u.info.battery) * 0.16)}px"></i></span>` : '';
+        const bat = typeof u.info.battery === 'number'
+            ? `<span class="batt ${u.info.battery < 25 ? 'low' : u.info.battery < 55 ? 'warn' : ''}" title="Battery ${u.info.battery}%">${u.info.battery}%</span>`
+            : '';
         const eta = u.arrives && u.kind !== 'drone' ? `ETA ${fmtDur(u.arrives - t)}` : '';
         return `<button class="urow" data-act="unit" data-unit="${u.id}" data-hl="${u.id}">${ic(u.kind === 'drone' ? 'drone' : u.kind === 'dozer' ? 'dozer' : u.kind === 'law' ? 'law' : u.kind === 'crew' ? 'crew' : 'engine', 'xs')}<b>${esc(u.id)}</b><span><i class="dot ${st}" style="display:inline-block;width:6px;height:6px;margin-right:6px;vertical-align:1px"></i>${esc(u.detail ?? u.status ?? '')}</span><span class="eta">${bat} ${eta}</span></button>`;
     }
