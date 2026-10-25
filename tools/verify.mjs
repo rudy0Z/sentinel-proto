@@ -28,15 +28,21 @@ async function open(q, w = 1600, h = 960, pinned) {
   const a = await page.evaluate(() => ({ phase: player.getState().phase.id, layers: engine.getOverlayLayerIds().sort(), panel: !!document.querySelector('#panel h1'), insets: engine.getView() }));
   check('boots on Standby: place, assets, TALON panel', a.phase === 'A' && a.layers.every((id) => /labels|dock|sensor|talon:focus/.test(id)) && a.panel, a.layers.join(' '));
 
-  // Surfaces v2.1 (One reference): edge rail is the only persistent TALON surface; the chat
-  // is a floating card; the timeline is a replay surface; decision cards exist only while open.
+  // Surfaces v2.2 (One reference + independent widgets): edge rail only when agents are
+  // active; chat as floating card; no board bar; no exercise controls on the live surface;
+  // dev menu (keyboard) holds situations, phases and the harness; timeline is replay-only.
   const surf = await page.evaluate(async () => {
     const poll = (fn, ms = 8000) => new Promise((resolve) => {
       const t0 = Date.now();
       const step = () => { const v = fn(); if (v) resolve(true); else if (Date.now() - t0 > ms) resolve(false); else setTimeout(step, 100); };
       step();
     });
-    const live = { rail: !!document.querySelector('#rail .statuspill'), dots: document.querySelectorAll('#rail .statuspill .adot').length, chatBtn: !!document.querySelector('#rail [data-act=panel]'), posture: document.querySelector('.posture b')?.textContent ?? '', tlHidden: document.querySelector('#timeline')?.hidden, exhandle: !document.querySelector('#exhandle')?.hidden, cards: document.querySelectorAll('#cards .card').length, chatHidden: document.querySelector('#panel')?.hidden };
+    const live = { rail: !!document.querySelector('#rail .rbtn.face'), boardhead: !!document.querySelector('#boardhead'), exhandle: !!document.querySelector('#exhandle'), tlHidden: document.querySelector('#timeline')?.hidden, widgets: [...document.querySelectorAll('#slots .widget')].map((w) => w.dataset.w), chatHidden: document.querySelector('#panel')?.hidden, calm: document.getElementById('app').classList.contains('calm') };
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: '`', bubbles: true }));
+    await new Promise((r) => setTimeout(r, 400));
+    const dev = !!document.getElementById('pop') && document.getElementById('pop').textContent.includes('Dev · exercise harness');
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await new Promise((r) => setTimeout(r, 300));
     player.setTime(1.5); // the detection ask is open
     const askCards = await poll(() => document.querySelectorAll('#cards .card').length >= 1);
     document.querySelector('#rail [data-act=panel]')?.click();
@@ -49,9 +55,9 @@ async function open(q, w = 1600, h = 960, pinned) {
     document.querySelector('[data-act=review]')?.click();
     const reviewTl = await poll(() => !document.querySelector('#timeline')?.hidden, 8000);
     document.querySelector('[data-act=review]')?.click();
-    return { ...live, askCards, chat, taskpop, reviewTl };
+    return { ...live, dev, askCards, chat, taskpop, reviewTl };
   });
-  check('surfaces v2.1: edge rail (5 agent dots), chat as floating card, tasks popover, timeline hidden in live, cards only when open', surf.rail && surf.dots === 5 && surf.chatBtn && /standby/i.test(surf.posture) && surf.tlHidden && surf.exhandle && surf.cards === 0 && surf.chatHidden && surf.askCards && surf.chat && surf.taskpop && surf.reviewTl, JSON.stringify(surf));
+  check('surfaces v2.2: mascot rail, no board bar, no exercise on live surface, dev menu, calm widget column, cards only when open, floating chat', surf.rail && !surf.boardhead && !surf.exhandle && surf.tlHidden && surf.calm && surf.widgets.length >= 2 && surf.chatHidden && surf.dev && surf.askCards && surf.chat && surf.taskpop && surf.reviewTl, JSON.stringify(surf));
 
   // Governance: TALON never acts without a citation; no interrupt over budget anywhere in the run.
   const gov = await page.evaluate(() => {

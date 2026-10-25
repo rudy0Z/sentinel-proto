@@ -203,7 +203,10 @@ svg.ic.xs { width: 12px; height: 12px; }
 /* ---- buttons */
 .btn { appearance: none; display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2); height: 32px; padding: 0 var(--s-3); border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface-raised); color: var(--text-1); font-size: var(--fs-body); font-weight: var(--fw-medium); white-space: nowrap; transition: background var(--dur-fast), border-color var(--dur-fast), color var(--dur-fast); }
 .btn:hover:not(:disabled) { background: var(--surface-hover); border-color: var(--border-strong); }
-.btn:active:not(:disabled) { background: var(--surface-pressed); }
+.btn:active:not(:disabled) { background: var(--surface-pressed); transform: scale(0.97); }
+.rbtn:active { transform: scale(0.94); }
+.opt:active:not(:disabled) { transform: scale(0.98); }
+.chip:active { transform: scale(0.97); }
 .btn:disabled { opacity: .4; cursor: default; }
 .btn.primary { background: var(--surface-inverse); color: var(--text-inverse); border-color: transparent; font-weight: var(--fw-semibold); }
 .btn.primary:hover:not(:disabled) { background: var(--n-12); }
@@ -277,8 +280,8 @@ button.chip:hover { color: var(--text-1); border-color: var(--border-strong); ba
 .live.past { color: var(--text-2); }
 @keyframes blink { 50% { opacity: .25; } }
 
-/* ---- map tools */
-.tools { position: absolute; z-index: var(--z-map-ui); left: calc(var(--gap) * 2); top: calc(var(--gap) * 2 + var(--topbar-h)); display: grid; gap: var(--s-2); }
+/* ---- map tools (bottom-right, above the board; the top-left stays clean) */
+.tools { position: absolute; z-index: var(--z-map-ui); right: calc(var(--gap) * 2 + var(--rail-w2)); bottom: calc(var(--dock-h, 0px) + var(--gap) * 2); display: grid; gap: var(--s-2); }
 .toolgroup { display: grid; border-radius: var(--r-md); overflow: hidden; }
 .toolgroup .btn { width: var(--tools-w); height: var(--tools-w); border-radius: 0; border: 0; border-bottom: 1px solid var(--border-subtle); background: transparent; color: var(--text-2); padding: 0; }
 .toolgroup .btn:last-child { border-bottom: 0; }
@@ -338,9 +341,11 @@ button.lrow { appearance: none; background: none; border: 0; color: inherit; fon
 .rail .statuspill .adot { appearance: none; border: 0; padding: 0; background: transparent; display: grid; place-items: center; cursor: pointer; }
 .rail .statuspill .adot .dot { transition: transform var(--dur-fast) var(--ease-out); }
 .rail .statuspill .adot:hover .dot { transform: scale(1.35); }
-.rail .rbtn { appearance: none; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border-subtle); background: var(--surface-glass); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); box-shadow: var(--shadow-1); color: var(--text-2); display: grid; place-items: center; transition: color var(--dur-fast), background var(--dur-fast); position: relative; }
+.rail .rbtn { appearance: none; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border-subtle); background: var(--surface-glass); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); box-shadow: var(--shadow-1); color: var(--text-2); display: grid; place-items: center; transition: color var(--dur-fast), background var(--dur-fast), transform var(--dur-fast); position: relative; }
 .rail .rbtn:hover { color: var(--text-1); background: var(--surface-hover); }
+.rail .rbtn .mascot { width: 26px; height: 26px; }
 .rail .rbtn[aria-pressed="true"] { color: var(--talon-ink); border-color: color-mix(in srgb, var(--talon) 45%, transparent); background: var(--talon-soft); }
+.rail .rbtn.mic[aria-pressed="true"] { color: var(--critical); border-color: color-mix(in srgb, var(--critical) 45%, transparent); background: var(--critical-soft); animation: breathe 1.4s var(--ease-in-out) infinite; }
 .rail .rbtn .badge { position: absolute; top: -3px; right: -3px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: var(--r-pill); background: var(--needs); color: var(--text-inverse); font: var(--fw-bold) 10px/16px var(--font-sans); text-align: center; }
 .rail .rbtn .pips { position: absolute; bottom: -2px; left: 50%; transform: translateX(-50%); display: flex; gap: 2px; }
 .rail .rbtn .pips i { width: 6px; height: 2.5px; border-radius: 1px; background: var(--n-6); }
@@ -518,25 +523,34 @@ button.lrow { appearance: none; background: none; border: 0; color: inherit; fon
 .drow b { color: var(--text-1); font-weight: var(--fw-medium); display: block; }
 .drow time { font: var(--fw-medium) var(--fs-micro)/18px var(--font-mono); color: var(--text-4); }
 
+/* operator identity */
+.op { display: inline-flex; align-items: center; gap: var(--s-2); height: 36px; padding: 0 var(--s-3); border-radius: var(--r-sm); background: var(--surface-sunken); border: 1px solid var(--border-subtle); white-space: nowrap; }
+.op .dot { width: 7px; height: 7px; }
+.op b { font-size: var(--fs-caption); font-weight: var(--fw-semibold); }
+.op span { font-size: var(--fs-micro); color: var(--text-3); }
+
 /* ==========================================================================
-   Situation board (stage-aware modules) + replay surfaces
+   Situation board — independent widgets, never one shared bar
    ========================================================================== */
-.dock { position: absolute; z-index: var(--z-dock); left: var(--gap); right: var(--gap); bottom: var(--gap); display: grid; gap: var(--s-2); }
-.boardhead { height: 44px; border-radius: var(--r-lg); display: flex; align-items: center; gap: var(--s-3); padding: 0 var(--s-2) 0 var(--s-3); min-width: 0; }
+.dock { position: absolute; z-index: var(--z-dock); left: var(--gap); right: var(--gap); bottom: var(--gap); }
+.slots { display: flex; align-items: flex-end; gap: var(--s-2); overflow-x: auto; scrollbar-width: none; }
+.slots::-webkit-scrollbar { display: none; }
+/* calm mode: no incident anywhere — the widgets dock as a left column, the map owns the rest */
+.app.calm .slots { position: fixed; z-index: var(--z-dock); left: var(--gap); top: calc(var(--gap) * 2 + var(--topbar-h)); flex-direction: column; align-items: stretch; width: 340px; max-height: calc(100vh - var(--topbar-h) - var(--slots-h) - 60px); overflow-y: auto; overflow-x: hidden; }
+.widget { flex: 0 0 auto; border-radius: var(--r-lg); display: flex; flex-direction: column; min-width: 0; overflow: hidden; animation: widget-in var(--dur-base) var(--ease-out); height: var(--slots-h); }
+.widget[data-w='fleet'], .widget[data-w='evac'], .widget[data-w='events'] { width: 316px; }
+.widget[data-w='weather'] { width: 336px; }
+.widget[data-w='growth'] { width: 380px; }
+.widget[data-w='feed'] { width: 344px; }
+.app.calm .widget { width: 100%; height: auto; max-height: var(--slots-h); }
+.app.calm .widget[data-w='feed'] { height: var(--slots-h); }
+.widget.min { height: auto; }
+.widget.min .wbody { display: none; }
+@keyframes widget-in { from { opacity: 0; transform: translateY(6px); } }
 
 /* the timeline is a replay surface: hidden in live mode, the clock is in the topbar */
 .timeline { position: absolute; z-index: var(--z-dock); left: var(--gap); right: var(--gap); bottom: calc(var(--dock-h, 0px) + var(--gap) * 2); height: var(--timeline-h); border-radius: var(--r-lg); display: flex; align-items: center; gap: var(--s-3); padding: 0 var(--s-3); min-width: 0; }
 .timeline[hidden] { display: none; }
-
-/* exercise handle: the harness controls, collapsed to a pill when the timeline is away */
-.exhandle { position: absolute; z-index: var(--z-dock); right: var(--gap); bottom: calc(var(--dock-h, 0px) + var(--gap) * 2); display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: var(--r-md); border: 1px dashed var(--border-strong); }
-.exhandle[hidden] { display: none; }
-.exhandle::before { content: "EXERCISE"; position: absolute; top: -7px; left: 8px; padding: 0 4px; background: var(--n-2); font: var(--fw-bold) 8.5px/1 var(--font-sans); letter-spacing: .12em; color: var(--text-3); border-radius: 3px; }
-.exhandle .btn { height: 28px; border: 0; background: transparent; color: var(--text-2); }
-.exhandle .btn:hover { color: var(--text-1); background: var(--surface-hover); }
-.exhandle .btn[aria-pressed="true"] { background: var(--surface-pressed); color: var(--text-1); }
-.exhandle .holdmsg { font-size: var(--fs-caption); color: var(--needs); margin: 0 var(--s-2); white-space: nowrap; display: flex; gap: 6px; align-items: center; }
-
 .exercise { display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: var(--r-md); border: 1px dashed var(--border-strong); flex: none; position: relative; }
 .exercise::before { content: "EXERCISE"; position: absolute; top: -7px; left: 8px; padding: 0 4px; background: var(--n-2); font: var(--fw-bold) 8.5px/1 var(--font-sans); letter-spacing: .12em; color: var(--text-3); border-radius: 3px; }
 .exercise .btn { height: 30px; border: 0; background: transparent; color: var(--text-2); }
@@ -562,10 +576,6 @@ button.lrow { appearance: none; background: none; border: 0; color: inherit; fon
 .tl-right { display: flex; align-items: center; gap: var(--s-2); flex: none; }
 .holdmsg { font-size: var(--fs-caption); color: var(--needs); white-space: nowrap; display: flex; gap: 6px; align-items: center; }
 
-.slots { height: var(--slots-h); display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); gap: var(--s-2); transition: height var(--dur-base) var(--ease-out), opacity var(--dur-base); }
-.app.dock-min .slots { height: 0; opacity: 0; pointer-events: none; overflow: hidden; }
-.widget { border-radius: var(--r-lg); display: flex; flex-direction: column; min-width: 0; overflow: hidden; animation: widget-in var(--dur-slow) var(--ease-out); }
-@keyframes widget-in { from { opacity: 0; transform: translateY(6px); } }
 .widget > header { height: 38px; flex: none; display: flex; align-items: center; gap: var(--s-2); padding: 0 var(--s-2) 0 var(--s-3); }
 .widget > header h3 { margin: 0; font-size: var(--fs-caption); font-weight: var(--fw-semibold); letter-spacing: .02em; white-space: nowrap; }
 .widget > header .grow { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-micro); color: var(--text-3); }

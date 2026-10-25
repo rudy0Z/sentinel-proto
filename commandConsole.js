@@ -86,11 +86,11 @@ const FACE = 'M32 5 54 14q4 2 4 7v13q0 16-26 25Q6 50 6 34V21q0-5 4-7Z';
 const mascot = (mood = 'calm', id = '') => `<svg class="mascot" ${id ? `id="${id}"` : ''} viewBox="0 0 64 64" data-mood="${mood}" aria-hidden="true"><path d="${FACE}" fill="url(#talonFace)"/><path class="rim" d="${FACE}" fill="none" stroke-width="1.6"/><path class="rimglow" d="${FACE}" fill="none" stroke-width="3"/><g class="eyes"><g transform="rotate(-7 24 30.5)"><rect class="eye l" x="18.5" y="27" width="11" height="7" rx="3.5"/></g><g transform="rotate(7 40 30.5)"><rect class="eye r" x="34.5" y="27" width="11" height="7" rx="3.5"/></g></g></svg>`;
 const BRAND = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M6.8 14.6 12 7.6l5.2 7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="16.6" r="1.4" fill="currentColor"/></svg>';
 const SITUATIONS = [
-    { id: 'standby', name: 'Standby', sub: 'No incident · Red Flag watch' },
-    { id: 'small-incident', name: 'Small incident', sub: 'One detection · one engine' },
-    { id: 'contain', name: 'Containable', sub: 'No evacuation · authority still notified' },
-    { id: 'falsepos', name: 'Permitted burn', sub: 'False positive · the save' },
-    { id: 'wui-breakout', name: 'WUI breakout', sub: 'Full incident · Encinal Canyon' },
+    { id: 'standby', sid: 'S-01', name: 'Standby', sub: 'No incident · Red Flag watch' },
+    { id: 'small-incident', sid: 'S-02', name: 'Small incident', sub: 'One detection · one engine' },
+    { id: 'contain', sid: 'S-03', name: 'Containable', sub: 'No evacuation · authority still notified' },
+    { id: 'falsepos', sid: 'S-04', name: 'Permitted burn', sub: 'False positive · the save' },
+    { id: 'wui-breakout', sid: 'S-05', name: 'WUI breakout', sub: 'Full incident · Encinal Canyon' },
 ];
 const WIDGETS = {
     feed: { title: 'Drone feed' },
@@ -148,7 +148,7 @@ export async function mountConsole(app) {
         seen: new Set(),
         pop: null,
         listening: false,
-        dockMin: false,
+        min: new Set(),
         ai: store.get('ai', null),
         aiProvider: 'openai',
     };
@@ -219,6 +219,9 @@ export async function mountConsole(app) {
         keys.set(k, s);
         return true;
     };
+    const INCIDENT_GROUPS = new Set(['firePerimeter', 'evacZones', 'routes', 'detections', 'suppression', 'headAxis', 'authority', 'planDraft', 'staging']);
+    /** Calm (no-incident) mode: the widgets dock as a left column instead of a bottom row. */
+    const isCalm = (ps) => !ps.layers.some((l) => INCIDENT_GROUPS.has(l.group));
     function render() {
         if (!player)
             return;
@@ -231,14 +234,13 @@ export async function mountConsole(app) {
         renderRail(ts);
         renderCards(ps, ts);
         renderChat(ps, ts);
-        renderBoardhead(ps);
         renderTimeline(ps);
         renderSlots(ps, ts);
         renderInspector(ps);
         renderAttention(ts);
         updateCountdowns(ps);
         app.classList.toggle('chat-open', ui.panel);
-        app.classList.toggle('dock-min', ui.dockMin);
+        app.classList.toggle('calm', isCalm(ps));
         updateInsets();
     }
     const isPast = () => !ui.review && player.getTime() < ui.liveT - 0.05;
@@ -295,29 +297,31 @@ export async function mountConsole(app) {
         const s = SITUATIONS.find((x) => x.id === ui.sit);
         $('#topbar').innerHTML = `
       <div class="brand">${BRAND}<span>SENTINEL</span></div><div class="vsep"></div>
-      <button class="sitbtn" data-act="pop" data-pop="sit" aria-haspopup="menu" aria-expanded="${ui.pop === 'sit'}"><span><b>${esc(sit.meta.title)} · ${esc(s.name)}</b><small>${esc(sit.meta.coords ?? '')} · Training exercise</small></span>${ic('down', 'sm')}</button>
+      <button class="sitbtn" data-act="pop" data-pop="sit" aria-haspopup="menu" aria-expanded="${ui.pop === 'sit'}" title="Incidents"><span><b>${esc(sit.meta.title)} · ${esc(s.name)}</b><small>${esc(s.sid)} · ${esc(sit.meta.coords ?? '')} · Training exercise</small></span>${ic('down', 'sm')}</button>
       <button class="posture ${inc?.level ?? 'ok'}" data-act="pop" data-pop="arc" aria-haspopup="dialog" aria-expanded="${ui.pop === 'arc'}" title="Incident journey — what happened, what is pending. The operator follows the incident, not the process.">
         <i class="dot"></i><b>${esc(ps.phase.name)}</b>${gateOpen ? `<span class="gatechip">GATE <span class="countdown" data-until="${ps.gate.expires}"></span></span>` : ''}
       </button>
       <div class="grow"></div>
       ${ui.ai?.key ? `<span class="chip working" title="Live model · grounded in the situation, held by the truth guard, never executing">AI · ${esc(ui.ai.model)}</span>` : ''}
       <div class="clock" title="Scene time · wall clock"><span class="live ${mode}">${mode === 'live' ? 'LIVE' : mode === 'review' ? 'REVIEW' : 'VIEWING'}</span><b>${fmtT(ps.t)}</b><span>${esc(wall)}</span></div>
+      <div class="op" title="Operator on authority"><i class="dot done"></i><b>A. Rao</b><span>Operator on authority</span></div>
       ${mode === 'past' ? `<button class="btn sm" data-act="golive">${ic('live', 'xs')}Back to live</button>` : ''}
       <button class="btn icon ghost" data-act="scrub" aria-pressed="${ui.replay}" aria-label="Incident timeline" title="Incident timeline (scrub, replay)">${ic('timeline')}</button>
       <button class="btn ${ui.review ? 'primary' : 'ghost'}" data-act="review" aria-pressed="${ui.review}" title="After-action review (R)">${ic('review')}<span>${ui.review ? 'Exit review' : 'Review'}</span></button>
       <button class="btn icon ghost" data-act="keys" aria-label="Keyboard shortcuts (?)" title="Keyboard shortcuts (?)">${ic('help')}</button>`;
     }
-    // ------------------------------------------------------------------ edge rail (One reference): agent dots in a pill + chat/voice controls
+    // ------------------------------------------------------------------ edge rail (One reference): the TALON mascot, agent dots only while active, controls
     function renderRail(ts) {
         const mine = ts.open.filter((o) => !o.item.reraise).length;
+        const active = ts.agents.filter((a) => a.status !== 'idle');
         const k = [ts.agents.map((a) => a.status), mine, ui.panel, ui.pop, ui.listening, ts.budget.used];
         if (!changed('rail', k))
             return;
         $('#rail').innerHTML = `
-      <button class="statuspill" data-act="pop" data-pop="agents" aria-haspopup="menu" aria-expanded="${ui.pop === 'agents'}" aria-label="TALON agents — ${mine ? `${mine} need${mine > 1 ? '' : 's'} you` : 'all quiet'}">
-        ${ts.agents.map((a) => `<span class="adot" data-tip="${esc(a.name)} · ${a.status === 'needs' ? 'needs you' : a.status}|${esc(a.line)}"><i class="dot ${a.status === 'idle' ? '' : a.status}"></i></span>`).join('')}
-      </button>
-      <button class="rbtn" data-act="panel" aria-pressed="${ui.panel}" aria-label="TALON chat (T)" data-tip="TALON chat|thread · log · review (T)">${ic('chat')}${mine ? `<span class="badge">${mine}</span>` : ''}</button>
+      ${active.length ? `<button class="statuspill" data-act="pop" data-pop="agents" aria-haspopup="menu" aria-expanded="${ui.pop === 'agents'}" aria-label="TALON agents — ${mine ? `${mine} need${mine > 1 ? '' : 's'} you` : 'working'}">
+        ${active.map((a) => `<span class="adot" data-tip="${esc(a.name)} · ${a.status === 'needs' ? 'needs you' : a.status}|${esc(a.line)}"><i class="dot ${a.status}"></i></span>`).join('')}
+      </button>` : ''}
+      <button class="rbtn face" data-act="panel" aria-pressed="${ui.panel}" aria-label="TALON chat (T)" data-tip="TALON|thread · log · review (T)">${mascot(ui.listening ? 'listening' : ts.mood)}${mine ? `<span class="badge">${mine}</span>` : ''}</button>
       <button class="rbtn mic" data-act="mic" aria-pressed="${ui.listening}" aria-label="Voice command (V)" data-tip="Voice command|press V">${ic('mic')}</button>
       <button class="rbtn" data-act="pop" data-pop="authority" aria-pressed="${ui.pop === 'authority'}" aria-label="What TALON may do" data-tip="Authority|what TALON may do alone">${ic('shield')}</button>
       <button class="rbtn" data-act="pop" data-pop="settings" aria-pressed="${ui.pop === 'settings'}" aria-label="Settings" data-tip="Settings · live model">${ic('gear')}</button>`;
@@ -459,24 +463,8 @@ export async function mountConsole(app) {
         html += routed.map((o) => `<div class="mini"><div class="row" style="cursor:default"><i class="dot working"></i><span><b>${esc(o.item.title)}</b>routed to ${esc(o.item.reraise.to)} · you are copied</span></div></div>`).join('');
         el.innerHTML = html;
     }
-    // ------------------------------------------------------------------ board head (the situation summary that used to live in the topbar)
-    function renderBoardhead(ps) {
-        const inc = ps.telemetry.incident;
-        const st = engine.getFieldStats();
-        const evac = player.boardAt('evac');
-        const z1 = evac?.zones?.find((z) => typeof z.cleared === 'number');
-        const gateOpen = !!ps.gate?.open;
-        const k = [inc?.value, inc?.level, st && Math.round(st.reachedArea / 4046.86), st?.threatened, z1?.cleared, gateOpen, Math.floor(ps.gate?.expires ?? 0), ui.dockMin];
-        if (!changed('boardhead', k))
-            return;
-        const kpi = (v, l, prov, opt = false) => `<div class="kpi${opt ? ' opt' : ''}"><b>${v}</b><small>${l}<span class="prov ${prov}">${prov.slice(0, 3)}</span></small></div>`;
-        $('#boardhead').innerHTML = `
-      <span class="status-pill ${inc?.level ?? 'ok'}" title="${esc(inc?.source ?? '')}">${esc(inc?.value ?? 'No incident')}</span>
-      <div class="kpis">${st ? kpi(fmtN(st.reachedArea / 4046.86) + ' ac', 'Burned', 'modeled') + kpi(String(st.threatened), 'Homes in 60 min', 'modeled') : ''}${z1 ? kpi(`${z1.cleared}%`, 'Zone 1 cleared', 'authored', true) : ''}</div>
-      ${gateOpen ? `<span class="chip needs">Gate · <span class="countdown" data-until="${ps.gate.expires}"></span></span>` : ''}
-      <div class="grow"></div>
-      <button class="btn icon sm ghost" data-act="dockmin" aria-label="${ui.dockMin ? 'Expand the board' : 'Collapse the board'}" title="Collapse the board">${ic(ui.dockMin ? 'up' : 'down', 'sm')}</button>`;
-    }
+    // ------------------------------------------------------------------ board head: removed — the widgets are independent elements;
+    // the incident status lives in the posture pill, the KPIs live on the widgets they belong to.
     function renderLog(ts) {
         const k = ['log', ts.log.map((e) => e.id), ui.logAgent, ts.dissents.length];
         if (!changed('now', k))
@@ -528,16 +516,13 @@ export async function mountConsole(app) {
     function renderTimeline(ps) {
         const vis = timelineVisible();
         $('#timeline').hidden = !vis;
-        $('#exhandle').hidden = vis;
-        // The exercise controls render into whichever surface is on screen.
-        if (changed('ex', [ui.playing, ui.speed, ui.autopilot, ui.hold?.id, ui.review])) {
-            const buttons = `<button class="btn icon" data-act="play" aria-pressed="${ui.playing}" aria-label="${ui.playing ? 'Pause' : 'Run'} the exercise clock (Space)" title="Exercise clock (Space)">${ic(ui.playing ? 'pause' : 'play')}</button>
+        // Exercise controls live in the replay surface and the dev menu — never on the live product surface.
+        if (vis && changed('ex', [ui.playing, ui.speed, ui.autopilot, ui.hold?.id, ui.review])) {
+            $('#exercise').innerHTML = `<button class="btn icon" data-act="play" aria-pressed="${ui.playing}" aria-label="${ui.playing ? 'Pause' : 'Run'} the exercise clock (Space)" title="Exercise clock (Space)">${ic(ui.playing ? 'pause' : 'play')}</button>
         <button class="btn sm opt" data-act="speed" title="Exercise speed">${ui.speed}×</button>
         <button class="btn icon opt" data-act="beat" aria-label="Skip to the next beat (.)" title="Next beat (.)">${ic('next')}</button>
         <button class="btn sm opt" data-act="autopilot" aria-pressed="${ui.autopilot}" title="Autopilot: the exercise script takes the operator's decisions (harness only)">Autopilot</button>`;
-            (vis ? $('#exercise') : $('#exhandle')).innerHTML = buttons + (vis ? '' : ui.hold ? `<span class="holdmsg">${ic('pause', 'xs')}${esc(ui.hold.title)}</span>` : '');
-            if (vis)
-                $('#holdmsg').innerHTML = ui.hold ? `${ic('pause', 'xs')}Held for your decision: ${esc(ui.hold.title)}` : '';
+            $('#holdmsg').innerHTML = ui.hold ? `${ic('pause', 'xs')}Held for your decision: ${esc(ui.hold.title)}` : '';
         }
         if (!vis)
             return;
@@ -650,11 +635,7 @@ export async function mountConsole(app) {
         if (ui.follow && ph.camera)
             engine.flyTo({ ...ph.camera, durationMs: 1600 });
     }
-    // ------------------------------------------------------------------ dock slots
-    function slotCols() {
-        const w = innerWidth - 30;
-        return w >= 1180 ? 4 : w >= 860 ? 3 : w >= 540 ? 2 : 1;
-    }
+    // ------------------------------------------------------------------ dock slots (independent widgets, not one bar)
     function available(w, ps) {
         if (w === 'feed')
             return ps.units.some((u) => u.kind === 'drone' && (u.altitudeFt ?? 0) > 0);
@@ -665,30 +646,27 @@ export async function mountConsole(app) {
         return true;
     }
     function composition(ps, ts) {
-        const cols = slotCols();
-        const nOp = cols >= 3 ? 2 : cols === 2 ? 1 : 0;
         // Stage-first: the situation's own modules lead (TALON's hints + the phase's),
-        // the operator's pins follow. No filler — an unused column stays empty.
+        // the operator's pins follow. No filler — an unused slot stays empty.
         const talonSlots = [];
         for (const d of ts.dock) {
-            if (talonSlots.length >= cols - nOp)
+            if (talonSlots.length >= 3)
                 break;
             if (talonSlots.some((s) => s.w === d.widget) || !available(d.widget, ps))
                 continue;
             talonSlots.push({ w: d.widget, reason: d.reason });
         }
-        const op = ui.pinned.slice(0, nOp).filter((w) => !talonSlots.some((s) => s.w === w) && available(w, ps));
-        return { cols, op, talonSlots };
+        const op = ui.pinned.slice(0, 2).filter((w) => !talonSlots.some((s) => s.w === w) && available(w, ps));
+        return { op, talonSlots };
     }
     const feedHost = document.createElement('div');
     feedHost.className = 'feedhost';
     function renderSlots(ps, ts) {
         const c = composition(ps, ts);
         const slots = $('#slots');
-        slots.style.setProperty('--cols', String(c.cols));
         const layout = [...c.op.map((w) => ({ w, by: 'op', reason: '' })), ...c.talonSlots.map((s) => ({ w: s.w, by: 'talon', reason: s.reason }))];
-        if (changed('layout', layout.map((l) => l.w + l.by))) {
-            slots.innerHTML = layout.map((l, i) => `<article class="widget glass ${l.w === 'feed' ? 'feed' : ''} ${l.by === 'talon' ? 'by-talon' : ''}" data-w="${l.w}" data-slot="${i}"><header></header><div class="wbody" tabindex="0"></div></article>`).join('');
+        if (changed('layout', layout.map((l) => l.w + l.by + (ui.min.has(l.w) ? '·' : '')))) {
+            slots.innerHTML = layout.map((l, i) => `<article class="widget glass ${l.w === 'feed' ? 'feed' : ''} ${l.by === 'talon' ? 'by-talon' : ''} ${ui.min.has(l.w) ? 'min' : ''}" data-w="${l.w}" data-slot="${i}"><header></header><div class="wbody" tabindex="0"></div></article>`).join('');
             for (const k of [...keys.keys()])
                 if (k.startsWith('w:'))
                     keys.delete(k);
@@ -699,9 +677,10 @@ export async function mountConsole(app) {
     }
     function widgetHeader(w, by, reason, extra = '') {
         const title = WIDGETS[w]?.title ?? w;
+        const collapse = `<button class="btn icon sm ghost" data-act="wmin" data-w="${w}" aria-label="${ui.min.has(w) ? 'Expand' : 'Collapse'} ${title}" title="${ui.min.has(w) ? 'Expand' : 'Collapse'}">${ic(ui.min.has(w) ? 'up' : 'down', 'sm')}</button>`;
         return by === 'talon'
-            ? `<h3 title="TALON put this here${reason ? `: ${esc(reason)}` : ''}">${title}</h3><span class="grow" title="TALON put this here${reason ? `: ${esc(reason)}` : ''}">${reason ? `TALON · ${esc(reason)}` : ''}</span>${extra}<button class="btn icon sm ghost" data-act="pin" data-w="${w}" aria-label="Pin ${title} to your side" title="Pin to your side">${ic('pin', 'sm')}</button>`
-            : `<button class="btn ghost sm" data-act="pop" data-pop="slot:${w}" style="padding:0 4px;margin-left:-4px" aria-haspopup="menu"><h3>${title}</h3>${ic('down', 'xs')}</button><span class="grow"></span>${extra}`;
+            ? `<h3 title="TALON put this here${reason ? `: ${esc(reason)}` : ''}">${title}</h3><span class="grow" title="TALON put this here${reason ? `: ${esc(reason)}` : ''}">${reason ? `TALON · ${esc(reason)}` : ''}</span>${extra}${collapse}<button class="btn icon sm ghost" data-act="pin" data-w="${w}" aria-label="Pin ${title} to your side" title="Pin to your side">${ic('pin', 'sm')}</button>`
+            : `<button class="btn ghost sm" data-act="pop" data-pop="slot:${w}" style="padding:0 4px;margin-left:-4px" aria-haspopup="menu"><h3>${title}</h3>${ic('down', 'xs')}</button><span class="grow"></span>${extra}${collapse}`;
     }
     function renderWidget(el, l, ps, ts) {
         const body = el.querySelector('.wbody');
@@ -734,12 +713,14 @@ export async function mountConsole(app) {
           ${(b.routes ?? []).map((r) => `<div class="srow"><i class="dot ${r.level ?? 'muted'}"></i><span style="color:var(--text-1)">${esc(r.name)}</span><span style="margin-left:auto">${esc(r.status)}</span></div>`).join('')}
           ${b.choke ? `<div class="srow"><i class="dot ${b.choke.level}"></i>${esc(b.choke.text)}</div>` : ''}${b.alerts ? `<div class="srow"><i class="dot ${b.alerts.level}"></i>${esc(b.alerts.text)}</div>` : ''}`
                 : '<div class="empty">No evacuation plan exists.</div>';
-            extra = b ? `<span class="prov authored">aut</span>` : '';
+            const z1 = b?.zones?.find((z) => typeof z.cleared === 'number');
+            extra = `${b ? '<span class="prov authored">aut</span>' : ''}${z1 ? `<span class="chip num" title="Zone 1 cleared">${z1.cleared}%</span>` : ''}`;
         }
         else if (l.w === 'growth') {
             k = [Math.round(ps.t * 2), ps.hindsight, ps.layers.some((x) => x.id === 'fire-rev')];
             html = growth ? growthChart(growth, ps) : '';
-            extra = '<span class="prov modeled">mod</span>';
+            const st = engine.getFieldStats();
+            extra = `<span class="prov modeled">mod</span>${st ? `<span class="chip num" title="Burned so far · modeled">${fmtN(st.reachedArea / 4046.86)} ac</span><span class="chip num" title="Homes inside the 60-minute projection · modeled">${fmtN(st.threatened)} homes</span>` : ''}`;
         }
         else if (l.w === 'events') {
             const mk = talon.markers(ps.t, ui.review ? sit.clock.end : Math.max(ui.liveT, ps.t)).filter((m) => m.kind !== 'answer');
@@ -883,11 +864,17 @@ export async function mountConsole(app) {
         const pop = document.createElement('div');
         pop.className = 'pop glass';
         pop.id = 'pop';
-        pop.setAttribute('role', name === 'sit' || name.startsWith('slot:') ? 'menu' : 'dialog');
+        pop.setAttribute('role', name === 'sit' || name.startsWith('slot:') || name === 'agents' ? 'menu' : 'dialog');
         pop.innerHTML = popContent(name);
         app.appendChild(pop);
         const r = anchor.getBoundingClientRect();
         const pr = pop.getBoundingClientRect();
+        if (name === 'dev') {
+            // The dev menu anchors top-right, under the topbar.
+            pop.style.top = `${clamp(r.bottom + 8, 8, innerHeight - pr.height - 8)}px`;
+            pop.style.left = `${clamp(innerWidth - pr.width - 12, 8, innerWidth - pr.width - 8)}px`;
+            return schedule();
+        }
         const right = r.left > innerWidth / 2;
         pop.style.top = `${clamp(name.startsWith('slot:') ? r.top - pr.height - 8 : right && !name.startsWith('slot') && name !== 'sit' ? r.top : r.bottom + 8, 8, innerHeight - pr.height - 8)}px`;
         pop.style.left = `${clamp(right && name !== 'sit' ? r.left - pr.width - 10 : r.left, 8, innerWidth - pr.width - 8)}px`;
@@ -902,7 +889,7 @@ export async function mountConsole(app) {
     }
     function popContent(name) {
         if (name === 'sit')
-            return `<div class="caps" style="padding:4px 8px">Exercise situation</div>${SITUATIONS.map((s) => `<button class="menu-item" role="menuitemradio" aria-checked="${s.id === ui.sit}" data-act="situation" data-sit="${s.id}"><span><b>${s.name}</b><small>${s.sub}</small></span></button>`).join('')}`;
+            return `<div class="caps" style="padding:4px 8px">Incidents · Encinal Canyon</div>${SITUATIONS.map((s) => `<button class="menu-item" role="menuitemradio" aria-checked="${s.id === ui.sit}" data-act="situation" data-sit="${s.id}"><span class="chip" style="height:20px;flex:none">${s.sid}</span><span><b>${s.name}</b><small>${s.sub}</small></span></button>`).join('')}`;
         if (name === 'agents') {
             // The One task list: agents with their live lines, then what is waiting on you.
             const ts = talon.state();
@@ -912,6 +899,24 @@ export async function mountConsole(app) {
         ${ts.agents.map((a) => `<button class="menu-item" data-act="agent" data-agent="${a.id}"><i class="dot ${a.status === 'idle' ? '' : a.status}" style="margin-top:5px"></i><span><b>${esc(a.name)}</b><small>${esc(a.line)}</small></span></button>`).join('')}
         ${mine.length ? `<div class="caps ghead">Waiting on you</div>${mine.map((o) => `<button class="menu-item" data-act="panel"><i class="dot needs" style="margin-top:5px"></i><span><b>${esc(talon.text(o.item.title, player.getTime()))}</b><small>${esc(talon.agentName(o.item.agent))} · waits for you</small></span></button>`).join('')}` : `<div class="caps ghead">Nothing needs you${ts.handled ? ` · ${ts.handled} handled under standing orders` : ''}</div>`}
         ${routed.map((o) => `<div class="menu-item" style="cursor:default"><i class="dot working" style="margin-top:5px"></i><span><b>${esc(o.item.title)}</b><small>routed to ${esc(o.item.reraise.to)} · you are copied</small></span></div>`).join('')}`;
+        }
+        if (name === 'dev') {
+            // The harness/dev menu — keyboard only (Ctrl+Shift+D or backtick). Never on the product surface.
+            const phases = sit.phases.map((p, i) => {
+                const t = player.phaseStart(i);
+                return `<button class="menu-item" data-act="jump" data-t="${t}"><span><b>${esc(p.id)} · ${esc(p.name)}</b><small>${Number.isFinite(t) ? fmtT(t) : 'gated — needs the decision'}</small></span></button>`;
+            }).join('');
+            return `<h3 class="caps">Dev · exercise harness</h3>
+        <div class="caps ghead">Jump to situation</div>${SITUATIONS.map((s) => `<button class="menu-item" role="menuitemradio" aria-checked="${s.id === ui.sit}" data-act="situation" data-sit="${s.id}"><span class="chip" style="height:20px;flex:none">${s.sid}</span><span><b>${s.name}</b></span></button>`).join('')}
+        <div class="caps ghead">Jump to phase · ${esc(SITUATIONS.find((x) => x.id === ui.sit)?.name ?? '')}</div>${phases}
+        <div class="caps ghead">Exercise clock</div>
+        <div style="display:flex;gap:6px;padding:0 4px;flex-wrap:wrap">
+          <button class="btn sm" data-act="play" aria-pressed="${ui.playing}">${ui.playing ? 'Pause' : 'Run'}</button>
+          <button class="btn sm" data-act="speed">${ui.speed}×</button>
+          <button class="btn sm" data-act="beat">Next beat</button>
+          <button class="btn sm" data-act="autopilot" aria-pressed="${ui.autopilot}">Autopilot</button>
+          <button class="btn sm" data-act="replay">${ic('play', 'xs')}Replay</button>
+        </div>`;
         }
         if (name === 'arc') {
             // The journey, on demand: the operator follows the incident, not the process.
@@ -995,14 +1000,16 @@ export async function mountConsole(app) {
         const dock = $('#dock').getBoundingClientRect();
         const right = innerWidth - ($('#rail').getBoundingClientRect().left) + 6;
         const bottom = innerHeight - dock.top;
+        const calm = app.classList.contains('calm');
         document.documentElement.style.setProperty('--talon-w', `${Math.round(right)}px`);
         document.documentElement.style.setProperty('--dock-h', `${bottom}px`);
-        const k = `${Math.round(top)}|${Math.round(right)}|${Math.round(bottom)}`;
+        const k = `${Math.round(top)}|${Math.round(right)}|${Math.round(bottom)}|${calm ? 1 : 0}`;
         if (k === insetKey)
             return;
         const first = !insetKey;
         insetKey = k;
-        engine.setViewInsets({ top, right, bottom, left: 0 }, first ? 0 : 280);
+        // In calm mode the widget column occupies the left, so the map centres between it and the rail.
+        engine.setViewInsets({ top, right, bottom, left: calm ? 356 : 0 }, first ? 0 : 280);
     }
     new ResizeObserver(() => {
         keys.delete('layout');
@@ -1102,10 +1109,15 @@ export async function mountConsole(app) {
         const W = window;
         const Ctor = W.SpeechRecognition ?? W.webkitSpeechRecognition;
         if (!Ctor)
-            return toast('Voice needs a browser with the Web Speech API (Chrome or Edge).');
+            return toast('Voice needs the Web Speech API — Chrome or Edge. This browser does not expose it, so type instead (/).');
         if (ui.listening)
             return rec?.stop();
-        rec = new Ctor();
+        try {
+            rec = new Ctor();
+        }
+        catch (err) {
+            return toast(`Voice unavailable: ${err.message}`);
+        }
         rec.lang = 'en-US';
         rec.onresult = (e) => {
             const text = e.results[0][0].transcript;
@@ -1113,12 +1125,24 @@ export async function mountConsole(app) {
             command(text);
             $('#cmd').value = '';
         };
+        rec.onerror = (e) => {
+            ui.listening = false;
+            const why = e.error === 'not-allowed' ? 'microphone permission was denied' : e.error === 'no-speech' ? 'no speech heard' : e.error ?? 'unavailable';
+            toast(`Voice stopped — ${why}.`);
+            schedule();
+        };
         rec.onend = () => {
             ui.listening = false;
+            const inp = $('#cmd');
+            if (inp)
+                inp.placeholder = 'Ask TALON, or @E-31 to message a unit';
             schedule();
         };
         ui.listening = true;
         ui.panel = true;
+        const inp = $('#cmd');
+        if (inp)
+            inp.placeholder = 'Listening…';
         rec.start();
         schedule();
     }
@@ -1134,7 +1158,7 @@ export async function mountConsole(app) {
         $('#overlay .btn.primary').focus();
     }
     function shortcuts() {
-        const rows = [['1 – 3', 'Answer the card TALON is asking'], ['/', 'Type to TALON'], ['V', 'Voice command'], ['T', 'TALON chat — thread, log, review'], ['R', 'After-action review'], ['C', '2D / 3D map'], ['L', 'Day / night'], ['I', 'Thermal map'], ['Esc', 'Close chat, popovers, highlight'], ['Space', 'Exercise clock (harness)'], ['.', 'Next beat (harness)']];
+        const rows = [['1 – 3', 'Answer the card TALON is asking'], ['/', 'Type to TALON'], ['V', 'Voice command'], ['T', 'TALON chat — thread, log, review'], ['R', 'After-action review'], ['C', '2D / 3D map'], ['L', 'Day / night'], ['I', 'Thermal map'], ['Ctrl+Shift+D', 'Dev menu — situations, phases, harness'], ['Esc', 'Close chat, popovers, highlight'], ['Space', 'Exercise clock (harness)'], ['.', 'Next beat (harness)']];
         $('#overlay').innerHTML = `<div class="scrim" data-act="overlay-close"><div class="modal glass" role="dialog" aria-label="Keyboard shortcuts"><h2>Shortcuts</h2><div class="keys">${rows.map(([k, d]) => `<span class="kbd">${k}</span><span>${d}</span>`).join('')}</div><div class="row"><button class="btn primary" data-act="overlay-close">Done</button></div></div></div>`;
     }
     // ------------------------------------------------------------------ input wiring
@@ -1380,10 +1404,11 @@ export async function mountConsole(app) {
                 a.setAttribute('aria-pressed', String(on));
                 return;
             }
-            case 'dockmin':
-                ui.dockMin = !ui.dockMin;
+            case 'wmin': {
+                ui.min.has(d.w) ? ui.min.delete(d.w) : ui.min.add(d.w);
                 keys.delete('layout');
                 return schedule();
+            }
         }
     });
     // Evidence hover: TALON points, the map dims everything else (focus + context).
@@ -1497,8 +1522,9 @@ export async function mountConsole(app) {
         $('#viewBtn').innerHTML = ic(v.mode === 'perspective' ? 'view3d' : 'view2d');
     });
     document.addEventListener('keydown', (e) => {
-        const tgt = e.target;
-        if (e.key === 'Escape') {
+        const ev = e;
+        const tgt = ev.target instanceof HTMLElement ? ev.target : document.body;
+        if (ev.key === 'Escape') {
             closePop();
             $('#overlay').innerHTML = '';
             if (ui.panel) {
@@ -1513,43 +1539,48 @@ export async function mountConsole(app) {
             tgt.blur?.();
             return schedule();
         }
-        if (tgt.id === 'track' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Home' || e.key === 'End')) {
-            e.preventDefault();
+        if (tgt.id === 'track' && (ev.key === 'ArrowLeft' || ev.key === 'ArrowRight' || ev.key === 'Home' || ev.key === 'End')) {
+            ev.preventDefault();
             stopPlay();
-            if (e.key === 'Home')
+            if (ev.key === 'Home')
                 scrubTo(sit.clock.start);
-            else if (e.key === 'End')
+            else if (ev.key === 'End')
                 scrubTo(sit.clock.end);
             else
-                scrubTo(player.getTime() + (e.key === 'ArrowRight' ? 1 : -1));
+                scrubTo(player.getTime() + (ev.key === 'ArrowRight' ? 1 : -1));
             return;
         }
-        if (tgt.closest('input, textarea') || e.metaKey || e.ctrlKey || e.altKey) {
-            if (tgt.id === 'dissentText' && e.key === 'Enter' && (e.metaKey || e.ctrlKey) && ui.dissent)
+        if (tgt.closest('input, textarea') || ev.metaKey || ev.ctrlKey || ev.altKey) {
+            if (tgt.id === 'dissentText' && ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey) && ui.dissent)
                 answer(ui.dissent.item, ui.dissent.option, tgt.value);
             return;
         }
-        const k = e.key.toLowerCase();
+        const k = ev.key.toLowerCase();
+        // Dev menu (harness): Ctrl+Shift+D or backtick. Keyboard actions get no animation — instant.
+        if ((ev.ctrlKey && ev.shiftKey && k === 'd') || ev.key === '`') {
+            ev.preventDefault();
+            return ui.pop === 'dev' ? closePop() : openPop('dev', $('#topbar'));
+        }
         if (/^[1-9]$/.test(k)) {
             const ts = talon.state();
             const top = ts.open.find((o) => !o.item.reraise);
             const opts = (top?.item.options ?? []).filter((o) => !(top?.item.compare && o.toggle));
             const o = opts[Number(k) - 1];
             if (top && o) {
-                e.preventDefault();
+                ev.preventDefault();
                 answer(top.item.id, o.id);
             }
             return;
         }
         if (k === '/') {
-            e.preventDefault();
+            ev.preventDefault();
             ui.panel = true;
             ui.tab = 'now';
             schedule();
             setTimeout(() => $('#cmd').focus(), 20);
         }
         else if (k === ' ') {
-            e.preventDefault();
+            ev.preventDefault();
             ui.playing ? stopPlay() : startPlay();
         }
         else if (k === '.')
@@ -1603,7 +1634,6 @@ const SHELL = `
 </div>
 <div class="readout glass" id="readout" aria-hidden="true"></div>
 <section class="inspector glass" id="inspector" aria-label="Inspector" hidden></section>
-<div class="exhandle glass" id="exhandle" role="region" aria-label="Exercise controls (harness)" hidden></div>
 <div class="timeline glass" id="timeline" role="region" aria-label="Incident timeline" hidden>
   <div class="exercise" id="exercise" aria-label="Exercise controls (harness)"></div>
   <div class="track" id="track" role="slider" aria-label="Incident timeline" aria-orientation="horizontal" tabindex="0">
@@ -1613,7 +1643,6 @@ const SHELL = `
   <div class="tl-right"><span class="holdmsg" id="holdmsg"></span></div>
 </div>
 <section class="dock" id="dock" aria-label="Situation board">
-  <div class="boardhead glass" id="boardhead"></div>
   <div class="slots" id="slots"></div>
 </section>
 <nav class="rail" id="rail" aria-label="TALON"></nav>
