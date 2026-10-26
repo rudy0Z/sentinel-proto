@@ -124,7 +124,7 @@ export async function mountConsole(app) {
     window.engine = engine;
     app.insertAdjacentHTML('beforeend', SHELL);
     const ui = {
-        sit: params.get('situation') ?? store.get('situation', 'wui-breakout'),
+        sit: (params.get('situation') === 'random' ? SITUATIONS[Math.floor(Math.random() * SITUATIONS.length)].id : params.get('situation')) ?? store.get('situation', 'wui-breakout'),
         // The chat card is on demand — the edge rail is the only persistent TALON surface (One reference). ?talon=open starts it open.
         panel: params.get('talon') === 'open',
         tab: 'now',
@@ -388,7 +388,9 @@ export async function mountConsole(app) {
             ? `<div class="dissent"><div><b>You're declining TALON's recommendation.</b><br><span style="color:var(--text-2)">Both positions go on the record verbatim: TALON's reasons and your words. A later re-raise can only cite new evidence, and goes to the Regional Duty Supervisor.</span></div>
           <textarea id="dissentText" placeholder="Your reason, in your words (optional)" aria-label="Your reason"></textarea>
           <div class="row"><button class="btn ghost sm" data-act="dissent-cancel">Cancel</button><button class="btn primary sm" data-act="dissent-ok">Record: ${esc(draftNow.label)}</button></div></div>`
-            : `<div class="opts" role="group" aria-label="Your options">${opts.map((x, i) => `<button class="opt${x.recommended ? ' rec' : ''}" data-act="answer" data-item="${it.id}" data-opt="${x.id}" ${decide ? '' : 'disabled'}><span class="k">${i + 1}</span><b>${esc(x.label)}</b><span class="tag">${x.recommended ? 'Recommended' : ''}</span></button>`).join('')}</div>${decide ? '' : `<span class="caps" style="text-transform:none;letter-spacing:0">${ui.review ? 'Review is read-only.' : 'You are viewing the past. Go back to live to decide.'}</span>`}`;
+            : opts.length
+                ? `<div class="opts" role="group" aria-label="Your options">${opts.map((x, i) => `<button class="opt${x.recommended ? ' rec' : ''}" data-act="answer" data-item="${it.id}" data-opt="${x.id}" ${decide ? '' : 'disabled'}><span class="k">${i + 1}</span><b>${esc(x.label)}</b><span class="tag">${x.recommended ? 'Recommended' : ''}</span></button>`).join('')}</div>${decide ? '' : `<span class="caps" style="text-transform:none;letter-spacing:0">${ui.review ? 'Review is read-only.' : 'You are viewing the past. Go back to live to decide.'}</span>`}`
+                : `<span class="caps" style="text-transform:none;letter-spacing:0">Reported for awareness — no action requested. It is on the record.</span>`;
         return `<article class="card ${crit ? 'critical' : 'needs'}" aria-live="polite">
       <div class="meta"><i class="dot ${crit ? 'critical' : 'needs'}"></i><span class="caps">${esc(agent)} · ${it.kind === 'proposal' ? 'Proposal' : 'Needs you'}</span><span class="grow"></span>${o.expiresAt !== null || Number.isFinite(o.closesAt) ? `<span class="countdown" data-until="${Number.isFinite(o.closesAt) ? o.closesAt : o.expiresAt}" title="Closes at ${fmtT(o.closesAt)} (scene time)"></span>` : ''}</div>
       <h2>${esc(talon.text(it.title, t))}</h2>
@@ -474,6 +476,53 @@ export async function mountConsole(app) {
       ${ts.dissents.length ? `<div><span class="caps">Dissent records</span>${ts.dissents.map((d) => `<div style="margin-top:8px"><div style="font-weight:var(--fw-medium);margin-bottom:6px">${esc(d.question)}</div>${dissentRecord(d)}</div>`).join('')}</div>` : ''}
       <div><span class="caps">Everything on the record, including what TALON kept quiet</span><div class="thread">${list.map(entryHtml).join('')}</div></div>`;
     }
+    /**
+     * The evidence package: the whole decision trail as files. The SHA-256 is real and
+     * labelled an *integrity digest* — a thing the recipient can re-compute to prove the
+     * file unchanged. It is not a chain, not legal, not "court-ready": the copy says so.
+     */
+    async function exportPackage() {
+        const ps = player.getState();
+        const rv = talon.review(Math.max(ps.t, ui.liveT));
+        const s = SITUATIONS.find((x) => x.id === ui.sit);
+        const digest = async (text) => {
+            const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+            return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+        };
+        const pkg = {
+            schema: 'sentinel.evidence/1',
+            generatedAt: new Date().toISOString(),
+            situation: { id: sit.id, title: sit.meta.title, scenario: s.sid + ' · ' + s.name, coords: sit.meta.coords },
+            provenance: 'Exercise data. Terrain/roads/buildings real (USGS/OSM/ESA); fire, weather, units and times authored; every number in the console carries its basis (MEA/MOD/AUT).',
+            measures: rv.measures,
+            decisions: rv.decisions.map((d) => ({ item: d.item.id, raised: d.raisedAt, closed: d.closedAt, by: d.by, talonRecommended: d.recommended, operatorChoice: d.choice, latency: d.latency })),
+            dissents: rv.dissents,
+            standingOrderActions: rv.standing,
+            interruptsHeldByBudget: rv.demoted,
+        };
+        const json = JSON.stringify(pkg, null, 2);
+        const sum = await digest(json);
+        const md = [
+            `# Sentinel evidence package — ${pkg.situation.scenario}`, '',
+            `Generated ${pkg.generatedAt}. ${pkg.provenance}`, '',
+            `**Integrity digest (SHA-256, of the .json file):**`, '', '```', sum, '```', '',
+            'Re-compute with `shasum -a 256 ' + s.sid + '-evidence.json`. A digest proves the file is unchanged since export. It is not a signature and not legal attestation.', '',
+            '## Measures', ...rv.measures.map((m) => `- **${m.label}:** ${m.value}${m.note ? ` · ${m.note}` : ''}`), '',
+            '## Decisions', ...rv.decisions.map((d) => `- T+${Math.round(d.raisedAt)} · **${talon.text(d.item.title, ps.t)}** · TALON: ${d.recommended ?? '–'} · ${d.by}: ${d.choice ?? '–'}${d.latency !== null ? ` · decided in ${fmtDur(d.latency)}` : ''}`), '',
+            '## Dissent records', ...(rv.dissents.length ? rv.dissents.map((d) => `- **${d.question}**\n  - TALON: ${d.talon.position} (${d.talon.reasons.slice(0, 2).join('; ')})\n  - Operator: ${d.operator.position}${d.operator.words ? ` — "${d.operator.words}"` : ''}${d.reraised ? `\n  - Re-raised to ${d.reraised.to}${d.reraised.ruling ? `, ruled: ${d.reraised.ruling}` : ''}` : ''}`) : ['_None — every recommendation was taken or lapsed._']), '',
+            `Handled under standing orders: ${rv.standing} · interrupts held by budget: ${rv.demoted}.`,
+        ].join('\n');
+        const dl = (name, text, type) => {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([text], { type }));
+            a.download = name;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        };
+        dl(`${s.sid}-evidence.json`, json, 'application/json');
+        dl(`${s.sid}-evidence.md`, md, 'text/markdown');
+        toast(`Evidence package exported · digest ${sum.slice(0, 12)}…`);
+    }
     function renderReview(ps) {
         const rv = talon.review(Math.max(ps.t, ui.liveT));
         const k = ['review', rv.measures, rv.decisions.map((d) => [d.item.id, d.by, d.choice]), rv.dissents.length, ps.hindsight];
@@ -483,7 +532,7 @@ export async function mountConsole(app) {
         $('#pbody').innerHTML = `
       <div class="card" style="gap:var(--s-2)"><div class="meta"><span class="caps">After-action review</span></div><h2>${esc(sit.meta.title)} · ${esc(SITUATIONS.find((s) => s.id === ui.sit)?.name ?? '')}</h2><p>The map and TALON's panel show exactly what you saw at each moment. Scrub the timeline or pick a decision below.</p>
         <button type="button" class="lrow" role="switch" aria-checked="${ps.hindsight}" data-act="hindsight" style="grid-template-columns:1fr auto"><span class="nm">Overlay what we know now<small>Corrected projection at every time (hindsight)</small></span><span class="switch"></span></button>
-        <button class="btn sm" data-act="replay">${ic('play', 'xs')}Replay from the start</button></div>
+        <button class="btn sm" data-act="replay">${ic('play', 'xs')}Replay from the start</button><button class="btn sm" data-act="export">${ic('down', 'xs')}Export evidence</button></div>
       <div class="measures">${rv.measures.map((m) => `<div class="measure"><b>${esc(m.value)}</b><span>${esc(m.label)}</span>${m.note ? `<small>${esc(m.note)}</small>` : ''}</div>`).join('')}<div class="measure"><b>${rv.standing}</b><span>Standing-order actions</span><small>${rv.demoted} interrupt${rv.demoted === 1 ? '' : 's'} held by budget</small></div></div>
       <div><span class="caps">Decisions</span>${rv.decisions.map((d) => `<button class="drow" data-act="jump" data-t="${d.closedAt ?? d.raisedAt}"><time>${fmtT(d.raisedAt)}</time><span><b>${esc(talon.text(d.item.title, ps.t))}</b>TALON: ${esc(d.recommended ?? '–')} · ${by(d.by)}: ${esc(d.choice ?? '–')}${d.latency !== null ? ` · ${fmtDur(d.latency)} to decide` : ''}</span><span class="chip ${d.by === 'expired' ? 'needs' : d.choice && d.choice !== d.recommended ? 'needs' : ''}">${d.choice && d.recommended && d.choice !== d.recommended ? 'Dissent' : by(d.by)}</span></button>`).join('')}</div>
       ${rv.dissents.length ? `<div><span class="caps">Dissent records</span>${rv.dissents.map((d) => `<div style="margin-top:8px">${dissentRecord(d)}</div>`).join('')}</div>` : ''}`;
@@ -661,6 +710,16 @@ export async function mountConsole(app) {
     }
     const feedHost = document.createElement('div');
     feedHost.className = 'feedhost';
+    const batHist = new Map();
+    /** Tiny trend line from session-observed points — honest by construction (MEA). */
+    function spark(pts) {
+        if (pts.length < 2)
+            return '';
+        const w = 54, h = 14, min = Math.min(...pts.map((p) => p[1])), max = Math.max(...pts.map((p) => p[1]));
+        const y = (v) => (max === min ? h / 2 : 1.5 + ((max - v) / (max - min)) * (h - 3));
+        const x = (i) => (i / (pts.length - 1)) * w;
+        return `<svg class="spark" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polyline points="${pts.map((p, i) => `${x(i).toFixed(1)},${y(p[1]).toFixed(1)}`).join(' ')}"/></svg>`;
+    }
     function renderSlots(ps, ts) {
         const c = composition(ps, ts);
         const slots = $('#slots');
@@ -701,6 +760,16 @@ export async function mountConsole(app) {
         }
         else if (l.w === 'fleet') {
             k = [ps.units, Math.floor(ps.t * 2)];
+            // session-observed battery trail (scrub-aware: samples at or before now)
+            for (const u of ps.units) {
+                const b = typeof u.info.battery === 'number' ? u.info.battery : null;
+                if (b === null)
+                    continue;
+                const arr = batHist.get(u.id) ?? [];
+                if (!arr.length || arr[arr.length - 1][0] < ps.t - 0.4)
+                    arr.push([ps.t, b]);
+                batHist.set(u.id, arr.filter((p) => p[0] <= ps.t + 1e-6));
+            }
             html = ps.units.map((u) => unitRow(u, ps.t)).join('');
             extra = `<span class="chip">${ps.units.length}</span>`;
         }
@@ -718,7 +787,7 @@ export async function mountConsole(app) {
         }
         else if (l.w === 'growth') {
             k = [Math.round(ps.t * 2), ps.hindsight, ps.layers.some((x) => x.id === 'fire-rev')];
-            html = growth ? growthChart(growth, ps) : '';
+            html = growth ? `${growthChart(growth, ps)}<div class="clegend" style="margin-top:6px"><span><i style="background:var(--map-fire)"></i>Burned</span><span><i style="border-top:2px solid var(--map-fire)"></i>+15 min</span><span><i style="border-top:2px dashed var(--map-fire)"></i>+30 min</span><span><i style="border-top:2px dotted var(--map-red)"></i>+60 min</span></div>` : '';
             const st = engine.getFieldStats();
             extra = `<span class="prov modeled">mod</span>${st ? `<span class="chip num" title="Burned so far · modeled">${fmtN(st.reachedArea / 4046.86)} ac</span><span class="chip num" title="Homes inside the 60-minute projection · modeled">${fmtN(st.threatened)} homes</span>` : ''}`;
         }
@@ -734,8 +803,9 @@ export async function mountConsole(app) {
     }
     function unitRow(u, t) {
         const st = u.status === 'enroute' ? 'working' : u.status === 'alert' ? 'needs' : u.status === 'standby' ? '' : 'done';
+        const hist = (batHist.get(u.id) ?? []).filter((p) => p[0] <= t + 1e-6);
         const bat = typeof u.info.battery === 'number'
-            ? `<span class="batt ${u.info.battery < 25 ? 'low' : u.info.battery < 55 ? 'warn' : ''}" title="Battery ${u.info.battery}%">${u.info.battery}%</span>`
+            ? `${spark(hist)}<span class="batt ${u.info.battery < 25 ? 'low' : u.info.battery < 55 ? 'warn' : ''}" title="Battery ${u.info.battery}% · trail observed this session (MEA)">${u.info.battery}%</span>`
             : '';
         const eta = u.arrives && u.kind !== 'drone' ? `ETA ${fmtDur(u.arrives - t)}` : '';
         return `<button class="urow" data-act="unit" data-unit="${u.id}" data-hl="${u.id}">${ic(u.kind === 'drone' ? 'drone' : u.kind === 'dozer' ? 'dozer' : u.kind === 'law' ? 'law' : u.kind === 'crew' ? 'crew' : 'engine', 'xs')}<b>${esc(u.id)}</b><span><i class="dot ${st}" style="display:inline-block;width:6px;height:6px;margin-right:6px;vertical-align:1px"></i>${esc(u.detail ?? u.status ?? '')}</span><span class="eta">${bat} ${eta}</span></button>`;
@@ -891,7 +961,7 @@ export async function mountConsole(app) {
     }
     function popContent(name) {
         if (name === 'sit')
-            return `<div class="caps" style="padding:4px 8px">Incidents · Encinal Canyon</div>${SITUATIONS.map((s) => `<button class="menu-item" role="menuitemradio" aria-checked="${s.id === ui.sit}" data-act="situation" data-sit="${s.id}"><span class="chip" style="height:20px;flex:none">${s.sid}</span><span><b>${s.name}</b><small>${s.sub}</small></span></button>`).join('')}`;
+            return `<div class="caps" style="padding:4px 8px">Incidents · Encinal Canyon</div><button class="menu-item" data-act="situation" data-sit="random"><span class="chip" style="height:20px;flex:none">ANY</span><span><b>Assign me a situation</b><small>Random pick · the recruiter drill</small></span></button>${SITUATIONS.map((s) => `<button class="menu-item" role="menuitemradio" aria-checked="${s.id === ui.sit}" data-act="situation" data-sit="${s.id}"><span class="chip" style="height:20px;flex:none">${s.sid}</span><span><b>${s.name}</b><small>${s.sub}</small></span></button>`).join('')}`;
         if (name === 'agents') {
             // The One task list: agents with their live lines, then what is waiting on you.
             const ts = talon.state();
@@ -900,7 +970,7 @@ export async function mountConsole(app) {
             return `<h3 class="caps">TALON agents</h3>
         ${ts.agents.map((a) => `<button class="menu-item" data-act="agent" data-agent="${a.id}"><i class="dot ${a.status === 'idle' ? '' : a.status}" style="margin-top:5px"></i><span><b>${esc(a.name)}</b><small>${esc(a.line)}</small></span></button>`).join('')}
         ${mine.length ? `<div class="caps ghead">Waiting on you</div>${mine.map((o) => `<button class="menu-item" data-act="panel"><i class="dot needs" style="margin-top:5px"></i><span><b>${esc(talon.text(o.item.title, player.getTime()))}</b><small>${esc(talon.agentName(o.item.agent))} · waits for you</small></span></button>`).join('')}` : `<div class="caps ghead">Nothing needs you${ts.handled ? ` · ${ts.handled} handled under standing orders` : ''}</div>`}
-        ${routed.map((o) => `<div class="menu-item" style="cursor:default"><i class="dot working" style="margin-top:5px"></i><span><b>${esc(o.item.title)}</b><small>routed to ${esc(o.item.reraise.to)} · you are copied</small></span></div>`).join('')}`;
+        ${routed.map((o) => `<div class="menu-item" style="cursor:default"><i class="dot working" style="margin-top:5px"></i><span><b>${esc(o.item.title)}</b><small>routed to ${esc(o.item.reraise.to)} · you are copied</small></span></div>`).join('')}<div class="caps ghead">Inputs TALON works from</div><p style="margin:0 4px 8px;color:var(--text-2);font-size:var(--fs-caption)">S-7 LWIR mast · FT-01/02 EO+IR gimbals · RAWS wind/RH/temp · burn-permit registry · CAD status · run cards. Every derived number carries its basis (MEA/MOD/AUT) on screen.</p>`;
         }
         if (name === 'dev') {
             // The harness/dev menu — keyboard only (Ctrl+Shift+D or backtick). Never on the product surface.
@@ -1175,9 +1245,12 @@ export async function mountConsole(app) {
         switch (d.act) {
             case 'pop':
                 return ui.pop === d.pop ? closePop() : openPop(d.pop, a);
-            case 'situation':
+            case 'situation': {
+                const target = d.sit === 'random' ? SITUATIONS[Math.floor(Math.random() * SITUATIONS.length)].id : d.sit;
                 closePop();
-                return void mount(d.sit);
+                toast(`Assigned: ${SITUATIONS.find((x) => x.id === target)?.sid} · ${SITUATIONS.find((x) => x.id === target)?.name}`);
+                return void mount(target);
+            }
             case 'setslot': {
                 const i = ui.pinned.indexOf(d.from);
                 if (i >= 0)
@@ -1306,6 +1379,8 @@ export async function mountConsole(app) {
             case 'replay':
                 player.setTime(sit.clock.start);
                 return startPlay();
+            case 'export':
+                return void exportPackage();
             case 'hindsight':
                 player.hindsight = !player.hindsight;
                 keys.delete('now');

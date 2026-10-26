@@ -165,10 +165,20 @@ async function open(q, w = 1600, h = 960, pinned) {
   await sleep(600);
   const rv = await page.evaluate(() => { const r = talon.review(); return { m: r.measures.map((x) => x.label + '=' + x.value), d: r.decisions.length, ui: !!document.querySelector('.measure') }; });
   check('after-action review: measures, decisions, rendered', rv.m.length >= 4 && rv.d >= 4 && rv.ui, rv.m.join(' · '));
+  const ex = await page.evaluate(() => ({ btn: !!document.querySelector('[data-act=export]') }));
+  check('evidence export: button present in review (JSON+MD, SHA-256 integrity digest)', ex.btn);
   const hs = await page.evaluate(() => { player.hindsight = true; player.setTime(30); const a = engine.getOverlayLayerIds().includes('fire-rev'); player.hindsight = false; return a; });
   check('hindsight overlay shows the corrected projection before it was known', hs);
   check('no console errors (exercise run)', errors.length === 0, errors.slice(0, 3).join(' | '));
   await page.close();
+}
+
+// ---------------------------------------------------------------- recruiter drill: random assignment
+{
+  const rp = await open('situation=random');
+  const rid = await rp.page.evaluate(() => player.situation.id);
+  check('random assignment: boots a valid situation from the catalogue', ['standby', 'small-incident', 'contain', 'falsepos', 'wui-breakout'].includes(rid), rid);
+  await rp.page.close();
 }
 
 // ---------------------------------------------------------------- small incident, standby, parking
