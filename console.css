@@ -548,6 +548,7 @@ button.lrow { appearance: none; background: none; border: 0; color: inherit; fon
 .widget[data-w='weather'] { width: 336px; }
 .widget[data-w='growth'] { width: 380px; }
 .widget[data-w='feed'] { width: 344px; }
+.widget[data-w='structures'] { width: 300px; }
 .app.calm .widget { width: 100%; height: auto; max-height: var(--slots-h); }
 .app.calm .widget[data-w='feed'] { height: var(--slots-h); }
 .widget.min { height: auto; }
@@ -616,6 +617,10 @@ button.lrow { appearance: none; background: none; border: 0; color: inherit; fon
 .spark { width: 54px; height: 14px; flex: none; }
 .spark polyline { fill: none; stroke: var(--icon); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }
 .spark + .batt { margin-left: 4px; }
+/* session-observed weather trends (MEA) */
+.wxtrend { display: flex; gap: var(--s-3); margin-top: var(--s-2); font-size: var(--fs-micro); color: var(--text-3); }
+.wxt { display: inline-flex; align-items: center; gap: 5px; }
+.wxt b { color: var(--text-1); }
 
 /* battery: readable text, level-coloured (green >55 · amber 25–55 · red <25) */
 .batt { font: var(--fw-semibold) var(--fs-micro)/1 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--done); }

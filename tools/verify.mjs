@@ -165,6 +165,10 @@ async function open(q, w = 1600, h = 960, pinned) {
   await sleep(600);
   const rv = await page.evaluate(() => { const r = talon.review(); return { m: r.measures.map((x) => x.label + '=' + x.value), d: r.decisions.length, ui: !!document.querySelector('.measure') }; });
   check('after-action review: measures, decisions, rendered', rv.m.length >= 4 && rv.d >= 4 && rv.ui, rv.m.join(' · '));
+  const st = await page.evaluate(() => { player.setTime(6.5); return true; });
+  await sleep(700);
+  const sw = await page.evaluate(() => ({ w: !!document.querySelector('.widget[data-w=structures]'), rows: document.querySelectorAll('.widget[data-w=structures] .srow').length, chip: document.querySelector('.widget[data-w=structures] .chip.num')?.textContent ?? '' }));
+  check('structures at risk: widget renders arrival-ordered homes from the live field (MOD)', sw.w && sw.rows >= 2 && /in \+60/.test(sw.chip), JSON.stringify(sw));
   const ex = await page.evaluate(() => ({ btn: !!document.querySelector('[data-act=export]') }));
   check('evidence export: button present in review (JSON+MD, SHA-256 integrity digest)', ex.btn);
   const hs = await page.evaluate(() => { player.hindsight = true; player.setTime(30); const a = engine.getOverlayLayerIds().includes('fire-rev'); player.hindsight = false; return a; });

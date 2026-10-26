@@ -98,6 +98,7 @@ const WIDGETS = {
     fleet: { title: 'Fleet & units' },
     evac: { title: 'Evacuation' },
     growth: { title: 'Fire growth' },
+    structures: { title: 'Structures at risk' },
     events: { title: 'Key events' },
 };
 /** Doc 12 §3: who owns each layer kind. */
@@ -690,7 +691,7 @@ export async function mountConsole(app) {
             return ps.units.some((u) => u.kind === 'drone' && (u.altitudeFt ?? 0) > 0);
         if (w === 'evac')
             return !!player.boardAt('evac');
-        if (w === 'growth')
+        if (w === 'growth' || w === 'structures')
             return !!growth && ps.layers.some((l) => l.group === 'firePerimeter' && /^fire/.test(l.id));
         return true;
     }
@@ -705,12 +706,44 @@ export async function mountConsole(app) {
                 continue;
             talonSlots.push({ w: d.widget, reason: d.reason });
         }
+        if (!talonSlots.some((x) => x.w === 'structures') && !ui.pinned.includes('structures') && available('structures', ps))
+            talonSlots.push({ w: 'structures', reason: 'Arrival-ordered from the live field' });
         const op = ui.pinned.slice(0, 2).filter((w) => !talonSlots.some((s) => s.w === w) && available(w, ps));
         return { op, talonSlots };
     }
     const feedHost = document.createElement('div');
     feedHost.className = 'feedhost';
     const batHist = new Map();
+    const wxHist = new Map();
+    let structOpen = false;
+    /**
+     * Structure risk, computed (MOD): every building's centroid sampled against the live
+     * time-of-arrival field(s) — the same field the map draws. Arrival-ordered, so the
+     * top of the list is the next home the fire reaches.
+     */
+    function structureRisk(ps) {
+        const live = ps.layers.filter((l) => l.group === 'firePerimeter').map((l) => sit.layers.find((d) => d.id === l.id)?.spec).filter((f) => !!f && f.type === 'field');
+        if (!live.length)
+            return null;
+        const W = world.frame.widthMeters, H = world.frame.heightMeters;
+        const sample = (f, x, y) => {
+            const c = Math.max(0, Math.min(f.cols - 1, Math.round(((x + W / 2) / W) * f.cols - 0.5)));
+            const r = Math.max(0, Math.min(f.rows - 1, Math.round(((H / 2 - y) / H) * f.rows - 0.5)));
+            return f.data[r * f.cols + c] ?? 9999;
+        };
+        const out = [];
+        world.buildings.forEach((b, i) => {
+            const fp = b.footprint;
+            if (!fp?.length)
+                return;
+            const cx = fp.reduce((a, q) => a + q[0], 0) / fp.length;
+            const cy = fp.reduce((a, q) => a + q[1], 0) / fp.length;
+            const t = Math.min(...live.map((f) => sample(f, cx, cy)));
+            if (Number.isFinite(t) && t < 9000)
+                out.push({ i, t });
+        });
+        return out.sort((a, b2) => a.t - b2.t);
+    }
     /** Tiny trend line from session-observed points — honest by construction (MEA). */
     function spark(pts) {
         if (pts.length < 2)
@@ -755,7 +788,21 @@ export async function mountConsole(app) {
             k = [T, l.reason];
             const cell = (label, v, cls = '') => (v ? `<div class="cell ${cls}"><small>${label}${v.basis ? `<span class="prov ${v.basis}">${v.basis.slice(0, 3)}</span>` : ''}</small><b>${esc(v.value)}</b></div>` : '');
             const w = T.wind;
+            const num = (v) => { const m = v?.match(/(\d+(?:\.\d+)?)/); return m ? Number(m[1]) : null; };
+            for (const [key, val] of [['wind', w ? num(w.value) : null], ['rh', T.rh ? num(T.rh.value) : null]]) {
+                if (val === null)
+                    continue;
+                const arr = wxHist.get(key) ?? [];
+                if (!arr.length || arr[arr.length - 1][0] < ps.t - 0.4)
+                    arr.push([ps.t, val]);
+                wxHist.set(key, arr.filter((q) => q[0] <= ps.t + 1e-6));
+            }
+            const trend = (key, label, unit) => {
+                const pts = (wxHist.get(key) ?? []).filter((q) => q[0] <= ps.t + 1e-6);
+                return pts.length >= 2 ? `<span class="wxt">${label} ${spark(pts)}<b class="num">${pts[pts.length - 1][1]}${unit}</b></span>` : '';
+            };
             html = `<div class="wx two">${w ? `<div class="cell wide"><svg class="windarrow" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="none" stroke="var(--border-strong)"/><g transform="rotate(${w.dir ?? 0} 16 16)"><path d="M16 6v20M16 6l-4 5M16 6l4 5" fill="none" stroke="var(--text-1)" stroke-width="1.8" stroke-linecap="round"/></g></svg><div style="min-width:0"><small style="font-size:var(--fs-micro);color:var(--text-3);display:flex;gap:6px">Wind<span class="prov measured">mea</span></small><b style="font:var(--fw-semibold) var(--fs-title)/1.15 var(--font-mono)">${esc(w.value)}</b></div></div>` : ''}${cell('RH', T.rh)}${cell('Temp', T.temp)}${cell('Fuel', T.fuel, 'wide')}${cell('Spread', T.spread) || cell('Danger', T.status)}</div>
+        ${trend('wind', 'Wind', '') || trend('rh', 'RH', '%') ? `<div class="wxtrend" title="Observed this session (MEA) — the trail follows the clock/scrub">${trend('wind', 'Wind', '')}${trend('rh', 'RH', '%')}</div>` : ''}
         ${T.status ? `<div class="srow" style="margin-top:6px"><i class="dot ${T.status.level === 'bad' ? 'bad' : T.status.level === 'warn' ? 'warn' : 'ok'}"></i>${esc(T.status.value)} <span style="color:var(--text-4)">· ${esc(T.status.source ?? '')}</span></div>` : ''}`;
         }
         else if (l.w === 'fleet') {
@@ -790,6 +837,24 @@ export async function mountConsole(app) {
             html = growth ? `${growthChart(growth, ps)}<div class="clegend" style="margin-top:6px"><span><i style="background:var(--map-fire)"></i>Burned</span><span><i style="border-top:2px solid var(--map-fire)"></i>+15 min</span><span><i style="border-top:2px dashed var(--map-fire)"></i>+30 min</span><span><i style="border-top:2px dotted var(--map-red)"></i>+60 min</span></div>` : '';
             const st = engine.getFieldStats();
             extra = `<span class="prov modeled">mod</span>${st ? `<span class="chip num" title="Burned so far · modeled">${fmtN(st.reachedArea / 4046.86)} ac</span><span class="chip num" title="Homes inside the 60-minute projection · modeled">${fmtN(st.threatened)} homes</span>` : ''}`;
+        }
+        else if (l.w === 'structures') {
+            const risk = structureRisk(ps);
+            const now = ps.t;
+            const reached = risk?.filter((x) => x.t <= now).length ?? 0;
+            const in60 = risk?.filter((x) => x.t > now && x.t <= now + 60).length ?? 0;
+            k = [risk?.map((x) => x.i + ':' + Math.round(x.t * 4)), structOpen, Math.round(ps.t * 2)];
+            const rows = risk ?? [];
+            const shown = structOpen ? rows : rows.filter((x) => x.t > now).slice(0, 8);
+            const remain = structOpen ? 0 : rows.filter((x) => x.t > now).length - shown.length;
+            html = rows.length
+                ? `${reached ? `<div class="srow"><i class="dot bad"></i><span style="color:var(--text-1)">${reached} reached</span></div>` : ''}
+           ${shown.length ? shown.map((x) => x.t <= now
+                    ? `<div class="srow"><i class="dot bad"></i><span>H-${x.i} · reached ${fmtT(x.t)}</span></div>`
+                    : `<div class="srow"><i class="dot warn"></i><span>H-${x.i}</span><span style="margin-left:auto" class="num">${fmtDur(x.t - now)}</span></div>`).join('') : '<div class="empty">No structure inside the projection.</div>'}
+           ${remain > 0 ? `<button class="srow" data-act="structoggle" style="width:100%;background:transparent;border:0;color:var(--talon-ink)">+ ${remain} more in the projection</button>` : structOpen && rows.length > 8 ? `<button class="srow" data-act="structoggle" style="width:100%;background:transparent;border:0;color:var(--talon-ink)">Collapse</button>` : ''}`
+                : '<div class="empty">Fire not sized yet.</div>';
+            extra = `<span class="prov modeled">mod</span><span class="chip num" title="Structures inside the +60-minute projection">${in60} in +60</span>`;
         }
         else if (l.w === 'events') {
             const mk = talon.markers(ps.t, ui.review ? sit.clock.end : Math.max(ui.liveT, ps.t)).filter((m) => m.kind !== 'answer');
@@ -1481,6 +1546,9 @@ export async function mountConsole(app) {
                 a.setAttribute('aria-pressed', String(on));
                 return;
             }
+            case 'structoggle':
+                structOpen = !structOpen;
+                return schedule();
             case 'wmin': {
                 ui.min.has(d.w) ? ui.min.delete(d.w) : ui.min.add(d.w);
                 keys.delete('layout');
